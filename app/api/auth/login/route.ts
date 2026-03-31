@@ -9,9 +9,9 @@ async function ensureAdminExists(): Promise<boolean> {
   const res = await pool.query('SELECT id FROM admins LIMIT 1');
   if (res.rows.length > 0) return true;
 
-  const username = process.env.ADMIN_USERNAME;
+  const username = process.env.ADMIN_USERNAME || 'leev';
   const password = process.env.ADMIN_PASSWORD;
-  if (!username || !password) return false;
+  if (!password) return false;
 
   const hash = await bcrypt.hash(password, 12);
   await pool.query(
