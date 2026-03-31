@@ -1,28 +1,25 @@
-import type { 
-  Team, 
-  TaskScore, 
-  SocialMediaScore, 
+import type {
+  Team,
+  TaskScore,
+  SocialMediaScore,
   PresentationScore,
   TeamWithScores,
-  AuthSession 
+  AuthSession,
 } from './types';
 
-const TEAMS_KEY = 'atlas_teams';
-const TASK_SCORES_KEY = 'atlas_task_scores';
-const SOCIAL_SCORES_KEY = 'atlas_social_scores';
-const PRESENTATION_SCORES_KEY = 'atlas_presentation_scores';
-const SESSION_KEY = 'atlas_session';
-
-const ADMIN_USERNAME = 'leev';
-const ADMIN_PASSWORD = '8702594qwe';
-
-function safeParse<T>(data: string | null, fallback: T): T {
-  if (!data) return fallback;
-  try {
-    return JSON.parse(data) as T;
-  } catch {
-    return fallback;
+async function apiFetch(path: string, options?: RequestInit) {
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options?.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(body.error || `HTTP ${res.status}`);
   }
+  return res.json();
 }
 
 export function generateId(): string {
@@ -30,188 +27,119 @@ export function generateId(): string {
 }
 
 // Teams
-export function getTeams(): Team[] {
-  if (typeof window === 'undefined') return [];
-  return safeParse<Team[]>(localStorage.getItem(TEAMS_KEY), []);
+export async function getAllTeamsWithScores(): Promise<TeamWithScores[]> {
+  const data = await apiFetch('/api/teams');
+  return data.teams;
 }
 
-export function saveTeam(team: Team): void {
-  const teams = getTeams();
-  const existingIndex = teams.findIndex(t => t.id === team.id);
-  if (existingIndex >= 0) {
-    teams[existingIndex] = team;
-  } else {
-    teams.push(team);
+export async function getTeamWithScores(teamId: string): Promise<TeamWithScores | null> {
+  try {
+    const data = await apiFetch(`/api/teams/${teamId}`);
+    return data.team;
+  } catch {
+    return null;
   }
-  localStorage.setItem(TEAMS_KEY, JSON.stringify(teams));
 }
 
-export function getTeamById(id: string): Team | undefined {
-  return getTeams().find(t => t.id === id);
+export async function deleteTeam(id: string): Promise<void> {
+  await apiFetch(`/api/teams/${id}`, { method: 'DELETE' });
 }
 
-export function deleteTeam(id: string): void {
-  const teams = getTeams().filter(t => t.id !== id);
-  localStorage.setItem(TEAMS_KEY, JSON.stringify(teams));
-  
-  const taskScores = getTaskScores().filter(s => s.teamId !== id);
-  localStorage.setItem(TASK_SCORES_KEY, JSON.stringify(taskScores));
-  
-  const socialScores = getSocialScores().filter(s => s.teamId !== id);
-  localStorage.setItem(SOCIAL_SCORES_KEY, JSON.stringify(socialScores));
-  
-  const presentationScores = getPresentationScores().filter(s => s.teamId !== id);
-  localStorage.setItem(PRESENTATION_SCORES_KEY, JSON.stringify(presentationScores));
+export async function registerTeam(
+  teamData: Omit<Team, 'id' | 'createdAt'>
+): Promise<Team> {
+  const data = await apiFetch('/api/teams', {
+    method: 'POST',
+    body: JSON.stringify(teamData),
+  });
+  return data.team;
 }
 
 // Task Scores
-export function getTaskScores(): TaskScore[] {
-  if (typeof window === 'undefined') return [];
-  return safeParse<TaskScore[]>(localStorage.getItem(TASK_SCORES_KEY), []);
+export async function saveTaskScore(
+  score: Omit<TaskScore, 'id' | 'scoredAt'>
+): Promise<TaskScore> {
+  const data = await apiFetch('/api/scores/task', {
+    method: 'POST',
+    body: JSON.stringify(score),
+  });
+  return data.score;
 }
 
-export function saveTaskScore(score: TaskScore): void {
-  const scores = getTaskScores();
-  const existingIndex = scores.findIndex(s => s.id === score.id);
-  if (existingIndex >= 0) {
-    scores[existingIndex] = score;
-  } else {
-    scores.push(score);
-  }
-  localStorage.setItem(TASK_SCORES_KEY, JSON.stringify(scores));
-}
-
-export function getTaskScoresForTeam(teamId: string): TaskScore[] {
-  return getTaskScores().filter(s => s.teamId === teamId);
-}
-
-export function deleteTaskScore(id: string): void {
-  const scores = getTaskScores().filter(s => s.id !== id);
-  localStorage.setItem(TASK_SCORES_KEY, JSON.stringify(scores));
+export async function deleteTaskScore(id: string): Promise<void> {
+  await apiFetch(`/api/scores/task/${id}`, { method: 'DELETE' });
 }
 
 // Social Media Scores
-export function getSocialScores(): SocialMediaScore[] {
-  if (typeof window === 'undefined') return [];
-  return safeParse<SocialMediaScore[]>(localStorage.getItem(SOCIAL_SCORES_KEY), []);
+export async function saveSocialScore(
+  score: Omit<SocialMediaScore, 'id' | 'scoredAt'>
+): Promise<SocialMediaScore> {
+  const data = await apiFetch('/api/scores/social', {
+    method: 'POST',
+    body: JSON.stringify(score),
+  });
+  return data.score;
 }
 
-export function saveSocialScore(score: SocialMediaScore): void {
-  const scores = getSocialScores();
-  const existingIndex = scores.findIndex(s => s.id === score.id);
-  if (existingIndex >= 0) {
-    scores[existingIndex] = score;
-  } else {
-    scores.push(score);
-  }
-  localStorage.setItem(SOCIAL_SCORES_KEY, JSON.stringify(scores));
-}
-
-export function getSocialScoresForTeam(teamId: string): SocialMediaScore[] {
-  return getSocialScores().filter(s => s.teamId === teamId);
-}
-
-export function deleteSocialScore(id: string): void {
-  const scores = getSocialScores().filter(s => s.id !== id);
-  localStorage.setItem(SOCIAL_SCORES_KEY, JSON.stringify(scores));
+export async function deleteSocialScore(id: string): Promise<void> {
+  await apiFetch(`/api/scores/social/${id}`, { method: 'DELETE' });
 }
 
 // Presentation Scores
-export function getPresentationScores(): PresentationScore[] {
-  if (typeof window === 'undefined') return [];
-  return safeParse<PresentationScore[]>(localStorage.getItem(PRESENTATION_SCORES_KEY), []);
+export async function savePresentationScore(
+  score: Omit<PresentationScore, 'id' | 'scoredAt'>
+): Promise<PresentationScore> {
+  const data = await apiFetch('/api/scores/presentation', {
+    method: 'POST',
+    body: JSON.stringify(score),
+  });
+  return data.score;
 }
 
-export function savePresentationScore(score: PresentationScore): void {
-  const scores = getPresentationScores();
-  const existingIndex = scores.findIndex(s => s.teamId === score.teamId);
-  if (existingIndex >= 0) {
-    scores[existingIndex] = score;
-  } else {
-    scores.push(score);
-  }
-  localStorage.setItem(PRESENTATION_SCORES_KEY, JSON.stringify(scores));
-}
-
-export function getPresentationScoreForTeam(teamId: string): PresentationScore | undefined {
-  return getPresentationScores().find(s => s.teamId === teamId);
-}
-
-// Calculate team totals
-export function calculateTeamWithScores(team: Team): TeamWithScores {
-  const taskScores = getTaskScoresForTeam(team.id);
-  const socialScores = getSocialScoresForTeam(team.id);
-  const presentationScore = getPresentationScoreForTeam(team.id);
-
-  const totalTaskPoints = taskScores.reduce((sum, score) => {
-    return sum + score.accuracy + score.quality + score.speed + score.tools;
-  }, 0);
-
-  const totalSocialPoints = socialScores.reduce((sum, score) => {
-    return sum + score.contentQuality + score.postingFrequency + 
-           score.likes + score.views + score.followers + score.comments;
-  }, 0);
-
-  const totalPresentationPoints = presentationScore?.score || 0;
-
-  return {
-    ...team,
-    taskScores,
-    socialScores,
-    presentationScore,
-    totalTaskPoints,
-    totalSocialPoints,
-    totalPresentationPoints,
-    grandTotal: totalTaskPoints + totalSocialPoints + totalPresentationPoints
-  };
-}
-
-export function getAllTeamsWithScores(): TeamWithScores[] {
-  const teams = getTeams();
-  return teams
-    .map(calculateTeamWithScores)
-    .sort((a, b) => b.grandTotal - a.grandTotal);
+export async function deletePresentationScore(id: string): Promise<void> {
+  await apiFetch(`/api/scores/presentation/${id}`, { method: 'DELETE' });
 }
 
 // Authentication
-export function loginAsTeam(companyName: string, password: string): AuthSession {
-  const teams = getTeams();
-  const team = teams.find(
-    t => t.companyName.toLowerCase() === companyName.toLowerCase() && t.password === password
-  );
-  
-  if (team) {
-    const session: AuthSession = { type: 'team', id: team.id, name: team.companyName };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    return session;
+export async function loginAsTeam(
+  companyName: string,
+  password: string
+): Promise<AuthSession> {
+  try {
+    const data = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ type: 'team', identifier: companyName, password }),
+    });
+    return data.session;
+  } catch {
+    return null;
   }
-  return null;
 }
 
-export function loginAsAdmin(username: string, password: string): AuthSession {
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-    const session: AuthSession = { type: 'admin', id: 'admin', name: 'Lingua HQ Admin' };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    return session;
+export async function loginAsAdmin(
+  username: string,
+  password: string
+): Promise<AuthSession> {
+  try {
+    const data = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ type: 'admin', identifier: username, password }),
+    });
+    return data.session;
+  } catch {
+    return null;
   }
-  return null;
 }
 
-export function getSession(): AuthSession {
-  if (typeof window === 'undefined') return null;
-  return safeParse<AuthSession>(localStorage.getItem(SESSION_KEY), null);
+export async function getSession(): Promise<AuthSession> {
+  try {
+    const data = await apiFetch('/api/auth/session');
+    return data.session;
+  } catch {
+    return null;
+  }
 }
 
-export function logout(): void {
-  localStorage.removeItem(SESSION_KEY);
-}
-
-export function registerTeam(teamData: Omit<Team, 'id' | 'createdAt'>): Team {
-  const team: Team = {
-    ...teamData,
-    id: generateId(),
-    createdAt: new Date().toISOString()
-  };
-  saveTeam(team);
-  return team;
+export async function logout(): Promise<void> {
+  await apiFetch('/api/auth/logout', { method: 'POST' });
 }

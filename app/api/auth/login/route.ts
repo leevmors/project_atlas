@@ -1,0 +1,61 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { pool } from '@/lib/db';
+import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
+
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'leev';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '8702594qwe';
+const SESSION_HOURS = 24;
+
+export async function POST(req: NextRequest) {
+  try {
+    const { type, identifier, password } = await req.json();
+
+    let session: { type: string; id: string; name: string } | null = null;
+
+    if (type === 'admin') {
+      if (identifier === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        session = { type: 'admin', id: 'admin', name: 'Lingua HQ Admin' };
+      }
+    } else {
+      const result = await pool.query(
+        'SELECT id, company_name, password_hash FROM teams WHERE LOWER(company_name) = LOWER($1)',
+        [identifier]
+      );
+      if (result.rows.length > 0) {
+        const team = result.rows[0];
+        const ok = await bcrypt.compare(password, team.password_hash);
+        if (ok) {
+          session = { type: 'team', id: team.id, name: team.company_name };
+        }
+      }
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    const sessionId = randomUUID();
+    const expiresAt = new Date(Date.now() + SESSION_HOURS * 60 * 60 * 1000);
+
+    await pool.query(
+      `INSERT INTO sessions (id, user_type, user_id, user_name, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [sessionId, session.type, session.id, session.name, expiresAt]
+    );
+
+    const response = NextResponse.json({ session });
+    response.cookies.set('atlas_sid', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      expires: expiresAt,
+      path: '/',
+    });
+
+    return response;
+  } catch (err) {
+    console.error('Login error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

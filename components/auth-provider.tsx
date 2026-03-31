@@ -2,12 +2,12 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { AuthSession } from '@/lib/types';
-import { getSession, logout as logoutStore } from '@/lib/store';
+import { getSession, logout as apiLogout } from '@/lib/store';
 
 interface AuthContextType {
   session: AuthSession;
   setSession: (session: AuthSession) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -18,13 +18,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedSession = getSession();
-    setSession(storedSession);
-    setIsLoading(false);
+    getSession()
+      .then((s) => setSession(s))
+      .catch(() => setSession(null))
+      .finally(() => setIsLoading(false));
   }, []);
 
-  const logout = () => {
-    logoutStore();
+  const logout = async () => {
+    await apiLogout().catch(() => {});
     setSession(null);
   };
 

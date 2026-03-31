@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth-provider';
 import { AppShell } from '@/components/app-shell';
-import { registerTeam, loginAsTeam, getTeams } from '@/lib/store';
+import { registerTeam, loginAsTeam } from '@/lib/store';
 import type { TeamMember } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { Mountain, ArrowRight, Plus, X, Users } from 'lucide-react';
 function RegisterContent() {
   const router = useRouter();
   const { setSession } = useAuth();
-  
+
   const [companyName, setCompanyName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -48,7 +48,6 @@ function RegisterContent() {
     e.preventDefault();
     setError('');
 
-    // Validation
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
@@ -59,13 +58,7 @@ function RegisterContent() {
       return;
     }
 
-    const existingTeams = getTeams();
-    if (existingTeams.some(t => t.companyName.toLowerCase() === companyName.toLowerCase())) {
-      setError('A team with this company name already exists.');
-      return;
-    }
-
-    const validMembers = members.filter(m => m.name.trim());
+    const validMembers = members.filter((m) => m.name.trim());
     if (validMembers.length === 0) {
       setError('Please add at least one team member.');
       return;
@@ -74,7 +67,7 @@ function RegisterContent() {
     setIsLoading(true);
 
     try {
-      registerTeam({
+      await registerTeam({
         companyName,
         password,
         instagram: instagram || undefined,
@@ -83,13 +76,13 @@ function RegisterContent() {
         members: validMembers,
       });
 
-      const session = loginAsTeam(companyName, password);
+      const session = await loginAsTeam(companyName, password);
       if (session) {
         setSession(session);
         router.push('/team');
       }
-    } catch {
-      setError('Failed to register team. Please try again.');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to register team. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +119,7 @@ function RegisterContent() {
               <h2 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">
                 Company Information
               </h2>
-              
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="companyName">Company Name *</Label>
@@ -140,7 +133,7 @@ function RegisterContent() {
                     className="bg-secondary/50"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Team Email *</Label>
                   <Input
@@ -167,7 +160,7 @@ function RegisterContent() {
                     className="bg-secondary/50"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="threads">Threads Handle</Label>
                   <Input
@@ -187,7 +180,7 @@ function RegisterContent() {
               <h2 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">
                 Security
               </h2>
-              
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="password">Password *</Label>
@@ -201,7 +194,7 @@ function RegisterContent() {
                     className="bg-secondary/50"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm Password *</Label>
                   <Input
@@ -238,7 +231,7 @@ function RegisterContent() {
                   Add Member
                 </Button>
               </div>
-              
+
               <div className="space-y-3">
                 {members.map((member, index) => (
                   <div key={index} className="flex gap-3 items-start">

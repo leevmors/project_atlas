@@ -1,36 +1,35 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { AppShell } from '@/components/app-shell';
-import { 
-  getAllTeamsWithScores, 
-  saveTaskScore, 
-  saveSocialScore, 
+import {
+  getAllTeamsWithScores,
+  saveTaskScore,
+  saveSocialScore,
   savePresentationScore,
   deleteTeam,
   deleteTaskScore,
   deleteSocialScore,
-  generateId
 } from '@/lib/store';
-import type { TeamWithScores, TaskScore, SocialMediaScore, PresentationScore } from '@/lib/types';
+import type { TeamWithScores } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Shield, 
-  Trophy, 
-  FileText, 
-  Share2, 
+import {
+  Shield,
+  Trophy,
+  FileText,
+  Share2,
   Users,
   Plus,
   Trash2,
   Save,
   ChevronDown,
   ChevronUp,
-  Award
+  Award,
 } from 'lucide-react';
 
 function AdminContent() {
@@ -41,132 +40,137 @@ function AdminContent() {
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'task' | 'social' | 'presentation'>('task');
 
-  // Task score form
   const [taskForm, setTaskForm] = useState({
-    teamId: '',
     taskName: '',
     accuracy: 0,
     quality: 0,
     speed: 0,
-    tools: 0
+    tools: 0,
   });
 
-  // Social score form
   const [socialForm, setSocialForm] = useState({
-    teamId: '',
     weekNumber: 1,
     contentQuality: 0,
     postingFrequency: 0,
     likes: 0,
     views: 0,
     followers: 0,
-    comments: 0
+    comments: 0,
   });
 
-  // Presentation score form
-  const [presentationForm, setPresentationForm] = useState({
-    teamId: '',
-    score: 0
-  });
+  const [presentationForm, setPresentationForm] = useState({ score: 0 });
 
-  const loadTeams = () => {
-    const teamsWithScores = getAllTeamsWithScores();
-    setTeams(teamsWithScores);
-    setIsLoading(false);
-  };
+  const loadTeams = useCallback(async () => {
+    try {
+      const teamsWithScores = await getAllTeamsWithScores();
+      setTeams(teamsWithScores);
+    } catch (err) {
+      console.error('Failed to load teams:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!authLoading && (!session || session.type !== 'admin')) {
       router.push('/login');
       return;
     }
-
     if (session?.type === 'admin') {
       loadTeams();
     }
-  }, [session, authLoading, router]);
+  }, [session, authLoading, router, loadTeams]);
 
-  const handleAddTaskScore = (teamId: string) => {
+  const handleAddTaskScore = async (teamId: string) => {
     if (!taskForm.taskName.trim()) return;
-    
-    const score: TaskScore = {
-      id: generateId(),
-      teamId,
-      taskName: taskForm.taskName,
-      accuracy: taskForm.accuracy,
-      quality: taskForm.quality,
-      speed: taskForm.speed,
-      tools: taskForm.tools,
-      scoredAt: new Date().toISOString(),
-      scoredBy: session?.name || 'admin'
-    };
-    
-    saveTaskScore(score);
-    setTaskForm({ teamId: '', taskName: '', accuracy: 0, quality: 0, speed: 0, tools: 0 });
-    loadTeams();
-  };
-
-  const handleAddSocialScore = (teamId: string) => {
-    const score: SocialMediaScore = {
-      id: generateId(),
-      teamId,
-      weekNumber: socialForm.weekNumber,
-      contentQuality: socialForm.contentQuality,
-      postingFrequency: socialForm.postingFrequency,
-      likes: socialForm.likes,
-      views: socialForm.views,
-      followers: socialForm.followers,
-      comments: socialForm.comments,
-      scoredAt: new Date().toISOString(),
-      scoredBy: session?.name || 'admin'
-    };
-    
-    saveSocialScore(score);
-    setSocialForm({
-      teamId: '',
-      weekNumber: 1,
-      contentQuality: 0,
-      postingFrequency: 0,
-      likes: 0,
-      views: 0,
-      followers: 0,
-      comments: 0
-    });
-    loadTeams();
-  };
-
-  const handleAddPresentationScore = (teamId: string) => {
-    const score: PresentationScore = {
-      id: generateId(),
-      teamId,
-      score: presentationForm.score,
-      scoredAt: new Date().toISOString(),
-      scoredBy: session?.name || 'admin'
-    };
-    
-    savePresentationScore(score);
-    setPresentationForm({ teamId: '', score: 0 });
-    loadTeams();
-  };
-
-  const handleDeleteTeam = (teamId: string, teamName: string) => {
-    if (confirm(`Are you sure you want to delete team "${teamName}"? This cannot be undone.`)) {
-      deleteTeam(teamId);
-      loadTeams();
+    try {
+      await saveTaskScore({
+        teamId,
+        taskName: taskForm.taskName,
+        accuracy: taskForm.accuracy,
+        quality: taskForm.quality,
+        speed: taskForm.speed,
+        tools: taskForm.tools,
+        scoredBy: session?.name || 'admin',
+      });
+      setTaskForm({ taskName: '', accuracy: 0, quality: 0, speed: 0, tools: 0 });
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to save task score:', err);
     }
   };
 
-  const handleDeleteTaskScore = (scoreId: string) => {
-    if (confirm('Delete this task score?')) {
-      deleteTaskScore(scoreId);
-      loadTeams();
+  const handleAddSocialScore = async (teamId: string) => {
+    try {
+      await saveSocialScore({
+        teamId,
+        weekNumber: socialForm.weekNumber,
+        contentQuality: socialForm.contentQuality,
+        postingFrequency: socialForm.postingFrequency,
+        likes: socialForm.likes,
+        views: socialForm.views,
+        followers: socialForm.followers,
+        comments: socialForm.comments,
+        scoredBy: session?.name || 'admin',
+      });
+      setSocialForm({
+        weekNumber: 1,
+        contentQuality: 0,
+        postingFrequency: 0,
+        likes: 0,
+        views: 0,
+        followers: 0,
+        comments: 0,
+      });
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to save social score:', err);
     }
   };
 
-  const handleDeleteSocialScore = (scoreId: string) => {
-    if (confirm('Delete this social media score?')) {
-      deleteSocialScore(scoreId);
-      loadTeams();
+  const handleAddPresentationScore = async (teamId: string) => {
+    try {
+      await savePresentationScore({
+        teamId,
+        score: presentationForm.score,
+        scoredBy: session?.name || 'admin',
+      });
+      setPresentationForm({ score: 0 });
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to save presentation score:', err);
+    }
+  };
+
+  const handleDeleteTeam = async (teamId: string, teamName: string) => {
+    if (!confirm(`Are you sure you want to delete team "${teamName}"? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteTeam(teamId);
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to delete team:', err);
+    }
+  };
+
+  const handleDeleteTaskScore = async (scoreId: string) => {
+    if (!confirm('Delete this task score?')) return;
+    try {
+      await deleteTaskScore(scoreId);
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to delete task score:', err);
+    }
+  };
+
+  const handleDeleteSocialScore = async (scoreId: string) => {
+    if (!confirm('Delete this social media score?')) return;
+    try {
+      await deleteSocialScore(scoreId);
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to delete social score:', err);
     }
   };
 
@@ -244,7 +248,7 @@ function AdminContent() {
         {/* Teams list */}
         <div className="space-y-4">
           <h2 className="font-display text-xl font-bold text-foreground">Teams</h2>
-          
+
           {teams.length === 0 ? (
             <Card className="bg-card/40 backdrop-blur-md border-border/50">
               <CardContent className="p-8 text-center">
@@ -254,12 +258,12 @@ function AdminContent() {
             </Card>
           ) : (
             teams.map((team, index) => (
-              <Card 
-                key={team.id} 
+              <Card
+                key={team.id}
                 className="bg-card/40 backdrop-blur-md border-border/50 overflow-hidden"
               >
                 {/* Team header */}
-                <div 
+                <div
                   className="p-4 sm:p-6 cursor-pointer hover:bg-secondary/20 transition-colors"
                   onClick={() => setExpandedTeam(expandedTeam === team.id ? null : team.id)}
                 >
@@ -269,7 +273,9 @@ function AdminContent() {
                         #{index + 1}
                       </div>
                       <div>
-                        <h3 className="font-display font-bold text-foreground">{team.companyName}</h3>
+                        <h3 className="font-display font-bold text-foreground">
+                          {team.companyName}
+                        </h3>
                         <div className="text-sm text-muted-foreground">
                           {team.members.length} members | {team.email}
                         </div>
@@ -277,7 +283,9 @@ function AdminContent() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right hidden sm:block">
-                        <div className="font-display text-xl font-bold text-foreground">{team.grandTotal}</div>
+                        <div className="font-display text-xl font-bold text-foreground">
+                          {team.grandTotal}
+                        </div>
                         <div className="text-xs text-muted-foreground">Total Points</div>
                       </div>
                       {expandedTeam === team.id ? (
@@ -297,8 +305,8 @@ function AdminContent() {
                       <button
                         onClick={() => setActiveTab('task')}
                         className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                          activeTab === 'task' 
-                            ? 'bg-card text-foreground shadow' 
+                          activeTab === 'task'
+                            ? 'bg-card text-foreground shadow'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -308,8 +316,8 @@ function AdminContent() {
                       <button
                         onClick={() => setActiveTab('social')}
                         className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                          activeTab === 'social' 
-                            ? 'bg-card text-foreground shadow' 
+                          activeTab === 'social'
+                            ? 'bg-card text-foreground shadow'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -319,8 +327,8 @@ function AdminContent() {
                       <button
                         onClick={() => setActiveTab('presentation')}
                         className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                          activeTab === 'presentation' 
-                            ? 'bg-card text-foreground shadow' 
+                          activeTab === 'presentation'
+                            ? 'bg-card text-foreground shadow'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -342,7 +350,9 @@ function AdminContent() {
                             <Input
                               placeholder="e.g., Translation Week 3"
                               value={taskForm.taskName}
-                              onChange={(e) => setTaskForm({ ...taskForm, taskName: e.target.value })}
+                              onChange={(e) =>
+                                setTaskForm({ ...taskForm, taskName: e.target.value })
+                              }
                               className="bg-secondary/50"
                             />
                           </div>
@@ -354,7 +364,12 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={taskForm.accuracy}
-                                onChange={(e) => setTaskForm({ ...taskForm, accuracy: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setTaskForm({
+                                    ...taskForm,
+                                    accuracy: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
@@ -365,7 +380,12 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={taskForm.quality}
-                                onChange={(e) => setTaskForm({ ...taskForm, quality: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setTaskForm({
+                                    ...taskForm,
+                                    quality: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
@@ -376,7 +396,12 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={taskForm.speed}
-                                onChange={(e) => setTaskForm({ ...taskForm, speed: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setTaskForm({
+                                    ...taskForm,
+                                    speed: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
@@ -387,36 +412,51 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={taskForm.tools}
-                                onChange={(e) => setTaskForm({ ...taskForm, tools: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setTaskForm({
+                                    ...taskForm,
+                                    tools: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
                           </div>
-                          <Button 
+                          <Button
                             onClick={() => handleAddTaskScore(team.id)}
                             disabled={!taskForm.taskName.trim()}
                             className="w-full sm:w-auto"
                           >
                             <Save className="h-4 w-4 mr-2" />
-                            Save Task Score ({taskForm.accuracy + taskForm.quality + taskForm.speed + taskForm.tools} pts)
+                            Save Task Score (
+                            {taskForm.accuracy + taskForm.quality + taskForm.speed + taskForm.tools}{' '}
+                            pts)
                           </Button>
                         </div>
 
-                        {/* Existing task scores */}
                         {team.taskScores.length > 0 && (
                           <div className="mt-6 space-y-2">
-                            <h5 className="text-sm font-medium text-muted-foreground">Existing Task Scores</h5>
+                            <h5 className="text-sm font-medium text-muted-foreground">
+                              Existing Task Scores
+                            </h5>
                             {team.taskScores.map((score) => (
-                              <div key={score.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                              <div
+                                key={score.id}
+                                className="flex items-center justify-between p-3 rounded-lg bg-secondary/30"
+                              >
                                 <div>
-                                  <span className="font-medium text-foreground">{score.taskName}</span>
+                                  <span className="font-medium text-foreground">
+                                    {score.taskName}
+                                  </span>
                                   <span className="text-muted-foreground ml-2">
-                                    (A:{score.accuracy} Q:{score.quality} S:{score.speed} T:{score.tools})
+                                    (A:{score.accuracy} Q:{score.quality} S:{score.speed} T:
+                                    {score.tools})
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <span className="font-display font-bold text-primary">
-                                    {score.accuracy + score.quality + score.speed + score.tools} pts
+                                    {score.accuracy + score.quality + score.speed + score.tools}{' '}
+                                    pts
                                   </span>
                                   <Button
                                     variant="ghost"
@@ -449,7 +489,12 @@ function AdminContent() {
                               min={1}
                               max={14}
                               value={socialForm.weekNumber}
-                              onChange={(e) => setSocialForm({ ...socialForm, weekNumber: parseInt(e.target.value) || 1 })}
+                              onChange={(e) =>
+                                setSocialForm({
+                                  ...socialForm,
+                                  weekNumber: parseInt(e.target.value) || 1,
+                                })
+                              }
                               className="bg-secondary/50 w-32"
                             />
                           </div>
@@ -461,7 +506,15 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={socialForm.contentQuality}
-                                onChange={(e) => setSocialForm({ ...socialForm, contentQuality: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setSocialForm({
+                                    ...socialForm,
+                                    contentQuality: Math.min(
+                                      10,
+                                      Math.max(0, parseInt(e.target.value) || 0)
+                                    ),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
@@ -472,7 +525,15 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={socialForm.postingFrequency}
-                                onChange={(e) => setSocialForm({ ...socialForm, postingFrequency: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setSocialForm({
+                                    ...socialForm,
+                                    postingFrequency: Math.min(
+                                      10,
+                                      Math.max(0, parseInt(e.target.value) || 0)
+                                    ),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
@@ -483,7 +544,15 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={socialForm.likes}
-                                onChange={(e) => setSocialForm({ ...socialForm, likes: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setSocialForm({
+                                    ...socialForm,
+                                    likes: Math.min(
+                                      10,
+                                      Math.max(0, parseInt(e.target.value) || 0)
+                                    ),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
@@ -494,7 +563,15 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={socialForm.views}
-                                onChange={(e) => setSocialForm({ ...socialForm, views: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setSocialForm({
+                                    ...socialForm,
+                                    views: Math.min(
+                                      10,
+                                      Math.max(0, parseInt(e.target.value) || 0)
+                                    ),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
@@ -505,7 +582,15 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={socialForm.followers}
-                                onChange={(e) => setSocialForm({ ...socialForm, followers: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setSocialForm({
+                                    ...socialForm,
+                                    followers: Math.min(
+                                      10,
+                                      Math.max(0, parseInt(e.target.value) || 0)
+                                    ),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
@@ -516,35 +601,64 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={socialForm.comments}
-                                onChange={(e) => setSocialForm({ ...socialForm, comments: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setSocialForm({
+                                    ...socialForm,
+                                    comments: Math.min(
+                                      10,
+                                      Math.max(0, parseInt(e.target.value) || 0)
+                                    ),
+                                  })
+                                }
                                 className="bg-secondary/50"
                               />
                             </div>
                           </div>
-                          <Button 
+                          <Button
                             onClick={() => handleAddSocialScore(team.id)}
                             className="w-full sm:w-auto"
                           >
                             <Save className="h-4 w-4 mr-2" />
-                            Save Social Score ({socialForm.contentQuality + socialForm.postingFrequency + socialForm.likes + socialForm.views + socialForm.followers + socialForm.comments} pts)
+                            Save Social Score (
+                            {socialForm.contentQuality +
+                              socialForm.postingFrequency +
+                              socialForm.likes +
+                              socialForm.views +
+                              socialForm.followers +
+                              socialForm.comments}{' '}
+                            pts)
                           </Button>
                         </div>
 
-                        {/* Existing social scores */}
                         {team.socialScores.length > 0 && (
                           <div className="mt-6 space-y-2">
-                            <h5 className="text-sm font-medium text-muted-foreground">Existing Social Scores</h5>
+                            <h5 className="text-sm font-medium text-muted-foreground">
+                              Existing Social Scores
+                            </h5>
                             {team.socialScores.map((score) => (
-                              <div key={score.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                              <div
+                                key={score.id}
+                                className="flex items-center justify-between p-3 rounded-lg bg-secondary/30"
+                              >
                                 <div>
-                                  <span className="font-medium text-foreground">Week {score.weekNumber}</span>
+                                  <span className="font-medium text-foreground">
+                                    Week {score.weekNumber}
+                                  </span>
                                   <span className="text-muted-foreground ml-2 text-sm">
-                                    (C:{score.contentQuality} F:{score.postingFrequency} L:{score.likes} V:{score.views} Fo:{score.followers} Co:{score.comments})
+                                    (C:{score.contentQuality} F:{score.postingFrequency} L:
+                                    {score.likes} V:{score.views} Fo:{score.followers} Co:
+                                    {score.comments})
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <span className="font-display font-bold text-primary">
-                                    {score.contentQuality + score.postingFrequency + score.likes + score.views + score.followers + score.comments} pts
+                                    {score.contentQuality +
+                                      score.postingFrequency +
+                                      score.likes +
+                                      score.views +
+                                      score.followers +
+                                      score.comments}{' '}
+                                    pts
                                   </span>
                                   <Button
                                     variant="ghost"
@@ -578,7 +692,8 @@ function AdminContent() {
                               </span>
                             </div>
                             <p className="text-sm text-muted-foreground mt-2">
-                              Scored on {new Date(team.presentationScore.scoredAt).toLocaleDateString()}
+                              Scored on{' '}
+                              {new Date(team.presentationScore.scoredAt).toLocaleDateString()}
                             </p>
                           </div>
                         ) : (
@@ -590,11 +705,15 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={presentationForm.score}
-                                onChange={(e) => setPresentationForm({ ...presentationForm, score: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)) })}
+                                onChange={(e) =>
+                                  setPresentationForm({
+                                    score: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
+                                  })
+                                }
                                 className="bg-secondary/50 w-32"
                               />
                             </div>
-                            <Button 
+                            <Button
                               onClick={() => handleAddPresentationScore(team.id)}
                               className="w-full sm:w-auto"
                             >

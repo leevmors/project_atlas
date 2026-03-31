@@ -4,20 +4,20 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { AppShell } from '@/components/app-shell';
-import { getTeamById, calculateTeamWithScores, getAllTeamsWithScores } from '@/lib/store';
+import { getAllTeamsWithScores } from '@/lib/store';
 import type { TeamWithScores } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Trophy, 
-  FileText, 
-  Share2, 
-  Instagram, 
-  AtSign, 
-  Mail, 
+import {
+  Trophy,
+  FileText,
+  Share2,
+  Instagram,
+  AtSign,
+  Mail,
   Users,
   TrendingUp,
   Target,
-  Award
+  Award,
 } from 'lucide-react';
 
 function TeamContent() {
@@ -34,17 +34,17 @@ function TeamContent() {
     }
 
     if (session?.type === 'team') {
-      const teamData = getTeamById(session.id);
-      if (teamData) {
-        const teamWithScores = calculateTeamWithScores(teamData);
-        setTeam(teamWithScores);
-        
-        // Calculate rank
-        const allTeams = getAllTeamsWithScores();
-        const teamRank = allTeams.findIndex(t => t.id === session.id) + 1;
-        setRank(teamRank);
-      }
-      setIsLoading(false);
+      getAllTeamsWithScores()
+        .then((allTeams) => {
+          const found = allTeams.find((t) => t.id === session.id);
+          if (found) {
+            setTeam(found);
+            const teamRank = allTeams.findIndex((t) => t.id === session.id) + 1;
+            setRank(teamRank);
+          }
+        })
+        .catch(console.error)
+        .finally(() => setIsLoading(false));
     }
   }, [session, authLoading, router]);
 
@@ -84,9 +84,7 @@ function TeamContent() {
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-2">
             {team.companyName}
           </h1>
-          <p className="text-muted-foreground">
-            Your team dashboard and performance overview
-          </p>
+          <p className="text-muted-foreground">Your team dashboard and performance overview</p>
         </div>
 
         {/* Score overview */}
@@ -166,9 +164,9 @@ function TeamContent() {
                   <div className="text-sm font-medium text-foreground">{team.email}</div>
                 </div>
               </div>
-              
+
               {team.instagram && (
-                <a 
+                <a
                   href={`https://instagram.com/${team.instagram.replace('@', '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -181,9 +179,9 @@ function TeamContent() {
                   </div>
                 </a>
               )}
-              
+
               {team.threads && (
-                <a 
+                <a
                   href={`https://threads.net/${team.threads.replace('@', '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -210,7 +208,7 @@ function TeamContent() {
             <CardContent>
               <div className="space-y-3">
                 {team.members.map((member, index) => (
-                  <div 
+                  <div
                     key={index}
                     className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30"
                   >
@@ -230,7 +228,7 @@ function TeamContent() {
           </Card>
         </div>
 
-        {/* Recent scores */}
+        {/* Task scores */}
         <Card className="bg-card/40 backdrop-blur-md border-border/50">
           <CardHeader>
             <CardTitle className="font-display text-lg flex items-center gap-2">
@@ -246,10 +244,7 @@ function TeamContent() {
             ) : (
               <div className="space-y-3">
                 {team.taskScores.map((score) => (
-                  <div 
-                    key={score.id}
-                    className="p-4 rounded-xl bg-secondary/30"
-                  >
+                  <div key={score.id} className="p-4 rounded-xl bg-secondary/30">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-medium text-foreground">{score.taskName}</h4>
                       <span className="font-display font-bold text-primary">
@@ -297,24 +292,31 @@ function TeamContent() {
             ) : (
               <div className="space-y-3">
                 {team.socialScores.map((score) => (
-                  <div 
-                    key={score.id}
-                    className="p-4 rounded-xl bg-secondary/30"
-                  >
+                  <div key={score.id} className="p-4 rounded-xl bg-secondary/30">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-medium text-foreground">Week {score.weekNumber}</h4>
                       <span className="font-display font-bold text-primary">
-                        {score.contentQuality + score.postingFrequency + score.likes + score.views + score.followers + score.comments} pts
+                        {score.contentQuality +
+                          score.postingFrequency +
+                          score.likes +
+                          score.views +
+                          score.followers +
+                          score.comments}{' '}
+                        pts
                       </span>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center">
                       <div className="p-2 rounded-lg bg-background/50">
                         <div className="text-xs text-muted-foreground">Quality</div>
-                        <div className="font-semibold text-foreground">{score.contentQuality}/10</div>
+                        <div className="font-semibold text-foreground">
+                          {score.contentQuality}/10
+                        </div>
                       </div>
                       <div className="p-2 rounded-lg bg-background/50">
                         <div className="text-xs text-muted-foreground">Freq</div>
-                        <div className="font-semibold text-foreground">{score.postingFrequency}/10</div>
+                        <div className="font-semibold text-foreground">
+                          {score.postingFrequency}/10
+                        </div>
                       </div>
                       <div className="p-2 rounded-lg bg-background/50">
                         <div className="text-xs text-muted-foreground">Likes</div>

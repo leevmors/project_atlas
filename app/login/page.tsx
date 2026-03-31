@@ -28,14 +28,14 @@ function LoginContent() {
     try {
       let session;
       if (loginType === 'admin') {
-        session = loginAsAdmin(identifier, password);
+        session = await loginAsAdmin(identifier, password);
         if (session) {
           setSession(session);
           router.push('/admin');
           return;
         }
       } else {
-        session = loginAsTeam(identifier, password);
+        session = await loginAsTeam(identifier, password);
         if (session) {
           setSession(session);
           router.push('/team');

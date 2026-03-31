@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getAllTeamsWithScores } from '@/lib/store';
 import type { TeamWithScores } from '@/lib/types';
 import { LeaderboardCard } from './leaderboard-card';
@@ -10,19 +10,22 @@ export function Leaderboard() {
   const [teams, setTeams] = useState<TeamWithScores[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const loadTeams = () => {
-      const teamsWithScores = getAllTeamsWithScores();
+  const loadTeams = useCallback(async () => {
+    try {
+      const teamsWithScores = await getAllTeamsWithScores();
       setTeams(teamsWithScores);
+    } catch (err) {
+      console.error('Failed to load leaderboard:', err);
+    } finally {
       setIsLoading(false);
-    };
-
-    loadTeams();
-    
-    // Poll for updates every 5 seconds for "live" feel
-    const interval = setInterval(loadTeams, 5000);
-    return () => clearInterval(interval);
+    }
   }, []);
+
+  useEffect(() => {
+    loadTeams();
+    const interval = setInterval(loadTeams, 10000);
+    return () => clearInterval(interval);
+  }, [loadTeams]);
 
   if (isLoading) {
     return (
@@ -45,9 +48,7 @@ export function Leaderboard() {
           <div className="absolute inset-0 bg-primary/10 blur-3xl rounded-full" />
           <Users className="relative h-16 w-16 text-muted-foreground" />
         </div>
-        <h3 className="font-display text-xl font-bold text-foreground mb-2">
-          No Teams Yet
-        </h3>
+        <h3 className="font-display text-xl font-bold text-foreground mb-2">No Teams Yet</h3>
         <p className="text-muted-foreground max-w-md">
           The competition is about to begin! Register your team to be the first on the leaderboard.
         </p>
@@ -61,13 +62,15 @@ export function Leaderboard() {
       <div className="text-center py-8 sm:py-12">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
           <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium text-primary uppercase tracking-wider">Live Rankings</span>
+          <span className="text-xs font-medium text-primary uppercase tracking-wider">
+            Live Rankings
+          </span>
         </div>
         <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3 text-balance">
           Competition Leaderboard
         </h1>
         <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">
-          Real-time standings for all translation companies. Earn points through task completion, 
+          Real-time standings for all translation companies. Earn points through task completion,
           social media engagement, and your final presentation.
         </p>
       </div>
@@ -78,9 +81,7 @@ export function Leaderboard() {
           <div className="font-display text-2xl sm:text-3xl font-bold text-foreground">
             {teams.length}
           </div>
-          <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
-            Teams
-          </div>
+          <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Teams</div>
         </div>
         <div className="text-center p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/50">
           <div className="font-display text-2xl sm:text-3xl font-bold text-primary">
