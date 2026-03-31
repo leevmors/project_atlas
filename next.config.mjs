@@ -7,6 +7,10 @@ const nextConfig = {
     unoptimized: true,
   },
   allowedDevOrigins: ['*.replit.dev', '*.spock.replit.dev'],
+  onDemandEntries: {
+    maxInactiveAge: 60 * 1000,
+    pagesBufferLength: 5,
+  },
   webpack(config, { dev }) {
     const fileExtensions = /\.(png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot|otf|mp4|webm|ogg|mp3|wav|flac|aac|pdf)(\?.*)?$/i;
 
@@ -39,7 +43,18 @@ const nextConfig = {
           '**/.next/**',
           '**/node_modules/**',
           '**/.git/**',
+          '**/.cache/**',
+          '**/.config/**',
+          '**/.local/**',
+          '**/.upm/**',
+          '**/.replit/**',
+          '**/.nix-profile/**',
+          '**/nix/**',
+          '**/.snapshot/**',
+          '**/replit.nix',
         ],
+        aggregateTimeout: 1000,
+        poll: false,
       };
     }
 
