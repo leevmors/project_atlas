@@ -7,19 +7,21 @@ import { AppShell } from '@/components/app-shell';
 import {
   getAllTeamsWithScores,
   saveTaskScore,
+  updateTaskScore,
+  deleteTaskScore,
   saveSocialScore,
+  updateSocialScore,
+  deleteSocialScore,
   savePresentationScore,
   updatePresentationScore,
-  deleteTeam,
-  deleteTaskScore,
-  deleteSocialScore,
   deletePresentationScore,
+  deleteTeam,
 } from '@/lib/store';
-import type { TeamWithScores } from '@/lib/types';
+import type { TeamWithScores, TaskScore, SocialMediaScore } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Shield,
   Trophy,
@@ -32,7 +34,30 @@ import {
   ChevronDown,
   ChevronUp,
   Award,
+  Pencil,
+  X,
 } from 'lucide-react';
+
+type TaskEditForm = Pick<TaskScore, 'taskName' | 'accuracy' | 'quality' | 'speed' | 'tools'>;
+type SocialEditForm = Pick<
+  SocialMediaScore,
+  'weekNumber' | 'contentQuality' | 'postingFrequency' | 'likes' | 'views' | 'followers' | 'comments'
+>;
+
+const DEFAULT_TASK_FORM: TaskEditForm = { taskName: '', accuracy: 0, quality: 0, speed: 0, tools: 0 };
+const DEFAULT_SOCIAL_FORM: SocialEditForm = {
+  weekNumber: 1,
+  contentQuality: 0,
+  postingFrequency: 0,
+  likes: 0,
+  views: 0,
+  followers: 0,
+  comments: 0,
+};
+
+function clamp(val: number, min = 0, max = 10) {
+  return Math.min(max, Math.max(min, val));
+}
 
 function AdminContent() {
   const router = useRouter();
@@ -42,25 +67,14 @@ function AdminContent() {
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'task' | 'social' | 'presentation'>('task');
 
-  const [taskForm, setTaskForm] = useState({
-    taskName: '',
-    accuracy: 0,
-    quality: 0,
-    speed: 0,
-    tools: 0,
-  });
-
-  const [socialForm, setSocialForm] = useState({
-    weekNumber: 1,
-    contentQuality: 0,
-    postingFrequency: 0,
-    likes: 0,
-    views: 0,
-    followers: 0,
-    comments: 0,
-  });
-
+  const [taskForm, setTaskForm] = useState<TaskEditForm>(DEFAULT_TASK_FORM);
+  const [socialForm, setSocialForm] = useState<SocialEditForm>(DEFAULT_SOCIAL_FORM);
   const [presentationForm, setPresentationForm] = useState({ score: 0 });
+
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editTaskForm, setEditTaskForm] = useState<TaskEditForm>(DEFAULT_TASK_FORM);
+  const [editingSocialId, setEditingSocialId] = useState<string | null>(null);
+  const [editSocialForm, setEditSocialForm] = useState<SocialEditForm>(DEFAULT_SOCIAL_FORM);
 
   const loadTeams = useCallback(async () => {
     try {
@@ -86,73 +100,22 @@ function AdminContent() {
   const handleAddTaskScore = async (teamId: string) => {
     if (!taskForm.taskName.trim()) return;
     try {
-      await saveTaskScore({
-        teamId,
-        taskName: taskForm.taskName,
-        accuracy: taskForm.accuracy,
-        quality: taskForm.quality,
-        speed: taskForm.speed,
-        tools: taskForm.tools,
-        scoredBy: session?.name || 'admin',
-      });
-      setTaskForm({ taskName: '', accuracy: 0, quality: 0, speed: 0, tools: 0 });
+      await saveTaskScore({ teamId, ...taskForm, scoredBy: session?.name ?? 'admin' });
+      setTaskForm(DEFAULT_TASK_FORM);
       await loadTeams();
     } catch (err) {
       console.error('Failed to save task score:', err);
     }
   };
 
-  const handleAddSocialScore = async (teamId: string) => {
+  const handleUpdateTaskScore = async () => {
+    if (!editingTaskId) return;
     try {
-      await saveSocialScore({
-        teamId,
-        weekNumber: socialForm.weekNumber,
-        contentQuality: socialForm.contentQuality,
-        postingFrequency: socialForm.postingFrequency,
-        likes: socialForm.likes,
-        views: socialForm.views,
-        followers: socialForm.followers,
-        comments: socialForm.comments,
-        scoredBy: session?.name || 'admin',
-      });
-      setSocialForm({
-        weekNumber: 1,
-        contentQuality: 0,
-        postingFrequency: 0,
-        likes: 0,
-        views: 0,
-        followers: 0,
-        comments: 0,
-      });
+      await updateTaskScore(editingTaskId, editTaskForm);
+      setEditingTaskId(null);
       await loadTeams();
     } catch (err) {
-      console.error('Failed to save social score:', err);
-    }
-  };
-
-  const handleAddPresentationScore = async (teamId: string) => {
-    try {
-      await savePresentationScore({
-        teamId,
-        score: presentationForm.score,
-        scoredBy: session?.name || 'admin',
-      });
-      setPresentationForm({ score: 0 });
-      await loadTeams();
-    } catch (err) {
-      console.error('Failed to save presentation score:', err);
-    }
-  };
-
-  const handleDeleteTeam = async (teamId: string, teamName: string) => {
-    if (!confirm(`Are you sure you want to delete team "${teamName}"? This cannot be undone.`)) {
-      return;
-    }
-    try {
-      await deleteTeam(teamId);
-      await loadTeams();
-    } catch (err) {
-      console.error('Failed to delete team:', err);
+      console.error('Failed to update task score:', err);
     }
   };
 
@@ -163,6 +126,47 @@ function AdminContent() {
       await loadTeams();
     } catch (err) {
       console.error('Failed to delete task score:', err);
+    }
+  };
+
+  const handleAddSocialScore = async (teamId: string) => {
+    try {
+      await saveSocialScore({ teamId, ...socialForm, scoredBy: session?.name ?? 'admin' });
+      setSocialForm(DEFAULT_SOCIAL_FORM);
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to save social score:', err);
+    }
+  };
+
+  const handleUpdateSocialScore = async () => {
+    if (!editingSocialId) return;
+    try {
+      await updateSocialScore(editingSocialId, editSocialForm);
+      setEditingSocialId(null);
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to update social score:', err);
+    }
+  };
+
+  const handleDeleteSocialScore = async (scoreId: string) => {
+    if (!confirm('Delete this social media score?')) return;
+    try {
+      await deleteSocialScore(scoreId);
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to delete social score:', err);
+    }
+  };
+
+  const handleAddPresentationScore = async (teamId: string) => {
+    try {
+      await savePresentationScore({ teamId, score: presentationForm.score, scoredBy: session?.name ?? 'admin' });
+      setPresentationForm({ score: 0 });
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to save presentation score:', err);
     }
   };
 
@@ -185,14 +189,38 @@ function AdminContent() {
     }
   };
 
-  const handleDeleteSocialScore = async (scoreId: string) => {
-    if (!confirm('Delete this social media score?')) return;
+  const handleDeleteTeam = async (teamId: string, teamName: string) => {
+    if (!confirm(`Delete team "${teamName}"? This cannot be undone.`)) return;
     try {
-      await deleteSocialScore(scoreId);
+      await deleteTeam(teamId);
       await loadTeams();
     } catch (err) {
-      console.error('Failed to delete social score:', err);
+      console.error('Failed to delete team:', err);
     }
+  };
+
+  const startEditTask = (score: TaskScore) => {
+    setEditingTaskId(score.id);
+    setEditTaskForm({
+      taskName: score.taskName,
+      accuracy: score.accuracy,
+      quality: score.quality,
+      speed: score.speed,
+      tools: score.tools,
+    });
+  };
+
+  const startEditSocial = (score: SocialMediaScore) => {
+    setEditingSocialId(score.id);
+    setEditSocialForm({
+      weekNumber: score.weekNumber,
+      contentQuality: score.contentQuality,
+      postingFrequency: score.postingFrequency,
+      likes: score.likes,
+      views: score.views,
+      followers: score.followers,
+      comments: score.comments,
+    });
   };
 
   if (authLoading || isLoading) {
@@ -216,57 +244,33 @@ function AdminContent() {
         <div className="text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
             <Shield className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-primary uppercase tracking-wider">
-              Admin Panel
-            </span>
+            <span className="text-xs font-medium text-primary uppercase tracking-wider">Admin Panel</span>
           </div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-2">
             Manage Competition
           </h1>
-          <p className="text-muted-foreground">
-            Award points to teams and manage the leaderboard
-          </p>
+          <p className="text-muted-foreground">Award points to teams and manage the leaderboard</p>
         </div>
 
-        {/* Stats overview */}
+        {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
-            <CardContent className="p-4 text-center">
-              <Users className="h-6 w-6 text-primary mx-auto mb-2" />
-              <div className="font-display text-2xl font-bold text-foreground">{teams.length}</div>
-              <div className="text-xs text-muted-foreground">Teams</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
-            <CardContent className="p-4 text-center">
-              <FileText className="h-6 w-6 text-chart-1 mx-auto mb-2" />
-              <div className="font-display text-2xl font-bold text-foreground">
-                {teams.reduce((sum, t) => sum + t.taskScores.length, 0)}
-              </div>
-              <div className="text-xs text-muted-foreground">Task Scores</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
-            <CardContent className="p-4 text-center">
-              <Share2 className="h-6 w-6 text-chart-2 mx-auto mb-2" />
-              <div className="font-display text-2xl font-bold text-foreground">
-                {teams.reduce((sum, t) => sum + t.socialScores.length, 0)}
-              </div>
-              <div className="text-xs text-muted-foreground">Social Scores</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
-            <CardContent className="p-4 text-center">
-              <Trophy className="h-6 w-6 text-gold mx-auto mb-2" />
-              <div className="font-display text-2xl font-bold text-foreground">
-                {teams[0]?.grandTotal || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">Top Score</div>
-            </CardContent>
-          </Card>
+          {[
+            { icon: <Users className="h-6 w-6 text-primary" />, value: teams.length, label: 'Teams' },
+            { icon: <FileText className="h-6 w-6 text-chart-1" />, value: teams.reduce((s, t) => s + t.taskScores.length, 0), label: 'Task Scores' },
+            { icon: <Share2 className="h-6 w-6 text-chart-2" />, value: teams.reduce((s, t) => s + t.socialScores.length, 0), label: 'Social Scores' },
+            { icon: <Trophy className="h-6 w-6 text-gold" />, value: teams[0]?.grandTotal ?? 0, label: 'Top Score' },
+          ].map(({ icon, value, label }) => (
+            <Card key={label} className="bg-card/40 backdrop-blur-md border-border/50">
+              <CardContent className="p-4 text-center">
+                <div className="flex justify-center mb-2">{icon}</div>
+                <div className="font-display text-2xl font-bold text-foreground">{value}</div>
+                <div className="text-xs text-muted-foreground">{label}</div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        {/* Teams list */}
+        {/* Teams */}
         <div className="space-y-4">
           <h2 className="font-display text-xl font-bold text-foreground">Teams</h2>
 
@@ -279,11 +283,8 @@ function AdminContent() {
             </Card>
           ) : (
             teams.map((team, index) => (
-              <Card
-                key={team.id}
-                className="bg-card/40 backdrop-blur-md border-border/50 overflow-hidden"
-              >
-                {/* Team header */}
+              <Card key={team.id} className="bg-card/40 backdrop-blur-md border-border/50 overflow-hidden">
+                {/* Team header row */}
                 <div
                   className="p-4 sm:p-6 cursor-pointer hover:bg-secondary/20 transition-colors"
                   onClick={() => setExpandedTeam(expandedTeam === team.id ? null : team.id)}
@@ -294,9 +295,7 @@ function AdminContent() {
                         #{index + 1}
                       </div>
                       <div>
-                        <h3 className="font-display font-bold text-foreground">
-                          {team.companyName}
-                        </h3>
+                        <h3 className="font-display font-bold text-foreground">{team.companyName}</h3>
                         <div className="text-sm text-muted-foreground">
                           {team.members.length} members | {team.email}
                         </div>
@@ -304,9 +303,7 @@ function AdminContent() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right hidden sm:block">
-                        <div className="font-display text-xl font-bold text-foreground">
-                          {team.grandTotal}
-                        </div>
+                        <div className="font-display text-xl font-bold text-foreground">{team.grandTotal}</div>
                         <div className="text-xs text-muted-foreground">Total Points</div>
                       </div>
                       {expandedTeam === team.id ? (
@@ -318,386 +315,285 @@ function AdminContent() {
                   </div>
                 </div>
 
-                {/* Expanded content */}
+                {/* Expanded scoring panel */}
                 {expandedTeam === team.id && (
                   <div className="border-t border-border/50 p-4 sm:p-6 space-y-6">
-                    {/* Score tabs */}
+                    {/* Tab switcher */}
                     <div className="flex gap-2 p-1 rounded-xl bg-secondary/30">
-                      <button
-                        onClick={() => setActiveTab('task')}
-                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                          activeTab === 'task'
-                            ? 'bg-card text-foreground shadow'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        <FileText className="h-4 w-4 inline mr-1" />
-                        Tasks
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('social')}
-                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                          activeTab === 'social'
-                            ? 'bg-card text-foreground shadow'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        <Share2 className="h-4 w-4 inline mr-1" />
-                        Social
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('presentation')}
-                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                          activeTab === 'presentation'
-                            ? 'bg-card text-foreground shadow'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        <Award className="h-4 w-4 inline mr-1" />
-                        Present
-                      </button>
+                      {(['task', 'social', 'presentation'] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          onClick={() => setActiveTab(tab)}
+                          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                            activeTab === tab
+                              ? 'bg-card text-foreground shadow'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {tab === 'task' && <FileText className="h-4 w-4 inline mr-1" />}
+                          {tab === 'social' && <Share2 className="h-4 w-4 inline mr-1" />}
+                          {tab === 'presentation' && <Award className="h-4 w-4 inline mr-1" />}
+                          {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        </button>
+                      ))}
                     </div>
 
-                    {/* Task scoring */}
+                    {/* ── TASK TAB ── */}
                     {activeTab === 'task' && (
                       <div className="space-y-4">
                         <h4 className="font-display font-semibold text-foreground flex items-center gap-2">
                           <Plus className="h-4 w-4" />
                           Add Task Score
                         </h4>
-                        <div className="grid gap-4">
-                          <div className="space-y-2">
-                            <Label>Task Name</Label>
-                            <Input
-                              placeholder="e.g., Translation Week 3"
-                              value={taskForm.taskName}
-                              onChange={(e) =>
-                                setTaskForm({ ...taskForm, taskName: e.target.value })
-                              }
-                              className="bg-secondary/50"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            <div className="space-y-2">
-                              <Label>Accuracy (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={taskForm.accuracy}
-                                onChange={(e) =>
-                                  setTaskForm({
-                                    ...taskForm,
-                                    accuracy: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Quality (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={taskForm.quality}
-                                onChange={(e) =>
-                                  setTaskForm({
-                                    ...taskForm,
-                                    quality: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Speed (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={taskForm.speed}
-                                onChange={(e) =>
-                                  setTaskForm({
-                                    ...taskForm,
-                                    speed: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Tools (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={taskForm.tools}
-                                onChange={(e) =>
-                                  setTaskForm({
-                                    ...taskForm,
-                                    tools: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                          </div>
-                          <Button
-                            onClick={() => handleAddTaskScore(team.id)}
-                            disabled={!taskForm.taskName.trim()}
-                            className="w-full sm:w-auto"
-                          >
-                            <Save className="h-4 w-4 mr-2" />
-                            Save Task Score (
-                            {taskForm.accuracy + taskForm.quality + taskForm.speed + taskForm.tools}{' '}
-                            pts)
-                          </Button>
+                        <div className="space-y-2">
+                          <Label>Task Name</Label>
+                          <Input
+                            placeholder="e.g., Translation Week 3"
+                            value={taskForm.taskName}
+                            onChange={(e) => setTaskForm({ ...taskForm, taskName: e.target.value })}
+                            className="bg-secondary/50"
+                          />
                         </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          {(['accuracy', 'quality', 'speed', 'tools'] as const).map((field) => (
+                            <div key={field} className="space-y-2">
+                              <Label>{field.charAt(0).toUpperCase() + field.slice(1)} (0-10)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={10}
+                                value={taskForm[field]}
+                                onChange={(e) => setTaskForm({ ...taskForm, [field]: clamp(parseInt(e.target.value) || 0) })}
+                                className="bg-secondary/50"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <Button
+                          onClick={() => handleAddTaskScore(team.id)}
+                          disabled={!taskForm.taskName.trim()}
+                          className="w-full sm:w-auto"
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          Save ({taskForm.accuracy + taskForm.quality + taskForm.speed + taskForm.tools} pts)
+                        </Button>
 
+                        {/* Existing task scores */}
                         {team.taskScores.length > 0 && (
                           <div className="mt-6 space-y-2">
-                            <h5 className="text-sm font-medium text-muted-foreground">
-                              Existing Task Scores
-                            </h5>
-                            {team.taskScores.map((score) => (
-                              <div
-                                key={score.id}
-                                className="flex items-center justify-between p-3 rounded-lg bg-secondary/30"
-                              >
-                                <div>
-                                  <span className="font-medium text-foreground">
-                                    {score.taskName}
-                                  </span>
-                                  <span className="text-muted-foreground ml-2">
-                                    (A:{score.accuracy} Q:{score.quality} S:{score.speed} T:
-                                    {score.tools})
-                                  </span>
+                            <h5 className="text-sm font-medium text-muted-foreground">Existing Task Scores</h5>
+                            {team.taskScores.map((score) =>
+                              editingTaskId === score.id ? (
+                                <div key={score.id} className="p-3 rounded-lg bg-secondary/40 border border-primary/20 space-y-3">
+                                  <div className="space-y-2">
+                                    <Label className="text-xs">Task Name</Label>
+                                    <Input
+                                      value={editTaskForm.taskName}
+                                      onChange={(e) => setEditTaskForm({ ...editTaskForm, taskName: e.target.value })}
+                                      className="bg-secondary/50 h-8 text-sm"
+                                    />
+                                  </div>
+                                  <div className="grid grid-cols-4 gap-2">
+                                    {(['accuracy', 'quality', 'speed', 'tools'] as const).map((f) => (
+                                      <div key={f} className="space-y-1">
+                                        <Label className="text-xs capitalize">{f}</Label>
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          max={10}
+                                          value={editTaskForm[f]}
+                                          onChange={(e) => setEditTaskForm({ ...editTaskForm, [f]: clamp(parseInt(e.target.value) || 0) })}
+                                          className="bg-secondary/50 h-8 text-sm"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={handleUpdateTaskScore}>
+                                      <Save className="h-3 w-3 mr-1" />
+                                      Save
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={() => setEditingTaskId(null)}>
+                                      <X className="h-3 w-3 mr-1" />
+                                      Cancel
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                  <span className="font-display font-bold text-primary">
-                                    {score.accuracy + score.quality + score.speed + score.tools}{' '}
-                                    pts
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDeleteTaskScore(score.id)}
-                                    className="text-muted-foreground hover:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                              ) : (
+                                <div key={score.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                                  <div>
+                                    <span className="font-medium text-foreground">{score.taskName}</span>
+                                    <span className="text-muted-foreground ml-2 text-sm">
+                                      (A:{score.accuracy} Q:{score.quality} S:{score.speed} T:{score.tools})
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-display font-bold text-primary">
+                                      {score.accuracy + score.quality + score.speed + score.tools} pts
+                                    </span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => startEditTask(score)}
+                                      className="text-muted-foreground hover:text-primary"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteTaskScore(score.id)}
+                                      className="text-muted-foreground hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              )
+                            )}
                           </div>
                         )}
                       </div>
                     )}
 
-                    {/* Social scoring */}
+                    {/* ── SOCIAL TAB ── */}
                     {activeTab === 'social' && (
                       <div className="space-y-4">
                         <h4 className="font-display font-semibold text-foreground flex items-center gap-2">
                           <Plus className="h-4 w-4" />
                           Add Social Media Score
                         </h4>
-                        <div className="grid gap-4">
-                          <div className="space-y-2">
-                            <Label>Week Number</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={14}
-                              value={socialForm.weekNumber}
-                              onChange={(e) =>
-                                setSocialForm({
-                                  ...socialForm,
-                                  weekNumber: parseInt(e.target.value) || 1,
-                                })
-                              }
-                              className="bg-secondary/50 w-32"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                            <div className="space-y-2">
-                              <Label>Content (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={socialForm.contentQuality}
-                                onChange={(e) =>
-                                  setSocialForm({
-                                    ...socialForm,
-                                    contentQuality: Math.min(
-                                      10,
-                                      Math.max(0, parseInt(e.target.value) || 0)
-                                    ),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Freq (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={socialForm.postingFrequency}
-                                onChange={(e) =>
-                                  setSocialForm({
-                                    ...socialForm,
-                                    postingFrequency: Math.min(
-                                      10,
-                                      Math.max(0, parseInt(e.target.value) || 0)
-                                    ),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Likes (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={socialForm.likes}
-                                onChange={(e) =>
-                                  setSocialForm({
-                                    ...socialForm,
-                                    likes: Math.min(
-                                      10,
-                                      Math.max(0, parseInt(e.target.value) || 0)
-                                    ),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Views (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={socialForm.views}
-                                onChange={(e) =>
-                                  setSocialForm({
-                                    ...socialForm,
-                                    views: Math.min(
-                                      10,
-                                      Math.max(0, parseInt(e.target.value) || 0)
-                                    ),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Follows (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={socialForm.followers}
-                                onChange={(e) =>
-                                  setSocialForm({
-                                    ...socialForm,
-                                    followers: Math.min(
-                                      10,
-                                      Math.max(0, parseInt(e.target.value) || 0)
-                                    ),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Comments (0-10)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={socialForm.comments}
-                                onChange={(e) =>
-                                  setSocialForm({
-                                    ...socialForm,
-                                    comments: Math.min(
-                                      10,
-                                      Math.max(0, parseInt(e.target.value) || 0)
-                                    ),
-                                  })
-                                }
-                                className="bg-secondary/50"
-                              />
-                            </div>
-                          </div>
-                          <Button
-                            onClick={() => handleAddSocialScore(team.id)}
-                            className="w-full sm:w-auto"
-                          >
-                            <Save className="h-4 w-4 mr-2" />
-                            Save Social Score (
-                            {socialForm.contentQuality +
-                              socialForm.postingFrequency +
-                              socialForm.likes +
-                              socialForm.views +
-                              socialForm.followers +
-                              socialForm.comments}{' '}
-                            pts)
-                          </Button>
+                        <div className="space-y-2">
+                          <Label>Week Number</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={14}
+                            value={socialForm.weekNumber}
+                            onChange={(e) => setSocialForm({ ...socialForm, weekNumber: parseInt(e.target.value) || 1 })}
+                            className="bg-secondary/50 w-32"
+                          />
                         </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                          {(
+                            [
+                              ['contentQuality', 'Content'],
+                              ['postingFrequency', 'Freq'],
+                              ['likes', 'Likes'],
+                              ['views', 'Views'],
+                              ['followers', 'Follows'],
+                              ['comments', 'Comments'],
+                            ] as const
+                          ).map(([field, label]) => (
+                            <div key={field} className="space-y-2">
+                              <Label>{label} (0-10)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={10}
+                                value={socialForm[field]}
+                                onChange={(e) => setSocialForm({ ...socialForm, [field]: clamp(parseInt(e.target.value) || 0) })}
+                                className="bg-secondary/50"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <Button onClick={() => handleAddSocialScore(team.id)} className="w-full sm:w-auto">
+                          <Save className="h-4 w-4 mr-2" />
+                          Save ({socialForm.contentQuality + socialForm.postingFrequency + socialForm.likes + socialForm.views + socialForm.followers + socialForm.comments} pts)
+                        </Button>
 
+                        {/* Existing social scores */}
                         {team.socialScores.length > 0 && (
                           <div className="mt-6 space-y-2">
-                            <h5 className="text-sm font-medium text-muted-foreground">
-                              Existing Social Scores
-                            </h5>
-                            {team.socialScores.map((score) => (
-                              <div
-                                key={score.id}
-                                className="flex items-center justify-between p-3 rounded-lg bg-secondary/30"
-                              >
-                                <div>
-                                  <span className="font-medium text-foreground">
-                                    Week {score.weekNumber}
-                                  </span>
-                                  <span className="text-muted-foreground ml-2 text-sm">
-                                    (C:{score.contentQuality} F:{score.postingFrequency} L:
-                                    {score.likes} V:{score.views} Fo:{score.followers} Co:
-                                    {score.comments})
-                                  </span>
+                            <h5 className="text-sm font-medium text-muted-foreground">Existing Social Scores</h5>
+                            {team.socialScores.map((score) =>
+                              editingSocialId === score.id ? (
+                                <div key={score.id} className="p-3 rounded-lg bg-secondary/40 border border-primary/20 space-y-3">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Week</Label>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={14}
+                                      value={editSocialForm.weekNumber}
+                                      onChange={(e) => setEditSocialForm({ ...editSocialForm, weekNumber: parseInt(e.target.value) || 1 })}
+                                      className="bg-secondary/50 h-8 w-24 text-sm"
+                                    />
+                                  </div>
+                                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                    {(
+                                      [
+                                        ['contentQuality', 'Content'],
+                                        ['postingFrequency', 'Freq'],
+                                        ['likes', 'Likes'],
+                                        ['views', 'Views'],
+                                        ['followers', 'Follows'],
+                                        ['comments', 'Comments'],
+                                      ] as const
+                                    ).map(([field, label]) => (
+                                      <div key={field} className="space-y-1">
+                                        <Label className="text-xs">{label}</Label>
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          max={10}
+                                          value={editSocialForm[field]}
+                                          onChange={(e) => setEditSocialForm({ ...editSocialForm, [field]: clamp(parseInt(e.target.value) || 0) })}
+                                          className="bg-secondary/50 h-8 text-sm"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={handleUpdateSocialScore}>
+                                      <Save className="h-3 w-3 mr-1" />
+                                      Save
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={() => setEditingSocialId(null)}>
+                                      <X className="h-3 w-3 mr-1" />
+                                      Cancel
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                  <span className="font-display font-bold text-primary">
-                                    {score.contentQuality +
-                                      score.postingFrequency +
-                                      score.likes +
-                                      score.views +
-                                      score.followers +
-                                      score.comments}{' '}
-                                    pts
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDeleteSocialScore(score.id)}
-                                    className="text-muted-foreground hover:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                              ) : (
+                                <div key={score.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                                  <div>
+                                    <span className="font-medium text-foreground">Week {score.weekNumber}</span>
+                                    <span className="text-muted-foreground ml-2 text-sm">
+                                      (C:{score.contentQuality} F:{score.postingFrequency} L:{score.likes} V:{score.views} Fo:{score.followers} Co:{score.comments})
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-display font-bold text-primary">
+                                      {score.contentQuality + score.postingFrequency + score.likes + score.views + score.followers + score.comments} pts
+                                    </span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => startEditSocial(score)}
+                                      className="text-muted-foreground hover:text-primary"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteSocialScore(score.id)}
+                                      className="text-muted-foreground hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              )
+                            )}
                           </div>
                         )}
                       </div>
                     )}
 
-                    {/* Presentation scoring */}
+                    {/* ── PRESENTATION TAB ── */}
                     {activeTab === 'presentation' && (
                       <div className="space-y-4">
                         <h4 className="font-display font-semibold text-foreground flex items-center gap-2">
@@ -713,8 +609,7 @@ function AdminContent() {
                               </span>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              Scored on{' '}
-                              {new Date(team.presentationScore.scoredAt).toLocaleDateString()}
+                              Scored on {new Date(team.presentationScore.scoredAt).toLocaleDateString()}
                             </p>
                             <div className="flex items-end gap-3 pt-2 border-t border-border/30">
                               <div className="space-y-1">
@@ -724,22 +619,13 @@ function AdminContent() {
                                   min={0}
                                   max={10}
                                   value={presentationForm.score}
-                                  onChange={(e) =>
-                                    setPresentationForm({
-                                      score: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
-                                    })
-                                  }
+                                  onChange={(e) => setPresentationForm({ score: clamp(parseInt(e.target.value) || 0) })}
                                   className="bg-secondary/50 w-28"
                                 />
                               </div>
                               <Button
                                 size="sm"
-                                onClick={() =>
-                                  handleEditPresentationScore(
-                                    team.presentationScore!.id,
-                                    presentationForm.score
-                                  )
-                                }
+                                onClick={() => handleEditPresentationScore(team.presentationScore!.id, presentationForm.score)}
                               >
                                 <Save className="h-4 w-4 mr-1" />
                                 Update
@@ -747,9 +633,7 @@ function AdminContent() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() =>
-                                  handleDeletePresentationScore(team.presentationScore!.id)
-                                }
+                                onClick={() => handleDeletePresentationScore(team.presentationScore!.id)}
                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                               >
                                 <Trash2 className="h-4 w-4 mr-1" />
@@ -766,18 +650,11 @@ function AdminContent() {
                                 min={0}
                                 max={10}
                                 value={presentationForm.score}
-                                onChange={(e) =>
-                                  setPresentationForm({
-                                    score: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
-                                  })
-                                }
+                                onChange={(e) => setPresentationForm({ score: clamp(parseInt(e.target.value) || 0) })}
                                 className="bg-secondary/50 w-32"
                               />
                             </div>
-                            <Button
-                              onClick={() => handleAddPresentationScore(team.id)}
-                              className="w-full sm:w-auto"
-                            >
+                            <Button onClick={() => handleAddPresentationScore(team.id)} className="w-full sm:w-auto">
                               <Save className="h-4 w-4 mr-2" />
                               Save Presentation Score
                             </Button>
