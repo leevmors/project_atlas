@@ -6,7 +6,7 @@ export interface TeamMember {
 export interface Team {
   id: string;
   companyName: string;
-  password: string;
+  password?: string;
   instagram?: string;
   threads?: string;
   email?: string;
@@ -61,7 +61,7 @@ export interface TeamWithScores extends Team {
 
 export interface AdminUser {
   username: string;
-  password: string;
+  password?: string;
 }
 
 export type AuthSession = {

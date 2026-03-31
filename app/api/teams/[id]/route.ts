@@ -157,7 +157,6 @@ export async function GET(
       team: {
         id: teamIdStr,
         companyName: team.company_name,
-        password: '',
         instagram: team.instagram ?? undefined,
         threads: team.threads ?? undefined,
         email: team.email,
