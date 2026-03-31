@@ -7,7 +7,7 @@ const nextConfig = {
     unoptimized: true,
   },
   allowedDevOrigins: ['*.replit.dev', '*.spock.replit.dev'],
-  webpack(config) {
+  webpack(config, { dev }) {
     const fileExtensions = /\.(png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot|otf|mp4|webm|ogg|mp3|wav|flac|aac|pdf)(\?.*)?$/i;
 
     config.module.rules.forEach((rule) => {
@@ -31,6 +31,17 @@ const nextConfig = {
         });
       });
     });
+
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: [
+          '**/.next/**',
+          '**/node_modules/**',
+          '**/.git/**',
+        ],
+      };
+    }
 
     return config;
   },

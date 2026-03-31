@@ -13,11 +13,18 @@ const SOCIAL_SCORES_KEY = 'atlas_social_scores';
 const PRESENTATION_SCORES_KEY = 'atlas_presentation_scores';
 const SESSION_KEY = 'atlas_session';
 
-// Admin credentials
 const ADMIN_USERNAME = 'leev';
 const ADMIN_PASSWORD = '8702594qwe';
 
-// Helper to generate IDs
+function safeParse<T>(data: string | null, fallback: T): T {
+  if (!data) return fallback;
+  try {
+    return JSON.parse(data) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
@@ -25,8 +32,7 @@ export function generateId(): string {
 // Teams
 export function getTeams(): Team[] {
   if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(TEAMS_KEY);
-  return data ? JSON.parse(data) : [];
+  return safeParse<Team[]>(localStorage.getItem(TEAMS_KEY), []);
 }
 
 export function saveTeam(team: Team): void {
@@ -48,7 +54,6 @@ export function deleteTeam(id: string): void {
   const teams = getTeams().filter(t => t.id !== id);
   localStorage.setItem(TEAMS_KEY, JSON.stringify(teams));
   
-  // Also delete associated scores
   const taskScores = getTaskScores().filter(s => s.teamId !== id);
   localStorage.setItem(TASK_SCORES_KEY, JSON.stringify(taskScores));
   
@@ -62,8 +67,7 @@ export function deleteTeam(id: string): void {
 // Task Scores
 export function getTaskScores(): TaskScore[] {
   if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(TASK_SCORES_KEY);
-  return data ? JSON.parse(data) : [];
+  return safeParse<TaskScore[]>(localStorage.getItem(TASK_SCORES_KEY), []);
 }
 
 export function saveTaskScore(score: TaskScore): void {
@@ -89,8 +93,7 @@ export function deleteTaskScore(id: string): void {
 // Social Media Scores
 export function getSocialScores(): SocialMediaScore[] {
   if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(SOCIAL_SCORES_KEY);
-  return data ? JSON.parse(data) : [];
+  return safeParse<SocialMediaScore[]>(localStorage.getItem(SOCIAL_SCORES_KEY), []);
 }
 
 export function saveSocialScore(score: SocialMediaScore): void {
@@ -116,8 +119,7 @@ export function deleteSocialScore(id: string): void {
 // Presentation Scores
 export function getPresentationScores(): PresentationScore[] {
   if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(PRESENTATION_SCORES_KEY);
-  return data ? JSON.parse(data) : [];
+  return safeParse<PresentationScore[]>(localStorage.getItem(PRESENTATION_SCORES_KEY), []);
 }
 
 export function savePresentationScore(score: PresentationScore): void {
@@ -141,18 +143,15 @@ export function calculateTeamWithScores(team: Team): TeamWithScores {
   const socialScores = getSocialScoresForTeam(team.id);
   const presentationScore = getPresentationScoreForTeam(team.id);
 
-  // Sum up task scores (each task has accuracy + quality + speed + tools = max 40 per task)
   const totalTaskPoints = taskScores.reduce((sum, score) => {
     return sum + score.accuracy + score.quality + score.speed + score.tools;
   }, 0);
 
-  // Sum up social scores (each week has 6 categories = max 60 per week)
   const totalSocialPoints = socialScores.reduce((sum, score) => {
     return sum + score.contentQuality + score.postingFrequency + 
            score.likes + score.views + score.followers + score.comments;
   }, 0);
 
-  // Presentation score (max 10)
   const totalPresentationPoints = presentationScore?.score || 0;
 
   return {
@@ -200,8 +199,7 @@ export function loginAsAdmin(username: string, password: string): AuthSession {
 
 export function getSession(): AuthSession {
   if (typeof window === 'undefined') return null;
-  const data = localStorage.getItem(SESSION_KEY);
-  return data ? JSON.parse(data) : null;
+  return safeParse<AuthSession>(localStorage.getItem(SESSION_KEY), null);
 }
 
 export function logout(): void {

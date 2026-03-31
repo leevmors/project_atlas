@@ -2,6 +2,17 @@
 
 import { useEffect, useState } from 'react';
 
+interface Star {
+  id: number;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  opacity: number;
+  duration: number;
+  delay: number;
+}
+
 interface Snowflake {
   id: number;
   x: number;
@@ -12,24 +23,39 @@ interface Snowflake {
 }
 
 export function AlpineBackground() {
+  const [stars, setStars] = useState<Star[]>([]);
   const [snowflakes, setSnowflakes] = useState<Snowflake[]>([]);
 
   useEffect(() => {
-    const flakes: Snowflake[] = Array.from({ length: 50 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      delay: Math.random() * 10,
-      duration: 10 + Math.random() * 20,
-      size: 2 + Math.random() * 4,
-      opacity: 0.3 + Math.random() * 0.5,
-    }));
-    setSnowflakes(flakes);
+    setStars(
+      Array.from({ length: 100 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        top: Math.random() * 50,
+        width: 1 + Math.random() * 2,
+        height: 1 + Math.random() * 2,
+        opacity: 0.3 + Math.random() * 0.7,
+        duration: 2 + Math.random() * 3,
+        delay: Math.random() * 3,
+      }))
+    );
+
+    setSnowflakes(
+      Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        delay: Math.random() * 10,
+        duration: 10 + Math.random() * 20,
+        size: 2 + Math.random() * 4,
+        opacity: 0.3 + Math.random() * 0.5,
+      }))
+    );
   }, []);
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
       {/* Gradient sky */}
-      <div 
+      <div
         className="absolute inset-0"
         style={{
           background: `linear-gradient(
@@ -38,31 +64,31 @@ export function AlpineBackground() {
             oklch(0.18 0.03 240) 30%,
             oklch(0.25 0.04 230) 60%,
             oklch(0.35 0.05 220) 100%
-          )`
+          )`,
         }}
       />
 
-      {/* Stars */}
+      {/* Stars — only rendered client-side to avoid SSR/hydration mismatch */}
       <div className="absolute inset-0">
-        {Array.from({ length: 100 }).map((_, i) => (
+        {stars.map((star) => (
           <div
-            key={i}
+            key={star.id}
             className="absolute rounded-full bg-white"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 50}%`,
-              width: `${1 + Math.random() * 2}px`,
-              height: `${1 + Math.random() * 2}px`,
-              opacity: 0.3 + Math.random() * 0.7,
-              animation: `twinkle ${2 + Math.random() * 3}s ease-in-out infinite`,
-              animationDelay: `${Math.random() * 3}s`,
+              left: `${star.left}%`,
+              top: `${star.top}%`,
+              width: `${star.width}px`,
+              height: `${star.height}px`,
+              opacity: star.opacity,
+              animation: `twinkle ${star.duration}s ease-in-out infinite`,
+              animationDelay: `${star.delay}s`,
             }}
           />
         ))}
       </div>
 
       {/* Northern lights effect */}
-      <div 
+      <div
         className="absolute inset-0 opacity-20"
         style={{
           background: `radial-gradient(
@@ -84,27 +110,20 @@ export function AlpineBackground() {
         viewBox="0 0 1440 600"
         preserveAspectRatio="xMidYMax slice"
       >
-        {/* Far mountains - darker, more muted */}
         <path
           d="M0,600 L0,350 L120,280 L240,320 L360,250 L480,300 L600,200 L720,260 L840,180 L960,240 L1080,190 L1200,250 L1320,200 L1440,280 L1440,600 Z"
           fill="oklch(0.2 0.03 250)"
           opacity="0.8"
         />
-        
-        {/* Mid mountains */}
         <path
           d="M0,600 L0,420 L100,350 L200,400 L320,300 L440,380 L560,280 L680,350 L800,250 L920,330 L1040,270 L1160,340 L1280,290 L1400,360 L1440,320 L1440,600 Z"
           fill="oklch(0.25 0.035 250)"
           opacity="0.9"
         />
-        
-        {/* Near mountains with snow caps */}
         <path
           d="M0,600 L0,480 L80,420 L180,470 L280,380 L380,450 L500,340 L620,430 L720,360 L840,420 L960,330 L1100,400 L1200,350 L1320,420 L1440,380 L1440,600 Z"
           fill="oklch(0.3 0.04 250)"
         />
-        
-        {/* Snow caps on near mountains */}
         <path
           d="M280,380 L320,410 L340,395 L360,420 L380,390 L340,340 Z"
           fill="oklch(0.9 0.01 250)"
@@ -128,7 +147,7 @@ export function AlpineBackground() {
       </svg>
 
       {/* Fog/mist at bottom */}
-      <div 
+      <div
         className="absolute bottom-0 left-0 right-0 h-32"
         style={{
           background: `linear-gradient(
@@ -136,11 +155,11 @@ export function AlpineBackground() {
             transparent 0%,
             oklch(0.14 0.015 250 / 0.5) 50%,
             oklch(0.14 0.015 250) 100%
-          )`
+          )`,
         }}
       />
 
-      {/* Snowfall */}
+      {/* Snowfall — only rendered client-side */}
       {snowflakes.map((flake) => (
         <div
           key={flake.id}
@@ -171,11 +190,11 @@ export function AlpineBackground() {
           50% { opacity: 1; }
         }
         @keyframes aurora {
-          0% { 
+          0% {
             transform: translateX(-5%) scale(1);
             opacity: 0.15;
           }
-          100% { 
+          100% {
             transform: translateX(5%) scale(1.1);
             opacity: 0.25;
           }
