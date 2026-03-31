@@ -6,25 +6,32 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  allowedDevOrigins: ['*.replit.dev', '*.spock.replit.dev'],
   webpack(config) {
+    const fileExtensions = /\.(png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot|otf|mp4|webm|ogg|mp3|wav|flac|aac|pdf)(\?.*)?$/i;
+
     config.module.rules.forEach((rule) => {
-      if (!rule.oneOf) return;
+      if (!Array.isArray(rule.oneOf)) return;
       rule.oneOf.forEach((oneOf) => {
-        if (!Array.isArray(oneOf.use)) return;
-        oneOf.use.forEach((loader) => {
+        const loaders = Array.isArray(oneOf.use) ? oneOf.use : [];
+        loaders.forEach((loader) => {
           if (
-            typeof loader === 'object' &&
-            loader.loader &&
-            loader.loader.includes('css-loader')
-          ) {
-            if (loader.options) {
-              loader.options.url = false;
-              loader.options.import = false;
-            }
-          }
+            typeof loader !== 'object' ||
+            typeof loader.loader !== 'string' ||
+            !loader.loader.includes('css-loader')
+          ) return;
+          if (!loader.options || typeof loader.options !== 'object') return;
+
+          loader.options.url = (url) => {
+            if (!url) return false;
+            if (url.startsWith('/')) return false;
+            if (!fileExtensions.test(url)) return false;
+            return true;
+          };
         });
       });
     });
+
     return config;
   },
 }
