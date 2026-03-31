@@ -5,20 +5,34 @@ import { randomUUID } from 'crypto';
 
 const SESSION_HOURS = 24;
 
-async function ensureAdminExists() {
+async function ensureAdminExists(): Promise<boolean> {
   const res = await pool.query('SELECT id FROM admins LIMIT 1');
-  if (res.rows.length === 0) {
-    const username = process.env.ADMIN_USERNAME;
-    const password = process.env.ADMIN_PASSWORD;
-    if (!username || !password) {
-      throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD env vars must be set');
-    }
-    const hash = await bcrypt.hash(password, 12);
-    await pool.query(
-      'INSERT INTO admins (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO NOTHING',
-      [username, hash]
-    );
+  if (res.rows.length > 0) return true;
+
+  const username = process.env.ADMIN_USERNAME;
+  const password = process.env.ADMIN_PASSWORD;
+  if (!username || !password) {
+    return false;
   }
+
+  const hash = await bcrypt.hash(password, 12);
+  await pool.query(
+    'INSERT INTO admins (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO NOTHING',
+    [username, hash]
+  );
+  return true;
+}
+
+interface AdminRow {
+  id: number;
+  username: string;
+  password_hash: string;
+}
+
+interface TeamRow {
+  id: string;
+  company_name: string;
+  password_hash: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -32,8 +46,12 @@ export async function POST(req: NextRequest) {
     let session: { type: string; id: string; name: string } | null = null;
 
     if (type === 'admin') {
-      await ensureAdminExists();
-      const res = await pool.query(
+      const seeded = await ensureAdminExists();
+      if (!seeded) {
+        return NextResponse.json({ error: 'Admin not configured' }, { status: 503 });
+      }
+
+      const res = await pool.query<AdminRow>(
         'SELECT id, username, password_hash FROM admins WHERE username = $1',
         [identifier]
       );
@@ -45,7 +63,7 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      const res = await pool.query(
+      const res = await pool.query<TeamRow>(
         'SELECT id, company_name, password_hash FROM teams WHERE LOWER(company_name) = LOWER($1)',
         [identifier]
       );

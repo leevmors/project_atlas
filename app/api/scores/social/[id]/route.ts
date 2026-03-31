@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 
+interface SocialScoreRow {
+  id: string;
+  team_id: string;
+  week_number: number;
+  content_quality: number;
+  posting_frequency: number;
+  likes: number;
+  views: number;
+  followers: number;
+  comments: number;
+  scored_at: string;
+  scored_by: string;
+}
+
 async function requireAdmin(req: NextRequest) {
   const sessionId = req.cookies.get('atlas_sid')?.value;
   if (!sessionId) return null;
@@ -12,14 +26,18 @@ async function requireAdmin(req: NextRequest) {
   return true;
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     if (!(await requireAdmin(req))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    const { id } = await context.params;
     const { weekNumber, contentQuality, postingFrequency, likes, views, followers, comments } =
       await req.json();
-    const result = await pool.query(
+    const result = await pool.query<SocialScoreRow>(
       `UPDATE social_media_scores
        SET week_number = COALESCE($1, week_number),
            content_quality = COALESCE($2, content_quality),
@@ -30,7 +48,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
            comments = COALESCE($7, comments)
        WHERE id = $8
        RETURNING id, team_id, week_number, content_quality, posting_frequency, likes, views, followers, comments, scored_at, scored_by`,
-      [weekNumber, contentQuality, postingFrequency, likes, views, followers, comments, params.id]
+      [weekNumber, contentQuality, postingFrequency, likes, views, followers, comments, id]
     );
     if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Score not found' }, { status: 404 });
@@ -57,12 +75,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     if (!(await requireAdmin(req))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    await pool.query('DELETE FROM social_media_scores WHERE id = $1', [params.id]);
+    const { id } = await context.params;
+    await pool.query('DELETE FROM social_media_scores WHERE id = $1', [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('DELETE /api/scores/social/[id] error:', err);

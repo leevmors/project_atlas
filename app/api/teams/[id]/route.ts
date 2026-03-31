@@ -1,27 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+interface TeamRow {
+  id: string;
+  company_name: string;
+  instagram: string | null;
+  threads: string | null;
+  email: string;
+  members: { name: string; role: string }[];
+  created_at: string;
+}
+
+interface TaskRow {
+  id: string;
+  team_id: string;
+  task_name: string;
+  accuracy: number;
+  quality: number;
+  speed: number;
+  tools: number;
+  scored_at: string;
+  scored_by: string;
+}
+
+interface SocialRow {
+  id: string;
+  team_id: string;
+  week_number: number;
+  content_quality: number;
+  posting_frequency: number;
+  likes: number;
+  views: number;
+  followers: number;
+  comments: number;
+  scored_at: string;
+  scored_by: string;
+}
+
+interface PresentationRow {
+  id: string;
+  team_id: string;
+  score: number;
+  scored_at: string;
+  scored_by: string;
+}
+
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     const [teamRes, taskRes, socialRes, presentRes] = await Promise.all([
-      pool.query(
+      pool.query<TeamRow>(
         `SELECT id, company_name, instagram, threads, email, members, created_at
          FROM teams WHERE id = $1`,
         [id]
       ),
-      pool.query(
+      pool.query<TaskRow>(
         `SELECT id, team_id, task_name, accuracy, quality, speed, tools, scored_at, scored_by
          FROM task_scores WHERE team_id = $1 ORDER BY scored_at`,
         [id]
       ),
-      pool.query(
+      pool.query<SocialRow>(
         `SELECT id, team_id, week_number, content_quality, posting_frequency, likes, views, followers, comments, scored_at, scored_by
          FROM social_media_scores WHERE team_id = $1 ORDER BY scored_at`,
         [id]
       ),
-      pool.query(
+      pool.query<PresentationRow>(
         `SELECT id, team_id, score, scored_at, scored_by
          FROM presentation_scores WHERE team_id = $1`,
         [id]
@@ -112,9 +159,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const sessionId = req.cookies.get('atlas_sid')?.value;
     if (!sessionId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -128,7 +178,12 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    await pool.query('DELETE FROM task_scores WHERE team_id = $1', [id]);
+    await pool.query('DELETE FROM social_media_scores WHERE team_id = $1', [id]);
+    await pool.query('DELETE FROM presentation_scores WHERE team_id = $1', [id]);
+    await pool.query('DELETE FROM sessions WHERE user_id = $1', [id]);
     await pool.query('DELETE FROM teams WHERE id = $1', [id]);
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('DELETE /api/teams/[id] error:', err);

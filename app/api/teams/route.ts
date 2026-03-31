@@ -2,7 +2,56 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
-function buildTeamsWithScores(teams: any[], taskScores: any[], socialScores: any[], presentationScores: any[]) {
+interface TeamRow {
+  id: string;
+  company_name: string;
+  instagram: string | null;
+  threads: string | null;
+  email: string;
+  members: { name: string; role: string }[];
+  created_at: string;
+}
+
+interface TaskRow {
+  id: string;
+  team_id: string;
+  task_name: string;
+  accuracy: number;
+  quality: number;
+  speed: number;
+  tools: number;
+  scored_at: string;
+  scored_by: string;
+}
+
+interface SocialRow {
+  id: string;
+  team_id: string;
+  week_number: number;
+  content_quality: number;
+  posting_frequency: number;
+  likes: number;
+  views: number;
+  followers: number;
+  comments: number;
+  scored_at: string;
+  scored_by: string;
+}
+
+interface PresentationRow {
+  id: string;
+  team_id: string;
+  score: number;
+  scored_at: string;
+  scored_by: string;
+}
+
+function buildTeamsWithScores(
+  teams: TeamRow[],
+  taskScores: TaskRow[],
+  socialScores: SocialRow[],
+  presentationScores: PresentationRow[]
+) {
   return teams
     .map((team) => {
       const ts = taskScores
@@ -52,14 +101,14 @@ function buildTeamsWithScores(teams: any[], taskScores: any[], socialScores: any
           s.comments,
         0
       );
-      const totalPresentationPoints = ps?.score || 0;
+      const totalPresentationPoints = ps?.score ?? 0;
 
       return {
         id: team.id,
         companyName: team.company_name,
         password: '',
-        instagram: team.instagram || undefined,
-        threads: team.threads || undefined,
+        instagram: team.instagram ?? undefined,
+        threads: team.threads ?? undefined,
         email: team.email,
         members: team.members,
         createdAt: team.created_at,
@@ -86,19 +135,19 @@ function buildTeamsWithScores(teams: any[], taskScores: any[], socialScores: any
 export async function GET() {
   try {
     const [teamsRes, taskRes, socialRes, presentRes] = await Promise.all([
-      pool.query(
+      pool.query<TeamRow>(
         `SELECT id, company_name, instagram, threads, email, members, created_at
          FROM teams ORDER BY created_at`
       ),
-      pool.query(
+      pool.query<TaskRow>(
         `SELECT id, team_id, task_name, accuracy, quality, speed, tools, scored_at, scored_by
          FROM task_scores ORDER BY scored_at`
       ),
-      pool.query(
+      pool.query<SocialRow>(
         `SELECT id, team_id, week_number, content_quality, posting_frequency, likes, views, followers, comments, scored_at, scored_by
          FROM social_media_scores ORDER BY scored_at`
       ),
-      pool.query(
+      pool.query<PresentationRow>(
         `SELECT id, team_id, score, scored_at, scored_by FROM presentation_scores`
       ),
     ]);
@@ -139,15 +188,15 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const result = await pool.query(
+    const result = await pool.query<TeamRow>(
       `INSERT INTO teams (company_name, password_hash, instagram, threads, email, members)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, company_name, instagram, threads, email, members, created_at`,
       [
         companyName,
         passwordHash,
-        instagram || null,
-        threads || null,
+        instagram ?? null,
+        threads ?? null,
         email,
         JSON.stringify(members),
       ]
@@ -158,8 +207,8 @@ export async function POST(req: NextRequest) {
       id: row.id,
       companyName: row.company_name,
       password: '',
-      instagram: row.instagram || undefined,
-      threads: row.threads || undefined,
+      instagram: row.instagram ?? undefined,
+      threads: row.threads ?? undefined,
       email: row.email,
       members: row.members,
       createdAt: row.created_at,

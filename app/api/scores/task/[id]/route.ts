@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 
+interface TaskScoreRow {
+  id: string;
+  team_id: string;
+  task_name: string;
+  accuracy: number;
+  quality: number;
+  speed: number;
+  tools: number;
+  scored_at: string;
+  scored_by: string;
+}
+
 async function requireAdmin(req: NextRequest) {
   const sessionId = req.cookies.get('atlas_sid')?.value;
   if (!sessionId) return null;
@@ -12,13 +24,17 @@ async function requireAdmin(req: NextRequest) {
   return true;
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     if (!(await requireAdmin(req))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    const { id } = await context.params;
     const { taskName, accuracy, quality, speed, tools } = await req.json();
-    const result = await pool.query(
+    const result = await pool.query<TaskScoreRow>(
       `UPDATE task_scores
        SET task_name = COALESCE($1, task_name),
            accuracy = COALESCE($2, accuracy),
@@ -27,7 +43,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
            tools = COALESCE($5, tools)
        WHERE id = $6
        RETURNING id, team_id, task_name, accuracy, quality, speed, tools, scored_at, scored_by`,
-      [taskName, accuracy, quality, speed, tools, params.id]
+      [taskName, accuracy, quality, speed, tools, id]
     );
     if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Score not found' }, { status: 404 });
@@ -52,12 +68,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     if (!(await requireAdmin(req))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    await pool.query('DELETE FROM task_scores WHERE id = $1', [params.id]);
+    const { id } = await context.params;
+    await pool.query('DELETE FROM task_scores WHERE id = $1', [id]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('DELETE /api/scores/task/[id] error:', err);
