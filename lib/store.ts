@@ -16,8 +16,15 @@ async function apiFetch(path: string, options?: RequestInit) {
     },
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(body.error || `HTTP ${res.status}`);
+    const text = await res.text().catch(() => '');
+    let errorMessage = `HTTP ${res.status}`;
+    try {
+      const body = text ? JSON.parse(text) : {};
+      if (body.error) errorMessage = body.error;
+    } catch {
+      // Response was not JSON (e.g. HTML error page) — use status code
+    }
+    throw new Error(errorMessage);
   }
   const text = await res.text();
   if (!text) {

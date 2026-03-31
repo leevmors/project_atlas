@@ -53,13 +53,17 @@ interface SessionRow {
 }
 
 async function getAdminSession(req: NextRequest): Promise<boolean> {
-  const sessionId = req.cookies.get('atlas_sid')?.value;
-  if (!sessionId) return false;
-  const res = await pool.query<SessionRow>(
-    `SELECT user_type FROM sessions WHERE id = $1 AND expires_at > NOW()`,
-    [sessionId]
-  );
-  return res.rows[0]?.user_type === 'admin';
+  try {
+    const sessionId = req.cookies.get('atlas_sid')?.value;
+    if (!sessionId) return false;
+    const res = await pool.query<SessionRow>(
+      `SELECT user_type FROM sessions WHERE id = $1 AND expires_at > NOW()`,
+      [sessionId]
+    );
+    return res.rows[0]?.user_type === 'admin';
+  } catch {
+    return false;
+  }
 }
 
 function buildTeamsWithScores(
