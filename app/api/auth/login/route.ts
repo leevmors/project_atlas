@@ -11,9 +11,7 @@ async function ensureAdminExists(): Promise<boolean> {
 
   const username = process.env.ADMIN_USERNAME;
   const password = process.env.ADMIN_PASSWORD;
-  if (!username || !password) {
-    return false;
-  }
+  if (!username || !password) return false;
 
   const hash = await bcrypt.hash(password, 12);
   await pool.query(
@@ -30,7 +28,7 @@ interface AdminRow {
 }
 
 interface TeamRow {
-  id: string;
+  id: number;
   company_name: string;
   password_hash: string;
 }
@@ -50,7 +48,6 @@ export async function POST(req: NextRequest) {
       if (!seeded) {
         return NextResponse.json({ error: 'Admin not configured' }, { status: 503 });
       }
-
       const res = await pool.query<AdminRow>(
         'SELECT id, username, password_hash FROM admins WHERE username = $1',
         [identifier]
@@ -71,7 +68,7 @@ export async function POST(req: NextRequest) {
         const team = res.rows[0];
         const ok = await bcrypt.compare(password, team.password_hash);
         if (ok) {
-          session = { type: 'team', id: team.id, name: team.company_name };
+          session = { type: 'team', id: String(team.id), name: team.company_name };
         }
       }
     }

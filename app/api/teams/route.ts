@@ -3,18 +3,19 @@ import { pool } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
 interface TeamRow {
-  id: string;
+  id: number;
   company_name: string;
   instagram: string | null;
   threads: string | null;
   email: string;
   members: { name: string; role: string }[];
+  member_count: string;
   created_at: string;
 }
 
 interface TaskRow {
-  id: string;
-  team_id: string;
+  id: number;
+  team_id: number;
   task_name: string;
   accuracy: number;
   quality: number;
@@ -25,8 +26,8 @@ interface TaskRow {
 }
 
 interface SocialRow {
-  id: string;
-  team_id: string;
+  id: number;
+  team_id: number;
   week_number: number;
   content_quality: number;
   posting_frequency: number;
@@ -39,26 +40,45 @@ interface SocialRow {
 }
 
 interface PresentationRow {
-  id: string;
-  team_id: string;
+  id: number;
+  team_id: number;
   score: number;
   scored_at: string;
   scored_by: string;
+}
+
+interface SessionRow {
+  user_type: string;
+  user_id: string;
+}
+
+async function getAdminSession(req: NextRequest): Promise<boolean> {
+  const sessionId = req.cookies.get('atlas_sid')?.value;
+  if (!sessionId) return false;
+  const res = await pool.query<SessionRow>(
+    `SELECT user_type FROM sessions WHERE id = $1 AND expires_at > NOW()`,
+    [sessionId]
+  );
+  return res.rows[0]?.user_type === 'admin';
 }
 
 function buildTeamsWithScores(
   teams: TeamRow[],
   taskScores: TaskRow[],
   socialScores: SocialRow[],
-  presentationScores: PresentationRow[]
+  presentationScores: PresentationRow[],
+  isAdmin: boolean
 ) {
   return teams
     .map((team) => {
+      const teamIdStr = String(team.id);
+      const memberCount = parseInt(team.member_count, 10) || 0;
+
       const ts = taskScores
-        .filter((s) => s.team_id === team.id)
+        .filter((s) => String(s.team_id) === teamIdStr)
         .map((s) => ({
-          id: s.id,
-          teamId: s.team_id,
+          id: String(s.id),
+          teamId: teamIdStr,
           taskName: s.task_name,
           accuracy: s.accuracy,
           quality: s.quality,
@@ -69,10 +89,10 @@ function buildTeamsWithScores(
         }));
 
       const ss = socialScores
-        .filter((s) => s.team_id === team.id)
+        .filter((s) => String(s.team_id) === teamIdStr)
         .map((s) => ({
-          id: s.id,
-          teamId: s.team_id,
+          id: String(s.id),
+          teamId: teamIdStr,
           weekNumber: s.week_number,
           contentQuality: s.content_quality,
           postingFrequency: s.posting_frequency,
@@ -84,7 +104,7 @@ function buildTeamsWithScores(
           scoredBy: s.scored_by,
         }));
 
-      const ps = presentationScores.find((s) => s.team_id === team.id);
+      const ps = presentationScores.find((s) => String(s.team_id) === teamIdStr);
 
       const totalTaskPoints = ts.reduce(
         (sum, s) => sum + s.accuracy + s.quality + s.speed + s.tools,
@@ -92,32 +112,23 @@ function buildTeamsWithScores(
       );
       const totalSocialPoints = ss.reduce(
         (sum, s) =>
-          sum +
-          s.contentQuality +
-          s.postingFrequency +
-          s.likes +
-          s.views +
-          s.followers +
-          s.comments,
+          sum + s.contentQuality + s.postingFrequency + s.likes + s.views + s.followers + s.comments,
         0
       );
       const totalPresentationPoints = ps?.score ?? 0;
 
-      return {
-        id: team.id,
+      const base = {
+        id: teamIdStr,
         companyName: team.company_name,
-        password: '',
         instagram: team.instagram ?? undefined,
         threads: team.threads ?? undefined,
-        email: team.email,
-        members: team.members,
-        createdAt: team.created_at,
+        memberCount,
         taskScores: ts,
         socialScores: ss,
         presentationScore: ps
           ? {
-              id: ps.id,
-              teamId: ps.team_id,
+              id: String(ps.id),
+              teamId: teamIdStr,
               score: ps.score,
               scoredAt: ps.scored_at,
               scoredBy: ps.scored_by,
@@ -128,16 +139,28 @@ function buildTeamsWithScores(
         totalPresentationPoints,
         grandTotal: totalTaskPoints + totalSocialPoints + totalPresentationPoints,
       };
+
+      if (isAdmin) {
+        return { ...base, email: team.email, members: team.members };
+      }
+      return base;
     })
     .sort((a, b) => b.grandTotal - a.grandTotal);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const isAdmin = await getAdminSession(req);
+
+    const selectCols = isAdmin
+      ? `id, company_name, instagram, threads, email, members,
+         jsonb_array_length(members) AS member_count, created_at`
+      : `id, company_name, instagram, threads,
+         jsonb_array_length(members) AS member_count, created_at`;
+
     const [teamsRes, taskRes, socialRes, presentRes] = await Promise.all([
       pool.query<TeamRow>(
-        `SELECT id, company_name, instagram, threads, email, members, created_at
-         FROM teams ORDER BY created_at`
+        `SELECT ${selectCols} FROM teams ORDER BY created_at`
       ),
       pool.query<TaskRow>(
         `SELECT id, team_id, task_name, accuracy, quality, speed, tools, scored_at, scored_by
@@ -156,7 +179,8 @@ export async function GET() {
       teamsRes.rows,
       taskRes.rows,
       socialRes.rows,
-      presentRes.rows
+      presentRes.rows,
+      isAdmin
     );
 
     return NextResponse.json({ teams });
@@ -168,8 +192,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { companyName, password, instagram, threads, email, members } =
-      await req.json();
+    const { companyName, password, instagram, threads, email, members } = await req.json();
 
     if (!companyName || !password || !email || !members) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -188,33 +211,39 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const result = await pool.query<TeamRow>(
+    interface NewTeamRow {
+      id: number;
+      company_name: string;
+      instagram: string | null;
+      threads: string | null;
+      email: string;
+      members: { name: string; role: string }[];
+      created_at: string;
+    }
+
+    const result = await pool.query<NewTeamRow>(
       `INSERT INTO teams (company_name, password_hash, instagram, threads, email, members)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, company_name, instagram, threads, email, members, created_at`,
-      [
-        companyName,
-        passwordHash,
-        instagram ?? null,
-        threads ?? null,
-        email,
-        JSON.stringify(members),
-      ]
+      [companyName, passwordHash, instagram ?? null, threads ?? null, email, JSON.stringify(members)]
     );
 
     const row = result.rows[0];
-    const team = {
-      id: row.id,
-      companyName: row.company_name,
-      password: '',
-      instagram: row.instagram ?? undefined,
-      threads: row.threads ?? undefined,
-      email: row.email,
-      members: row.members,
-      createdAt: row.created_at,
-    };
-
-    return NextResponse.json({ team }, { status: 201 });
+    return NextResponse.json(
+      {
+        team: {
+          id: String(row.id),
+          companyName: row.company_name,
+          instagram: row.instagram ?? undefined,
+          threads: row.threads ?? undefined,
+          email: row.email,
+          members: row.members,
+          memberCount: Array.isArray(row.members) ? row.members.length : 0,
+          createdAt: row.created_at,
+        },
+      },
+      { status: 201 }
+    );
   } catch (err) {
     console.error('POST /api/teams error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 
 interface TeamRow {
-  id: string;
+  id: number;
   company_name: string;
   instagram: string | null;
   threads: string | null;
@@ -12,8 +12,8 @@ interface TeamRow {
 }
 
 interface TaskRow {
-  id: string;
-  team_id: string;
+  id: number;
+  team_id: number;
   task_name: string;
   accuracy: number;
   quality: number;
@@ -24,8 +24,8 @@ interface TaskRow {
 }
 
 interface SocialRow {
-  id: string;
-  team_id: string;
+  id: number;
+  team_id: number;
   week_number: number;
   content_quality: number;
   posting_frequency: number;
@@ -38,11 +38,26 @@ interface SocialRow {
 }
 
 interface PresentationRow {
-  id: string;
-  team_id: string;
+  id: number;
+  team_id: number;
   score: number;
   scored_at: string;
   scored_by: string;
+}
+
+interface SessionRow {
+  user_type: string;
+  user_id: string;
+}
+
+async function getSession(req: NextRequest): Promise<SessionRow | null> {
+  const sessionId = req.cookies.get('atlas_sid')?.value;
+  if (!sessionId) return null;
+  const res = await pool.query<SessionRow>(
+    `SELECT user_type, user_id FROM sessions WHERE id = $1 AND expires_at > NOW()`,
+    [sessionId]
+  );
+  return res.rows[0] ?? null;
 }
 
 export async function GET(
@@ -51,6 +66,15 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+    const session = await getSession(req);
+
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (session.user_type !== 'admin' && session.user_id !== id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const [teamRes, taskRes, socialRes, presentRes] = await Promise.all([
       pool.query<TeamRow>(
@@ -69,8 +93,7 @@ export async function GET(
         [id]
       ),
       pool.query<PresentationRow>(
-        `SELECT id, team_id, score, scored_at, scored_by
-         FROM presentation_scores WHERE team_id = $1`,
+        `SELECT id, team_id, score, scored_at, scored_by FROM presentation_scores WHERE team_id = $1`,
         [id]
       ),
     ]);
@@ -80,9 +103,11 @@ export async function GET(
     }
 
     const team = teamRes.rows[0];
+    const teamIdStr = String(team.id);
+
     const taskScores = taskRes.rows.map((s) => ({
-      id: s.id,
-      teamId: s.team_id,
+      id: String(s.id),
+      teamId: teamIdStr,
       taskName: s.task_name,
       accuracy: s.accuracy,
       quality: s.quality,
@@ -93,8 +118,8 @@ export async function GET(
     }));
 
     const socialScores = socialRes.rows.map((s) => ({
-      id: s.id,
-      teamId: s.team_id,
+      id: String(s.id),
+      teamId: teamIdStr,
       weekNumber: s.week_number,
       contentQuality: s.content_quality,
       postingFrequency: s.posting_frequency,
@@ -109,8 +134,8 @@ export async function GET(
     const ps = presentRes.rows[0];
     const presentationScore = ps
       ? {
-          id: ps.id,
-          teamId: ps.team_id,
+          id: String(ps.id),
+          teamId: teamIdStr,
           score: ps.score,
           scoredAt: ps.scored_at,
           scoredBy: ps.scored_by,
@@ -123,24 +148,18 @@ export async function GET(
     );
     const totalSocialPoints = socialScores.reduce(
       (sum, s) =>
-        sum +
-        s.contentQuality +
-        s.postingFrequency +
-        s.likes +
-        s.views +
-        s.followers +
-        s.comments,
+        sum + s.contentQuality + s.postingFrequency + s.likes + s.views + s.followers + s.comments,
       0
     );
-    const totalPresentationPoints = ps?.score || 0;
+    const totalPresentationPoints = ps?.score ?? 0;
 
     return NextResponse.json({
       team: {
-        id: team.id,
+        id: teamIdStr,
         companyName: team.company_name,
         password: '',
-        instagram: team.instagram || undefined,
-        threads: team.threads || undefined,
+        instagram: team.instagram ?? undefined,
+        threads: team.threads ?? undefined,
         email: team.email,
         members: team.members,
         createdAt: team.created_at,
@@ -165,23 +184,19 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params;
-    const sessionId = req.cookies.get('atlas_sid')?.value;
-    if (!sessionId) {
+    const session = await getSession(req);
+
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const sessionRes = await pool.query(
-      `SELECT user_type FROM sessions WHERE id = $1 AND expires_at > NOW()`,
-      [sessionId]
-    );
-    if (sessionRes.rows.length === 0 || sessionRes.rows[0].user_type !== 'admin') {
+    if (session.user_type !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     await pool.query('DELETE FROM task_scores WHERE team_id = $1', [id]);
     await pool.query('DELETE FROM social_media_scores WHERE team_id = $1', [id]);
     await pool.query('DELETE FROM presentation_scores WHERE team_id = $1', [id]);
-    await pool.query('DELETE FROM sessions WHERE user_id = $1', [id]);
+    await pool.query('DELETE FROM sessions WHERE user_id = $1 AND user_type = $2', [id, 'team']);
     await pool.query('DELETE FROM teams WHERE id = $1', [id]);
 
     return NextResponse.json({ ok: true });

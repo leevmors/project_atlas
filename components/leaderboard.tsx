@@ -93,7 +93,7 @@ export function Leaderboard() {
         </div>
         <div className="text-center p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/50">
           <div className="font-display text-2xl sm:text-3xl font-bold text-foreground">
-            {teams.reduce((sum, t) => sum + t.members.length, 0)}
+            {teams.reduce((sum, t) => sum + (t.memberCount ?? 0), 0)}
           </div>
           <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
             Competitors

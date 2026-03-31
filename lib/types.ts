@@ -9,9 +9,10 @@ export interface Team {
   password: string;
   instagram?: string;
   threads?: string;
-  email: string;
-  members: TeamMember[];
-  createdAt: string;
+  email?: string;
+  members?: TeamMember[];
+  memberCount?: number;
+  createdAt?: string;
 }
 
 export interface TaskScore {

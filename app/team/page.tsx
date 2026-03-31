@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { AppShell } from '@/components/app-shell';
-import { getAllTeamsWithScores } from '@/lib/store';
+import { getAllTeamsWithScores, getTeamWithScores } from '@/lib/store';
 import type { TeamWithScores } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -34,13 +34,15 @@ function TeamContent() {
     }
 
     if (session?.type === 'team') {
-      getAllTeamsWithScores()
-        .then((allTeams) => {
-          const found = allTeams.find((t) => t.id === session.id);
-          if (found) {
-            setTeam(found);
+      Promise.all([
+        getTeamWithScores(session.id),
+        getAllTeamsWithScores(),
+      ])
+        .then(([ownTeam, allTeams]) => {
+          if (ownTeam) {
+            setTeam(ownTeam);
             const teamRank = allTeams.findIndex((t) => t.id === session.id) + 1;
-            setRank(teamRank);
+            setRank(teamRank > 0 ? teamRank : allTeams.length);
           }
         })
         .catch(console.error)
@@ -202,12 +204,12 @@ function TeamContent() {
             <CardHeader>
               <CardTitle className="font-display text-lg flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
-                Team Members ({team.members.length})
+                Team Members ({team.members?.length ?? 0})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {team.members.map((member, index) => (
+                {(team.members ?? []).map((member, index) => (
                   <div
                     key={index}
                     className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30"

@@ -297,7 +297,7 @@ function AdminContent() {
                       <div>
                         <h3 className="font-display font-bold text-foreground">{team.companyName}</h3>
                         <div className="text-sm text-muted-foreground">
-                          {team.members.length} members | {team.email}
+                          {team.members?.length ?? team.memberCount ?? 0} members | {team.email ?? ''}
                         </div>
                       </div>
                     </div>

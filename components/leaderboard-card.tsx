@@ -110,7 +110,7 @@ export function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
             {/* Team members */}
             <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
               <Users className="h-3.5 w-3.5" />
-              <span>{team.members.length} member{team.members.length !== 1 ? 's' : ''}</span>
+              <span>{team.memberCount ?? 0} member{(team.memberCount ?? 0) !== 1 ? 's' : ''}</span>
             </div>
           </div>
 
