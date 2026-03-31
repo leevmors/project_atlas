@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-
-async function requireAdmin(req: NextRequest) {
-  const sessionId = req.cookies.get('atlas_sid')?.value;
-  if (!sessionId) return null;
-  const res = await pool.query(
-    `SELECT user_type FROM sessions WHERE id = $1 AND expires_at > NOW()`,
-    [sessionId]
-  );
-  if (res.rows.length === 0 || res.rows[0].user_type !== 'admin') return null;
-  return true;
-}
+import { requireAdmin, clampScore } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,41 +8,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const {
-      teamId,
-      weekNumber,
-      contentQuality,
-      postingFrequency,
-      likes,
-      views,
-      followers,
-      comments,
-      scoredBy,
-    } = await req.json();
+    const body = await req.json();
+    const { teamId, scoredBy } = body;
+
+    if (!teamId) {
+      return NextResponse.json({ error: 'teamId is required' }, { status: 400 });
+    }
+
+    const weekNumber = Math.max(1, Math.min(52, Math.round(Number(body.weekNumber) || 1)));
+    const contentQuality = clampScore(body.contentQuality);
+    const postingFrequency = clampScore(body.postingFrequency);
+    const likes = clampScore(body.likes);
+    const views = clampScore(body.views);
+    const followers = clampScore(body.followers);
+    const comments = clampScore(body.comments);
 
     const result = await pool.query(
       `INSERT INTO social_media_scores
          (team_id, week_number, content_quality, posting_frequency, likes, views, followers, comments, scored_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id, team_id, week_number, content_quality, posting_frequency, likes, views, followers, comments, scored_at, scored_by`,
-      [
-        teamId,
-        weekNumber,
-        contentQuality,
-        postingFrequency,
-        likes,
-        views,
-        followers,
-        comments,
-        scoredBy,
-      ]
+      [teamId, weekNumber, contentQuality, postingFrequency, likes, views, followers, comments, scoredBy || 'admin']
     );
 
     const s = result.rows[0];
     return NextResponse.json({
       score: {
-        id: s.id,
-        teamId: s.team_id,
+        id: String(s.id),
+        teamId: String(s.team_id),
         weekNumber: s.week_number,
         contentQuality: s.content_quality,
         postingFrequency: s.posting_frequency,

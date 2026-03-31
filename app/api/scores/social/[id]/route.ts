@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { requireAdmin, clampScore } from '@/lib/auth';
 
 interface SocialScoreRow {
-  id: string;
-  team_id: string;
+  id: number;
+  team_id: number;
   week_number: number;
   content_quality: number;
   posting_frequency: number;
@@ -15,17 +16,6 @@ interface SocialScoreRow {
   scored_by: string;
 }
 
-async function requireAdmin(req: NextRequest) {
-  const sessionId = req.cookies.get('atlas_sid')?.value;
-  if (!sessionId) return null;
-  const res = await pool.query(
-    `SELECT user_type FROM sessions WHERE id = $1 AND expires_at > NOW()`,
-    [sessionId]
-  );
-  if (res.rows.length === 0 || res.rows[0].user_type !== 'admin') return null;
-  return true;
-}
-
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -35,20 +25,31 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const { id } = await context.params;
-    const { weekNumber, contentQuality, postingFrequency, likes, views, followers, comments } =
-      await req.json();
+    const body = await req.json();
+
+    const weekNumber = body.weekNumber != null
+      ? Math.max(1, Math.min(52, Math.round(Number(body.weekNumber) || 1)))
+      : undefined;
+    const contentQuality = body.contentQuality != null ? clampScore(body.contentQuality) : undefined;
+    const postingFrequency = body.postingFrequency != null ? clampScore(body.postingFrequency) : undefined;
+    const likes = body.likes != null ? clampScore(body.likes) : undefined;
+    const views = body.views != null ? clampScore(body.views) : undefined;
+    const followers = body.followers != null ? clampScore(body.followers) : undefined;
+    const comments = body.comments != null ? clampScore(body.comments) : undefined;
+
     const result = await pool.query<SocialScoreRow>(
       `UPDATE social_media_scores
-       SET week_number = COALESCE($1, week_number),
-           content_quality = COALESCE($2, content_quality),
-           posting_frequency = COALESCE($3, posting_frequency),
-           likes = COALESCE($4, likes),
-           views = COALESCE($5, views),
-           followers = COALESCE($6, followers),
-           comments = COALESCE($7, comments)
+       SET week_number        = COALESCE($1, week_number),
+           content_quality    = COALESCE($2, content_quality),
+           posting_frequency  = COALESCE($3, posting_frequency),
+           likes              = COALESCE($4, likes),
+           views              = COALESCE($5, views),
+           followers          = COALESCE($6, followers),
+           comments           = COALESCE($7, comments)
        WHERE id = $8
        RETURNING id, team_id, week_number, content_quality, posting_frequency, likes, views, followers, comments, scored_at, scored_by`,
-      [weekNumber, contentQuality, postingFrequency, likes, views, followers, comments, id]
+      [weekNumber ?? null, contentQuality ?? null, postingFrequency ?? null,
+       likes ?? null, views ?? null, followers ?? null, comments ?? null, id]
     );
     if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Score not found' }, { status: 404 });
@@ -56,8 +57,8 @@ export async function PUT(
     const s = result.rows[0];
     return NextResponse.json({
       score: {
-        id: s.id,
-        teamId: s.team_id,
+        id: String(s.id),
+        teamId: String(s.team_id),
         weekNumber: s.week_number,
         contentQuality: s.content_quality,
         postingFrequency: s.posting_frequency,

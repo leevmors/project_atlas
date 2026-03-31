@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { requireAdmin, clampScore } from '@/lib/auth';
 
 interface PresentationScoreRow {
-  id: string;
-  team_id: string;
+  id: number;
+  team_id: number;
   score: number;
   scored_at: string;
   scored_by: string;
-}
-
-async function requireAdmin(req: NextRequest) {
-  const sessionId = req.cookies.get('atlas_sid')?.value;
-  if (!sessionId) return null;
-  const res = await pool.query(
-    `SELECT user_type FROM sessions WHERE id = $1 AND expires_at > NOW()`,
-    [sessionId]
-  );
-  if (res.rows.length === 0 || res.rows[0].user_type !== 'admin') return null;
-  return true;
 }
 
 export async function PUT(
@@ -29,10 +19,16 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const { id } = await context.params;
-    const { score } = await req.json();
+    const body = await req.json();
+
+    if (body.score == null) {
+      return NextResponse.json({ error: 'score is required' }, { status: 400 });
+    }
+    const score = clampScore(body.score);
+
     const result = await pool.query<PresentationScoreRow>(
       `UPDATE presentation_scores
-       SET score = COALESCE($1, score), scored_at = NOW()
+       SET score = $1, scored_at = NOW()
        WHERE id = $2
        RETURNING id, team_id, score, scored_at, scored_by`,
       [score, id]
@@ -43,8 +39,8 @@ export async function PUT(
     const s = result.rows[0];
     return NextResponse.json({
       score: {
-        id: s.id,
-        teamId: s.team_id,
+        id: String(s.id),
+        teamId: String(s.team_id),
         score: s.score,
         scoredAt: s.scored_at,
         scoredBy: s.scored_by,

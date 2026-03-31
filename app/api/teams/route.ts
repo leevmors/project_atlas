@@ -194,8 +194,27 @@ export async function POST(req: NextRequest) {
   try {
     const { companyName, password, instagram, threads, email, members } = await req.json();
 
-    if (!companyName || !password || !email || !members) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!companyName || typeof companyName !== 'string' || !companyName.trim()) {
+      return NextResponse.json({ error: 'companyName is required' }, { status: 400 });
+    }
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return NextResponse.json({ error: 'password must be at least 6 characters' }, { status: 400 });
+    }
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return NextResponse.json({ error: 'Valid email is required' }, { status: 400 });
+    }
+    if (!Array.isArray(members) || members.length === 0) {
+      return NextResponse.json({ error: 'At least one team member is required' }, { status: 400 });
+    }
+    const validMembers = members.every(
+      (m: unknown) =>
+        m !== null &&
+        typeof m === 'object' &&
+        typeof (m as Record<string, unknown>).name === 'string' &&
+        (m as Record<string, unknown>).name !== ''
+    );
+    if (!validMembers) {
+      return NextResponse.json({ error: 'Each member must have a name' }, { status: 400 });
     }
 
     const existing = await pool.query(
