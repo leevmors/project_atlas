@@ -95,7 +95,8 @@ function AdminContent() {
     if (session?.type === 'admin') {
       loadTeams();
     }
-  }, [session, authLoading, router, loadTeams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, authLoading]);
 
   const handleAddTaskScore = async (teamId: string) => {
     if (!taskForm.taskName.trim()) return;

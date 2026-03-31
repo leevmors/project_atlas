@@ -48,7 +48,8 @@ function TeamContent() {
         .catch(console.error)
         .finally(() => setIsLoading(false));
     }
-  }, [session, authLoading, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, authLoading]);
 
   if (authLoading || isLoading) {
     return (

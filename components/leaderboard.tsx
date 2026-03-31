@@ -9,13 +9,15 @@ import { Trophy, Users, Sparkles } from 'lucide-react';
 export function Leaderboard() {
   const [teams, setTeams] = useState<TeamWithScores[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadTeams = useCallback(async () => {
     try {
       const teamsWithScores = await getAllTeamsWithScores();
-      setTeams(teamsWithScores);
-    } catch (err) {
-      console.error('Failed to load leaderboard:', err);
+      setTeams(teamsWithScores ?? []);
+      setHasError(false);
+    } catch {
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
@@ -23,7 +25,7 @@ export function Leaderboard() {
 
   useEffect(() => {
     loadTeams();
-    const interval = setInterval(loadTeams, 10000);
+    const interval = setInterval(loadTeams, 30000);
     return () => clearInterval(interval);
   }, [loadTeams]);
 
@@ -37,6 +39,21 @@ export function Leaderboard() {
           </div>
           <p className="text-muted-foreground text-sm">Loading leaderboard...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (hasError && teams.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4">
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-primary/10 blur-3xl rounded-full" />
+          <Users className="relative h-16 w-16 text-muted-foreground" />
+        </div>
+        <h3 className="font-display text-xl font-bold text-foreground mb-2">No Teams Yet</h3>
+        <p className="text-muted-foreground max-w-md">
+          The competition is about to begin! Register your team to be the first on the leaderboard.
+        </p>
       </div>
     );
   }

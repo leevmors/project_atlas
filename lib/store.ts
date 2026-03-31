@@ -19,7 +19,15 @@ async function apiFetch(path: string, options?: RequestInit) {
     const body = await res.json().catch(() => ({ error: 'Unknown error' }));
     throw new Error(body.error || `HTTP ${res.status}`);
   }
-  return res.json();
+  const text = await res.text();
+  if (!text) {
+    return {};
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('Invalid JSON response from server');
+  }
 }
 
 export function generateId(): string {
@@ -29,7 +37,7 @@ export function generateId(): string {
 // Teams
 export async function getAllTeamsWithScores(): Promise<TeamWithScores[]> {
   const data = await apiFetch('/api/teams');
-  return data.teams;
+  return data.teams ?? [];
 }
 
 export async function getTeamWithScores(teamId: string): Promise<TeamWithScores | null> {
