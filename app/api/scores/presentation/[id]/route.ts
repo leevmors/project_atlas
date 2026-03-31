@@ -12,6 +12,38 @@ async function requireAdmin(req: NextRequest) {
   return true;
 }
 
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    if (!(await requireAdmin(req))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const { score } = await req.json();
+    const result = await pool.query(
+      `UPDATE presentation_scores
+       SET score = COALESCE($1, score), scored_at = NOW()
+       WHERE id = $2
+       RETURNING id, team_id, score, scored_at, scored_by`,
+      [score, params.id]
+    );
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Score not found' }, { status: 404 });
+    }
+    const s = result.rows[0];
+    return NextResponse.json({
+      score: {
+        id: s.id,
+        teamId: s.team_id,
+        score: s.score,
+        scoredAt: s.scored_at,
+        scoredBy: s.scored_by,
+      },
+    });
+  } catch (err) {
+    console.error('PUT /api/scores/presentation/[id] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     if (!(await requireAdmin(req))) {

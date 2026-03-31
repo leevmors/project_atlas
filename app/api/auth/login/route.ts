@@ -3,27 +3,54 @@ import { pool } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'leev';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '8702594qwe';
 const SESSION_HOURS = 24;
+
+async function ensureAdminExists() {
+  const res = await pool.query('SELECT id FROM admins LIMIT 1');
+  if (res.rows.length === 0) {
+    const username = process.env.ADMIN_USERNAME;
+    const password = process.env.ADMIN_PASSWORD;
+    if (!username || !password) {
+      throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD env vars must be set');
+    }
+    const hash = await bcrypt.hash(password, 12);
+    await pool.query(
+      'INSERT INTO admins (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO NOTHING',
+      [username, hash]
+    );
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
     const { type, identifier, password } = await req.json();
 
+    if (!type || !identifier || !password) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
     let session: { type: string; id: string; name: string } | null = null;
 
     if (type === 'admin') {
-      if (identifier === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        session = { type: 'admin', id: 'admin', name: 'Lingua HQ Admin' };
+      await ensureAdminExists();
+      const res = await pool.query(
+        'SELECT id, username, password_hash FROM admins WHERE username = $1',
+        [identifier]
+      );
+      if (res.rows.length > 0) {
+        const admin = res.rows[0];
+        const ok = await bcrypt.compare(password, admin.password_hash);
+        if (ok) {
+          session = { type: 'admin', id: `admin-${admin.id}`, name: admin.username };
+        }
       }
     } else {
-      const result = await pool.query(
+      const res = await pool.query(
         'SELECT id, company_name, password_hash FROM teams WHERE LOWER(company_name) = LOWER($1)',
         [identifier]
       );
-      if (result.rows.length > 0) {
-        const team = result.rows[0];
+      if (res.rows.length > 0) {
+        const team = res.rows[0];
         const ok = await bcrypt.compare(password, team.password_hash);
         if (ok) {
           session = { type: 'team', id: team.id, name: team.company_name };

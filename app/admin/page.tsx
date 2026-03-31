@@ -9,9 +9,11 @@ import {
   saveTaskScore,
   saveSocialScore,
   savePresentationScore,
+  updatePresentationScore,
   deleteTeam,
   deleteTaskScore,
   deleteSocialScore,
+  deletePresentationScore,
 } from '@/lib/store';
 import type { TeamWithScores } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -161,6 +163,25 @@ function AdminContent() {
       await loadTeams();
     } catch (err) {
       console.error('Failed to delete task score:', err);
+    }
+  };
+
+  const handleEditPresentationScore = async (scoreId: string, newScore: number) => {
+    try {
+      await updatePresentationScore(scoreId, newScore);
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to update presentation score:', err);
+    }
+  };
+
+  const handleDeletePresentationScore = async (scoreId: string) => {
+    if (!confirm('Delete this presentation score?')) return;
+    try {
+      await deletePresentationScore(scoreId);
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to delete presentation score:', err);
     }
   };
 
@@ -684,17 +705,57 @@ function AdminContent() {
                           Presentation Score (Week 14)
                         </h4>
                         {team.presentationScore ? (
-                          <div className="p-4 rounded-lg bg-secondary/30">
+                          <div className="p-4 rounded-lg bg-secondary/30 space-y-4">
                             <div className="flex items-center justify-between">
                               <span className="text-foreground">Current Score:</span>
                               <span className="font-display text-2xl font-bold text-primary">
                                 {team.presentationScore.score}/10
                               </span>
                             </div>
-                            <p className="text-sm text-muted-foreground mt-2">
+                            <p className="text-sm text-muted-foreground">
                               Scored on{' '}
                               {new Date(team.presentationScore.scoredAt).toLocaleDateString()}
                             </p>
+                            <div className="flex items-end gap-3 pt-2 border-t border-border/30">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Update Score (0-10)</Label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={10}
+                                  value={presentationForm.score}
+                                  onChange={(e) =>
+                                    setPresentationForm({
+                                      score: Math.min(10, Math.max(0, parseInt(e.target.value) || 0)),
+                                    })
+                                  }
+                                  className="bg-secondary/50 w-28"
+                                />
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  handleEditPresentationScore(
+                                    team.presentationScore!.id,
+                                    presentationForm.score
+                                  )
+                                }
+                              >
+                                <Save className="h-4 w-4 mr-1" />
+                                Update
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  handleDeletePresentationScore(team.presentationScore!.id)
+                                }
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
                           </div>
                         ) : (
                           <div className="grid gap-4">

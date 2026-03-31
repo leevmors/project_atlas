@@ -9,7 +9,7 @@ A Next.js 16 leaderboard app for student translation companies competing in Ling
 - **UI Components**: Radix UI primitives, shadcn/ui component library
 - **Package Manager**: npm
 - **Database**: Replit PostgreSQL (accessed via `DATABASE_URL` env var)
-- **Auth**: Server-side sessions with httpOnly cookies (`atlas_sid`), bcrypt-hashed team passwords
+- **Auth**: Server-side sessions with httpOnly cookies (`atlas_sid`), bcrypt-hashed passwords for both teams and admin
 
 ## Key Directories
 
@@ -29,14 +29,18 @@ A Next.js 16 leaderboard app for student translation companies competing in Ling
 - `POST /api/teams` — Register new team (hashes password with bcrypt)
 - `DELETE /api/teams/[id]` — Admin-only delete team
 - `POST /api/scores/task` — Admin-only add task score
+- `PUT /api/scores/task/[id]` — Admin-only edit task score
 - `DELETE /api/scores/task/[id]` — Admin-only delete task score
 - `POST /api/scores/social` — Admin-only add social media score
+- `PUT /api/scores/social/[id]` — Admin-only edit social media score
 - `DELETE /api/scores/social/[id]` — Admin-only delete social score
 - `POST /api/scores/presentation` — Admin-only upsert presentation score
+- `PUT /api/scores/presentation/[id]` — Admin-only edit presentation score
 - `DELETE /api/scores/presentation/[id]` — Admin-only delete presentation score
 
 ## Database Tables
 
+- `admins` — id (serial), username (unique), password_hash, created_at
 - `teams` — id (serial), company_name, password_hash, instagram, threads, email, members (jsonb), created_at
 - `task_scores` — id (serial), team_id (FK), task_name, accuracy, quality, speed, tools, scored_at, scored_by
 - `social_media_scores` — id (serial), team_id (FK), week_number, content_quality, posting_frequency, likes, views, followers, comments, scored_at, scored_by
@@ -45,8 +49,7 @@ A Next.js 16 leaderboard app for student translation companies competing in Ling
 
 ## Admin Credentials
 
-- Default: `leev` / `8702594qwe` (set `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars to override)
-- Credentials are server-side only — never bundled to client
+Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment variables (Replit Secrets). The first login will hash and store the admin in the database. Do not hardcode credentials in source files.
 
 ## Replit Configuration
 

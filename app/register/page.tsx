@@ -81,8 +81,9 @@ function RegisterContent() {
         setSession(session);
         router.push('/team');
       }
-    } catch (err: any) {
-      setError(err?.message || 'Failed to register team. Please try again.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to register team. Please try again.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }

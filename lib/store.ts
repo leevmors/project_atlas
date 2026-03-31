@@ -66,6 +66,17 @@ export async function saveTaskScore(
   return data.score;
 }
 
+export async function updateTaskScore(
+  id: string,
+  updates: Partial<Pick<TaskScore, 'taskName' | 'accuracy' | 'quality' | 'speed' | 'tools'>>
+): Promise<TaskScore> {
+  const data = await apiFetch(`/api/scores/task/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+  return data.score;
+}
+
 export async function deleteTaskScore(id: string): Promise<void> {
   await apiFetch(`/api/scores/task/${id}`, { method: 'DELETE' });
 }
@@ -81,6 +92,28 @@ export async function saveSocialScore(
   return data.score;
 }
 
+export async function updateSocialScore(
+  id: string,
+  updates: Partial<
+    Pick<
+      SocialMediaScore,
+      | 'weekNumber'
+      | 'contentQuality'
+      | 'postingFrequency'
+      | 'likes'
+      | 'views'
+      | 'followers'
+      | 'comments'
+    >
+  >
+): Promise<SocialMediaScore> {
+  const data = await apiFetch(`/api/scores/social/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+  return data.score;
+}
+
 export async function deleteSocialScore(id: string): Promise<void> {
   await apiFetch(`/api/scores/social/${id}`, { method: 'DELETE' });
 }
@@ -92,6 +125,17 @@ export async function savePresentationScore(
   const data = await apiFetch('/api/scores/presentation', {
     method: 'POST',
     body: JSON.stringify(score),
+  });
+  return data.score;
+}
+
+export async function updatePresentationScore(
+  id: string,
+  score: number
+): Promise<PresentationScore> {
+  const data = await apiFetch(`/api/scores/presentation/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ score }),
   });
   return data.score;
 }
