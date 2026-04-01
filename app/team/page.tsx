@@ -4,9 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { AppShell } from '@/components/app-shell';
-import { getAllTeamsWithScores, getTeamWithScores } from '@/lib/store';
-import type { TeamWithScores } from '@/lib/types';
+import { getAllTeamsWithScores, getTeamWithScores, updateTeam } from '@/lib/store';
+import type { TeamWithScores, TeamMember } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Trophy,
   FileText,
@@ -18,6 +21,11 @@ import {
   TrendingUp,
   Target,
   Award,
+  Pencil,
+  Save,
+  X,
+  Plus,
+  Hash,
 } from 'lucide-react';
 
 function TeamContent() {
@@ -26,6 +34,15 @@ function TeamContent() {
   const [team, setTeam] = useState<TeamWithScores | null>(null);
   const [rank, setRank] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editInstagram, setEditInstagram] = useState('');
+  const [editThreads, setEditThreads] = useState('');
+  const [editGroupNumber, setEditGroupNumber] = useState('');
+  const [editMembers, setEditMembers] = useState<TeamMember[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (!authLoading && (!session || session.type !== 'team')) {
@@ -50,6 +67,61 @@ function TeamContent() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, authLoading]);
+
+  const startEditing = () => {
+    setEditInstagram(team?.instagram ?? '');
+    setEditThreads(team?.threads ?? '');
+    setEditGroupNumber(team?.groupNumber ?? '');
+    setEditMembers(team?.members ? team.members.map(m => ({ ...m })) : [{ name: '', role: '' }]);
+    setIsEditing(true);
+    setSaveError('');
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setSaveError('');
+  };
+
+  const addEditMember = () => {
+    if (editMembers.length < 10) {
+      setEditMembers([...editMembers, { name: '', role: '' }]);
+    }
+  };
+
+  const removeEditMember = (index: number) => {
+    if (editMembers.length > 1) {
+      setEditMembers(editMembers.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateEditMember = (index: number, field: keyof TeamMember, value: string) => {
+    setEditMembers(prev => prev.map((m, i) => i === index ? { ...m, [field]: value } : m));
+  };
+
+  const handleSave = async () => {
+    const validMembers = editMembers.filter(m => m.name.trim());
+    if (validMembers.length === 0) {
+      setSaveError('At least one member is required.');
+      return;
+    }
+    setIsSaving(true);
+    setSaveError('');
+    try {
+      await updateTeam(team!.id, {
+        instagram: editInstagram || undefined,
+        threads: editThreads || undefined,
+        groupNumber: editGroupNumber || undefined,
+        members: validMembers,
+      });
+      const updated = await getTeamWithScores(team!.id);
+      if (updated) setTeam(updated);
+      setIsEditing(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (authLoading || isLoading) {
     return (
@@ -154,48 +226,115 @@ function TeamContent() {
           {/* Team info */}
           <Card className="bg-card/40 backdrop-blur-md border-border/50">
             <CardHeader>
-              <CardTitle className="font-display text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Team Information
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="font-display text-lg flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Team Information
+                </CardTitle>
+                {!isEditing && (
+                  <Button variant="ghost" size="sm" onClick={startEditing} className="text-muted-foreground hover:text-primary">
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
-                <Mail className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <div className="text-xs text-muted-foreground">Email</div>
-                  <div className="text-sm font-medium text-foreground">{team.email}</div>
-                </div>
-              </div>
-
-              {team.instagram && (
-                <a
-                  href={`https://instagram.com/${team.instagram.replace('@', '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                >
-                  <Instagram className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <div className="text-xs text-muted-foreground">Instagram</div>
-                    <div className="text-sm font-medium text-foreground">{team.instagram}</div>
+              {isEditing ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="editInstagram">Instagram Handle</Label>
+                    <Input
+                      id="editInstagram"
+                      value={editInstagram}
+                      onChange={(e) => setEditInstagram(e.target.value)}
+                      placeholder="@yourcompany"
+                      className="bg-secondary/50"
+                    />
                   </div>
-                </a>
-              )}
-
-              {team.threads && (
-                <a
-                  href={`https://threads.net/${team.threads.replace('@', '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                >
-                  <AtSign className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <div className="text-xs text-muted-foreground">Threads</div>
-                    <div className="text-sm font-medium text-foreground">{team.threads}</div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editThreads">Threads Handle</Label>
+                    <Input
+                      id="editThreads"
+                      value={editThreads}
+                      onChange={(e) => setEditThreads(e.target.value)}
+                      placeholder="@yourcompany"
+                      className="bg-secondary/50"
+                    />
                   </div>
-                </a>
+                  <div className="space-y-2">
+                    <Label htmlFor="editGroupNumber">Group Number</Label>
+                    <Input
+                      id="editGroupNumber"
+                      value={editGroupNumber}
+                      onChange={(e) => setEditGroupNumber(e.target.value)}
+                      placeholder="e.g. 301-1"
+                      className="bg-secondary/50"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+                    <Mail className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Email</div>
+                      <div className="text-sm font-medium text-foreground">{team.email}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+                    <Instagram className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Instagram</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {team.instagram ? (
+                          <a
+                            href={`https://instagram.com/${team.instagram.replace('@', '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-primary transition-colors"
+                          >
+                            {team.instagram}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">Not set</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+                    <AtSign className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Threads</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {team.threads ? (
+                          <a
+                            href={`https://threads.net/${team.threads.replace('@', '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-primary transition-colors"
+                          >
+                            {team.threads}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">Not set</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+                    <Hash className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Group Number</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {team.groupNumber || <span className="text-muted-foreground">Not set</span>}
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -203,33 +342,102 @@ function TeamContent() {
           {/* Team members */}
           <Card className="bg-card/40 backdrop-blur-md border-border/50">
             <CardHeader>
-              <CardTitle className="font-display text-lg flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                Team Members ({team.members?.length ?? 0})
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="font-display text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Team Members ({isEditing ? editMembers.filter(m => m.name.trim()).length : (team.members?.length ?? 0)})
+                </CardTitle>
+                {isEditing && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={addEditMember}
+                    disabled={editMembers.length >= 10}
+                    className="text-primary"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {(team.members ?? []).map((member, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary">
-                      {member.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-foreground">{member.name}</div>
-                      {member.role && (
-                        <div className="text-xs text-muted-foreground">{member.role}</div>
+              {isEditing ? (
+                <div className="space-y-3">
+                  {editMembers.map((member, index) => (
+                    <div key={index} className="flex gap-2 items-start">
+                      <div className="flex-1 grid gap-2 sm:grid-cols-2">
+                        <Input
+                          value={member.name}
+                          onChange={(e) => updateEditMember(index, 'name', e.target.value)}
+                          placeholder="Member name"
+                          className="bg-secondary/50"
+                        />
+                        <Input
+                          value={member.role}
+                          onChange={(e) => updateEditMember(index, 'role', e.target.value)}
+                          placeholder="Role (e.g. Translator)"
+                          className="bg-secondary/50"
+                        />
+                      </div>
+                      {editMembers.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeEditMember(index)}
+                          className="text-muted-foreground hover:text-destructive shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(team.members ?? []).map((member, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary">
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-foreground">{member.name}</div>
+                        {member.role && (
+                          <div className="text-xs text-muted-foreground">{member.role}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
+
+        {/* Save/Cancel bar when editing */}
+        {isEditing && (
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-card/40 backdrop-blur-md border border-border/50">
+            <div className="flex-1">
+              {saveError && (
+                <p className="text-destructive text-sm">{saveError}</p>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={cancelEditing} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Task scores */}
         <Card className="bg-card/40 backdrop-blur-md border-border/50">

@@ -9,6 +9,7 @@ export interface Team {
   password?: string;
   instagram?: string;
   threads?: string;
+  groupNumber?: string;
   email?: string;
   members?: TeamMember[];
   memberCount?: number;

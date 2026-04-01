@@ -1,5 +1,6 @@
 import type {
   Team,
+  TeamMember,
   TaskScore,
   SocialMediaScore,
   PresentationScore,
@@ -66,6 +67,22 @@ export async function registerTeam(
   const data = await apiFetch('/api/teams', {
     method: 'POST',
     body: JSON.stringify(teamData),
+  });
+  return data.team;
+}
+
+export async function updateTeam(
+  id: string,
+  updates: {
+    instagram?: string;
+    threads?: string;
+    groupNumber?: string;
+    members?: TeamMember[];
+  }
+): Promise<Team> {
+  const data = await apiFetch(`/api/teams/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
   });
   return data.team;
 }

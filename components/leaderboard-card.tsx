@@ -68,9 +68,16 @@ export function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
 
           {/* Team info */}
           <div className="flex-1 min-w-0">
-            <h3 className="font-display text-lg sm:text-xl font-bold text-foreground truncate group-hover:text-primary transition-colors">
-              {team.companyName}
-            </h3>
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="font-display text-lg sm:text-xl font-bold text-foreground truncate group-hover:text-primary transition-colors">
+                {team.companyName}
+              </h3>
+              {team.groupNumber && (
+                <span className="shrink-0 px-2 py-0.5 rounded-md bg-secondary/50 text-[10px] sm:text-xs font-medium text-muted-foreground border border-border/30">
+                  {team.groupNumber}
+                </span>
+              )}
+            </div>
             
             {/* Social links */}
             <div className="flex flex-wrap items-center gap-3 mt-2 text-muted-foreground">
@@ -108,9 +115,13 @@ export function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
             </div>
 
             {/* Team members */}
-            <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
-              <Users className="h-3.5 w-3.5" />
-              <span>{team.memberCount ?? 0} member{(team.memberCount ?? 0) !== 1 ? 's' : ''}</span>
+            <div className="flex flex-wrap items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+              <Users className="h-3.5 w-3.5 shrink-0" />
+              {team.members && team.members.length > 0 ? (
+                <span className="line-clamp-1">{team.members.map(m => m.name).join(', ')}</span>
+              ) : (
+                <span>{team.memberCount ?? 0} member{(team.memberCount ?? 0) !== 1 ? 's' : ''}</span>
+              )}
             </div>
           </div>
 

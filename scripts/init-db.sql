@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS teams (
   password_hash varchar(255)  NOT NULL,
   instagram     varchar(255),
   threads       varchar(255),
+  group_number  varchar(20),
   email         varchar(255)  NOT NULL,
   members       jsonb         NOT NULL DEFAULT '[]',
   created_at    timestamptz   DEFAULT NOW()

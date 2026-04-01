@@ -6,6 +6,7 @@ interface TeamRow {
   company_name: string;
   instagram: string | null;
   threads: string | null;
+  group_number: string | null;
   email: string;
   members: { name: string; role: string }[];
   created_at: string;
@@ -78,7 +79,7 @@ export async function GET(
 
     const [teamRes, taskRes, socialRes, presentRes] = await Promise.all([
       pool.query<TeamRow>(
-        `SELECT id, company_name, instagram, threads, email, members, created_at
+        `SELECT id, company_name, instagram, threads, group_number, email, members, created_at
          FROM teams WHERE id = $1`,
         [id]
       ),
@@ -159,6 +160,7 @@ export async function GET(
         companyName: team.company_name,
         instagram: team.instagram ?? undefined,
         threads: team.threads ?? undefined,
+        groupNumber: team.group_number ?? undefined,
         email: team.email,
         members: team.members,
         createdAt: team.created_at,
@@ -201,6 +203,102 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('DELETE /api/teams/[id] error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function PUT(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+    const session = await getSession(req);
+
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user_type !== 'admin' && session.user_id !== id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { instagram, threads, groupNumber, members } = body;
+
+    if (members !== undefined) {
+      if (!Array.isArray(members) || members.length === 0) {
+        return NextResponse.json({ error: 'At least one member required' }, { status: 400 });
+      }
+      const valid = members.every(
+        (m: unknown) =>
+          m !== null &&
+          typeof m === 'object' &&
+          typeof (m as Record<string, unknown>).name === 'string' &&
+          (m as Record<string, unknown>).name !== ''
+      );
+      if (!valid) {
+        return NextResponse.json({ error: 'Each member must have a name' }, { status: 400 });
+      }
+    }
+
+    if (groupNumber !== undefined && groupNumber !== null) {
+      if (typeof groupNumber !== 'string' || groupNumber.length > 20) {
+        return NextResponse.json({ error: 'Invalid group number' }, { status: 400 });
+      }
+    }
+
+    const setClauses: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    if (instagram !== undefined) {
+      setClauses.push(`instagram = $${paramIndex++}`);
+      values.push(instagram || null);
+    }
+    if (threads !== undefined) {
+      setClauses.push(`threads = $${paramIndex++}`);
+      values.push(threads || null);
+    }
+    if (groupNumber !== undefined) {
+      setClauses.push(`group_number = $${paramIndex++}`);
+      values.push(groupNumber || null);
+    }
+    if (members !== undefined) {
+      setClauses.push(`members = $${paramIndex++}`);
+      values.push(JSON.stringify(members));
+    }
+
+    if (setClauses.length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    values.push(id);
+    const result = await pool.query<TeamRow>(
+      `UPDATE teams SET ${setClauses.join(', ')} WHERE id = $${paramIndex}
+       RETURNING id, company_name, instagram, threads, group_number, email, members, created_at`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Team not found' }, { status: 404 });
+    }
+
+    const row = result.rows[0];
+    return NextResponse.json({
+      team: {
+        id: String(row.id),
+        companyName: row.company_name,
+        instagram: row.instagram ?? undefined,
+        threads: row.threads ?? undefined,
+        groupNumber: row.group_number ?? undefined,
+        email: row.email,
+        members: row.members,
+        memberCount: Array.isArray(row.members) ? row.members.length : 0,
+        createdAt: row.created_at,
+      },
+    });
+  } catch (err) {
+    console.error('PUT /api/teams/[id] error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

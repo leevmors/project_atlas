@@ -7,6 +7,7 @@ interface TeamRow {
   company_name: string;
   instagram: string | null;
   threads: string | null;
+  group_number: string | null;
   email: string;
   members: { name: string; role: string }[];
   member_count: string;
@@ -126,6 +127,8 @@ function buildTeamsWithScores(
         companyName: team.company_name,
         instagram: team.instagram ?? undefined,
         threads: team.threads ?? undefined,
+        groupNumber: team.group_number ?? undefined,
+        members: team.members,
         memberCount,
         taskScores: ts,
         socialScores: ss,
@@ -145,7 +148,7 @@ function buildTeamsWithScores(
       };
 
       if (isAdmin) {
-        return { ...base, email: team.email, members: team.members };
+        return { ...base, email: team.email };
       }
       return base;
     })
@@ -157,9 +160,9 @@ export async function GET(req: NextRequest) {
     const isAdmin = await getAdminSession(req);
 
     const selectCols = isAdmin
-      ? `id, company_name, instagram, threads, email, members,
+      ? `id, company_name, instagram, threads, group_number, email, members,
          jsonb_array_length(members) AS member_count, created_at`
-      : `id, company_name, instagram, threads,
+      : `id, company_name, instagram, threads, group_number, members,
          jsonb_array_length(members) AS member_count, created_at`;
 
     const [teamsRes, taskRes, socialRes, presentRes] = await Promise.all([
@@ -196,7 +199,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { companyName, password, instagram, threads, email, members } = await req.json();
+    const { companyName, password, instagram, threads, groupNumber, email, members } = await req.json();
 
     if (!companyName || typeof companyName !== 'string' || !companyName.trim()) {
       return NextResponse.json({ error: 'companyName is required' }, { status: 400 });
@@ -239,16 +242,17 @@ export async function POST(req: NextRequest) {
       company_name: string;
       instagram: string | null;
       threads: string | null;
+      group_number: string | null;
       email: string;
       members: { name: string; role: string }[];
       created_at: string;
     }
 
     const result = await pool.query<NewTeamRow>(
-      `INSERT INTO teams (company_name, password_hash, instagram, threads, email, members)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, company_name, instagram, threads, email, members, created_at`,
-      [companyName, passwordHash, instagram ?? null, threads ?? null, email, JSON.stringify(members)]
+      `INSERT INTO teams (company_name, password_hash, instagram, threads, group_number, email, members)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, company_name, instagram, threads, group_number, email, members, created_at`,
+      [companyName, passwordHash, instagram ?? null, threads ?? null, groupNumber ?? null, email, JSON.stringify(members)]
     );
 
     const row = result.rows[0];
@@ -259,6 +263,7 @@ export async function POST(req: NextRequest) {
           companyName: row.company_name,
           instagram: row.instagram ?? undefined,
           threads: row.threads ?? undefined,
+          groupNumber: row.group_number ?? undefined,
           email: row.email,
           members: row.members,
           memberCount: Array.isArray(row.members) ? row.members.length : 0,

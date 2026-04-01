@@ -22,6 +22,7 @@ function RegisterContent() {
   const [instagram, setInstagram] = useState('');
   const [threads, setThreads] = useState('');
   const [email, setEmail] = useState('');
+  const [groupNumber, setGroupNumber] = useState('');
   const [members, setMembers] = useState<TeamMember[]>([{ name: '', role: '' }]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +73,7 @@ function RegisterContent() {
         password,
         instagram: instagram || undefined,
         threads: threads || undefined,
+        groupNumber: groupNumber || undefined,
         email,
         members: validMembers,
       });
@@ -173,6 +175,18 @@ function RegisterContent() {
                     className="bg-secondary/50"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="groupNumber">Group Number</Label>
+                <Input
+                  id="groupNumber"
+                  type="text"
+                  value={groupNumber}
+                  onChange={(e) => setGroupNumber(e.target.value)}
+                  placeholder="e.g. 301-1"
+                  className="bg-secondary/50"
+                />
               </div>
             </div>
 
