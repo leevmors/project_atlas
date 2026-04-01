@@ -1,171 +1,165 @@
 'use client';
 
 import type { TeamWithScores } from '@/lib/types';
-import { Trophy, Instagram, AtSign, Mail, Users, FileText, Share2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Trophy, Instagram, AtSign, Mail, Users, ClipboardList, Share2, Award, Crown } from 'lucide-react';
 
 interface LeaderboardCardProps {
   team: TeamWithScores;
   rank: number;
 }
 
-export function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
-  const isTopThree = rank <= 3;
-  
-  const getMedalColor = (rank: number) => {
-    switch (rank) {
-      case 1: return 'from-gold via-gold/80 to-gold/60';
-      case 2: return 'from-silver via-silver/80 to-silver/60';
-      case 3: return 'from-bronze via-bronze/80 to-bronze/60';
-      default: return 'from-muted via-muted/80 to-muted/60';
-    }
-  };
+function getRankLabel(rank: number): string {
+  if (rank === 1) return '1st';
+  if (rank === 2) return '2nd';
+  if (rank === 3) return '3rd';
+  return `${rank}th`;
+}
 
-  const getRankBadgeStyle = (rank: number) => {
-    switch (rank) {
-      case 1: return 'bg-gradient-to-br from-gold to-gold/70 text-background shadow-lg shadow-gold/30';
-      case 2: return 'bg-gradient-to-br from-silver to-silver/70 text-background shadow-lg shadow-silver/30';
-      case 3: return 'bg-gradient-to-br from-bronze to-bronze/70 text-background shadow-lg shadow-bronze/30';
-      default: return 'bg-secondary text-secondary-foreground';
-    }
-  };
+function getRankGradient(rank: number): string {
+  switch (rank) {
+    case 1: return 'bg-gradient-to-r from-amber-400 to-amber-500';
+    case 2: return 'bg-gradient-to-r from-slate-400 to-slate-500';
+    case 3: return 'bg-gradient-to-r from-orange-400 to-orange-500';
+    default: return 'bg-gradient-to-r from-sky-400 to-sky-500';
+  }
+}
+
+function getScoreBadgeBg(rank: number): string {
+  switch (rank) {
+    case 1: return 'bg-amber-50';
+    case 2: return 'bg-slate-50';
+    case 3: return 'bg-orange-50';
+    default: return 'bg-sky-50';
+  }
+}
+
+function getScoreTextColor(rank: number): string {
+  switch (rank) {
+    case 1: return 'text-amber-600';
+    case 2: return 'text-slate-600';
+    case 3: return 'text-orange-600';
+    default: return 'text-sky-600';
+  }
+}
+
+export function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
+  const memberNames = team.members && team.members.length > 0
+    ? team.members.map(m => m.name).join(', ')
+    : `${team.memberCount ?? 0} member${(team.memberCount ?? 0) !== 1 ? 's' : ''}`;
 
   return (
-    <div
-      className={cn(
-        "group relative overflow-hidden rounded-2xl transition-all duration-500",
-        "bg-card/50 backdrop-blur-xl border border-white/[0.08] shadow-lg shadow-black/10",
-        "hover:bg-card/70 hover:border-white/15 hover:shadow-2xl hover:shadow-primary/15 hover:-translate-y-0.5",
-        isTopThree && "border-t-2",
-        rank === 1 && "border-t-gold shadow-gold/5",
-        rank === 2 && "border-t-silver shadow-silver/5",
-        rank === 3 && "border-t-bronze shadow-bronze/5"
-      )}
-    >
-      {/* Background glow for top 3 */}
-      {isTopThree && (
-        <div
-          className={cn(
-            "absolute -top-24 -right-24 w-56 h-56 rounded-full blur-3xl opacity-25",
-            `bg-gradient-to-br ${getMedalColor(rank)}`
-          )}
-        />
-      )}
+    <div className="bg-white/85 backdrop-blur-sm rounded-2xl overflow-visible shadow-md flex flex-col relative">
+      {/* Rank Stamp - Top Center */}
+      <div className={`absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-4 py-1.5 rounded-full shadow-lg z-10 ${getRankGradient(rank)}`}>
+        <Crown className="w-4 h-4 text-white" strokeWidth={2.5} />
+        <span className="text-white font-bold text-sm">
+          {getRankLabel(rank)}
+        </span>
+      </div>
 
-      <div className="relative p-6 sm:p-7">
-        <div className="flex items-start gap-4">
-          {/* Rank badge */}
-          <div className={cn(
-            "flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center font-display text-xl sm:text-2xl font-bold",
-            getRankBadgeStyle(rank)
-          )}>
-            {rank <= 3 ? (
-              <Trophy className="h-7 w-7 sm:h-8 sm:w-8" />
-            ) : (
-              rank
-            )}
+      {/* Main Card Content */}
+      <div className="px-5 pt-5 pb-4 flex-1">
+        {/* Company Logo Placeholder + Info */}
+        <div className="flex items-start gap-4 mb-4">
+          {/* Company Logo */}
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Trophy className="w-7 h-7 text-slate-400" strokeWidth={1.5} />
           </div>
 
-          {/* Team info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <h3 className="font-display text-xl sm:text-2xl font-bold text-foreground truncate group-hover:text-primary transition-colors">
-                {team.companyName}
-              </h3>
+          {/* Company Name + Group */}
+          <div className="flex-1 min-w-0 pt-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-slate-800 font-bold text-lg truncate">{team.companyName}</h3>
               {team.groupNumber && (
-                <span className="shrink-0 px-2 py-0.5 rounded-md bg-secondary/50 text-[10px] sm:text-xs font-medium text-muted-foreground border border-border/30">
+                <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-xs font-medium flex-shrink-0">
                   {team.groupNumber}
                 </span>
               )}
             </div>
-            
-            {/* Social links */}
-            <div className="flex flex-wrap items-center gap-3 mt-2 text-muted-foreground">
-              {team.instagram && (
-                <a 
-                  href={`https://instagram.com/${team.instagram.replace('@', '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs hover:text-primary transition-colors"
-                >
-                  <Instagram className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{team.instagram}</span>
-                </a>
-              )}
-              {team.threads && (
-                <a 
-                  href={`https://threads.net/${team.threads.replace('@', '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs hover:text-primary transition-colors"
-                >
-                  <AtSign className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Threads</span>
-                </a>
-              )}
-              {team.email && (
-                <a 
-                  href={`mailto:${team.email}`}
-                  className="flex items-center gap-1 text-xs hover:text-primary transition-colors"
-                >
-                  <Mail className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{team.email}</span>
-                </a>
-              )}
-            </div>
-
-            {/* Team members */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2 text-xs text-muted-foreground">
-              <Users className="h-3.5 w-3.5 shrink-0" />
-              {team.members && team.members.length > 0 ? (
-                <span className="line-clamp-1">{team.members.map(m => m.name).join(', ')}</span>
-              ) : (
-                <span>{team.memberCount ?? 0} member{(team.memberCount ?? 0) !== 1 ? 's' : ''}</span>
-              )}
+            <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+              <span>{team.memberCount ?? (team.members?.length ?? 0)} members</span>
             </div>
           </div>
 
-          {/* Total score */}
-          <div className="flex-shrink-0 text-right">
-            <div className="font-display text-3xl sm:text-4xl font-bold text-foreground">
-              {team.grandTotal}
-            </div>
-            <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
-              Points
-            </div>
+          {/* Score Badge */}
+          <div className={`flex flex-col items-center justify-center px-3 py-1.5 rounded-xl ${getScoreBadgeBg(rank)}`}>
+            <div className={`text-2xl font-bold ${getScoreTextColor(rank)}`}>{team.grandTotal}</div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Points</div>
           </div>
         </div>
 
-        {/* Score breakdown */}
-        <div className="mt-6 pt-5 border-t border-white/[0.06] grid grid-cols-3 gap-3 sm:gap-4">
-          <div className="text-center p-3 sm:p-4 rounded-xl bg-white/[0.04] border border-white/[0.05]">
-            <div className="flex items-center justify-center gap-1.5 text-muted-foreground mb-1.5">
-              <FileText className="h-3.5 w-3.5" />
-              <span className="text-[10px] sm:text-xs uppercase tracking-wider font-medium">Tasks</span>
-            </div>
-            <div className="font-display text-xl sm:text-2xl font-bold text-foreground">
-              {team.totalTaskPoints}
-            </div>
+        {/* Identity Info */}
+        <div className="space-y-2 text-sm">
+          {/* Students */}
+          <div className="flex items-center gap-2 text-slate-700">
+            <Users className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            <span className="truncate">{memberNames}</span>
           </div>
 
-          <div className="text-center p-3 sm:p-4 rounded-xl bg-white/[0.04] border border-white/[0.05]">
-            <div className="flex items-center justify-center gap-1.5 text-muted-foreground mb-1.5">
-              <Share2 className="h-3.5 w-3.5" />
-              <span className="text-[10px] sm:text-xs uppercase tracking-wider font-medium">Social</span>
+          {/* Email */}
+          {team.email && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <a
+                href={`mailto:${team.email}`}
+                className="truncate hover:text-blue-500 transition-colors"
+              >
+                {team.email}
+              </a>
             </div>
-            <div className="font-display text-xl sm:text-2xl font-bold text-foreground">
-              {team.totalSocialPoints}
-            </div>
-          </div>
+          )}
 
-          <div className="text-center p-3 sm:p-4 rounded-xl bg-white/[0.04] border border-white/[0.05]">
-            <div className="flex items-center justify-center gap-1.5 text-muted-foreground mb-1.5">
-              <Trophy className="h-3.5 w-3.5" />
-              <span className="text-[10px] sm:text-xs uppercase tracking-wider font-medium">Present</span>
+          {/* Social Links */}
+          <div className="flex items-center gap-3 text-slate-500">
+            {team.instagram && (
+              <a
+                href={`https://instagram.com/${team.instagram.replace('@', '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 hover:text-pink-500 transition-colors"
+              >
+                <Instagram className="w-3.5 h-3.5" />
+                <span className="text-xs">@{team.instagram.replace('@', '')}</span>
+              </a>
+            )}
+            {team.threads && (
+              <a
+                href={`https://threads.net/@${team.threads.replace('@', '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 hover:text-slate-700 transition-colors"
+              >
+                <AtSign className="w-3.5 h-3.5" />
+                <span className="text-xs">Threads</span>
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Bar */}
+      <div className="bg-slate-50/80 border-t border-slate-100">
+        <div className="grid grid-cols-3 divide-x divide-slate-100">
+          <div className="flex flex-col items-center py-3">
+            <div className="flex items-center gap-1 text-slate-500 text-[10px] uppercase tracking-wider mb-0.5 font-semibold">
+              <ClipboardList className="w-3.5 h-3.5" />
+              Tasks
             </div>
-            <div className="font-display text-xl sm:text-2xl font-bold text-foreground">
-              {team.totalPresentationPoints}
+            <div className="text-xl font-bold text-slate-700">{team.totalTaskPoints}</div>
+          </div>
+          <div className="flex flex-col items-center py-3">
+            <div className="flex items-center gap-1 text-slate-500 text-[10px] uppercase tracking-wider mb-0.5 font-semibold">
+              <Share2 className="w-3.5 h-3.5" />
+              Social
             </div>
+            <div className="text-xl font-bold text-slate-700">{team.totalSocialPoints}</div>
+          </div>
+          <div className="flex flex-col items-center py-3">
+            <div className="flex items-center gap-1 text-slate-500 text-[10px] uppercase tracking-wider mb-0.5 font-semibold">
+              <Award className="w-3.5 h-3.5" />
+              Present
+            </div>
+            <div className="text-xl font-bold text-slate-700">{team.totalPresentationPoints}</div>
           </div>
         </div>
       </div>

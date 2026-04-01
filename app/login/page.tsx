@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/components/auth-provider';
 import { AppShell } from '@/components/app-shell';
 import { loginAsTeam, loginAsAdmin } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mountain, ArrowRight, Users, Shield } from 'lucide-react';
+import { ArrowRight, Users, Shield } from 'lucide-react';
 
 function LoginContent() {
   const router = useRouter();
@@ -56,25 +57,28 @@ function LoginContent() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/30 transition-colors" />
-              <Mountain className="relative h-10 w-10 text-primary" strokeWidth={1.5} />
-            </div>
-            <span className="font-display text-2xl font-bold tracking-tight text-foreground">
+            <Image
+              src="/images/logo.png"
+              alt="Project Atlas Logo"
+              width={48}
+              height={48}
+              className="rounded-lg"
+            />
+            <span className="text-2xl font-bold tracking-tight text-white drop-shadow-lg">
               Project Atlas
             </span>
           </Link>
         </div>
 
         {/* Login type selector */}
-        <div className="flex gap-2 p-1 mb-8 rounded-xl bg-secondary/30 border border-border/50">
+        <div className="flex gap-2 p-1 mb-8 rounded-xl bg-white/60 backdrop-blur-sm border border-white/40">
           <button
             type="button"
             onClick={() => setLoginType('team')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
               loginType === 'team'
-                ? 'bg-card text-foreground shadow-lg'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-white text-slate-800 shadow-md'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <Users className="h-4 w-4" />
@@ -85,8 +89,8 @@ function LoginContent() {
             onClick={() => setLoginType('admin')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
               loginType === 'admin'
-                ? 'bg-card text-foreground shadow-lg'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-white text-slate-800 shadow-md'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <Shield className="h-4 w-4" />
@@ -95,11 +99,11 @@ function LoginContent() {
         </div>
 
         {/* Login form */}
-        <div className="p-6 sm:p-8 rounded-2xl bg-card/40 backdrop-blur-md border border-border/50">
-          <h1 className="font-display text-xl font-bold text-foreground mb-1">
+        <div className="p-6 sm:p-8 rounded-2xl bg-white/85 backdrop-blur-sm border border-white/50 shadow-lg">
+          <h1 className="text-xl font-bold text-slate-800 mb-1">
             {loginType === 'admin' ? 'Admin Login' : 'Team Login'}
           </h1>
-          <p className="text-sm text-muted-foreground mb-6">
+          <p className="text-sm text-slate-500 mb-6">
             {loginType === 'admin'
               ? 'Sign in to manage the competition'
               : 'Sign in with your company name and password'}
@@ -107,7 +111,7 @@ function LoginContent() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="identifier">
+              <Label htmlFor="identifier" className="text-slate-700">
                 {loginType === 'admin' ? 'Username' : 'Company Name'}
               </Label>
               <Input
@@ -117,12 +121,12 @@ function LoginContent() {
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder={loginType === 'admin' ? 'Enter username' : 'Enter company name'}
                 required
-                className="bg-secondary/50"
+                className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-slate-700">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -130,12 +134,12 @@ function LoginContent() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
                 required
-                className="bg-secondary/50"
+                className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
               />
             </div>
 
             {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm">
                 {error}
               </div>
             )}
@@ -143,7 +147,7 @@ function LoginContent() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full bg-slate-800 text-white hover:bg-slate-700"
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -151,9 +155,9 @@ function LoginContent() {
           </form>
 
           {loginType === 'team' && (
-            <p className="mt-6 text-center text-sm text-muted-foreground">
+            <p className="mt-6 text-center text-sm text-slate-500">
               {"Don't have a team yet?"}{' '}
-              <Link href="/register" className="text-primary hover:underline font-medium">
+              <Link href="/register" className="text-slate-800 hover:underline font-medium">
                 Register here
               </Link>
             </p>

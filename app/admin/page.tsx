@@ -228,40 +228,37 @@ function AdminContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse" />
-            <Shield className="relative h-12 w-12 text-primary animate-pulse" />
-          </div>
-          <p className="text-muted-foreground text-sm">Loading admin panel...</p>
+          <Shield className="h-12 w-12 text-white/70 animate-pulse" />
+          <p className="text-white/60 text-sm">Loading admin panel...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8 pt-32 md:pt-36">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
-            <Shield className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-primary uppercase tracking-wider">Admin Panel</span>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-white/50 mb-4">
+            <Shield className="h-4 w-4 text-slate-700" />
+            <span className="text-xs font-medium text-slate-700 uppercase tracking-wider">Admin Panel</span>
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white drop-shadow-lg mb-2">
             Manage Competition
           </h1>
-          <p className="text-muted-foreground">Award points to teams and manage the leaderboard</p>
+          <p className="text-white/60">Award points to teams and manage the leaderboard</p>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { icon: <Users className="h-6 w-6 text-primary" />, value: teams.length, label: 'Teams' },
+            { icon: <Users className="h-6 w-6 text-slate-600" />, value: teams.length, label: 'Teams' },
             { icon: <FileText className="h-6 w-6 text-chart-1" />, value: teams.reduce((s, t) => s + t.taskScores.length, 0), label: 'Task Scores' },
             { icon: <Share2 className="h-6 w-6 text-chart-2" />, value: teams.reduce((s, t) => s + t.socialScores.length, 0), label: 'Social Scores' },
-            { icon: <Trophy className="h-6 w-6 text-gold" />, value: teams[0]?.grandTotal ?? 0, label: 'Top Score' },
+            { icon: <Trophy className="h-6 w-6 text-amber-500" />, value: teams[0]?.grandTotal ?? 0, label: 'Top Score' },
           ].map(({ icon, value, label }) => (
-            <Card key={label} className="bg-card/40 backdrop-blur-md border-border/50">
+            <Card key={label} className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
               <CardContent className="p-4 text-center">
                 <div className="flex justify-center mb-2">{icon}</div>
                 <div className="font-display text-2xl font-bold text-foreground">{value}</div>
@@ -273,10 +270,10 @@ function AdminContent() {
 
         {/* Teams */}
         <div className="space-y-4">
-          <h2 className="font-display text-xl font-bold text-foreground">Teams</h2>
+          <h2 className="text-xl font-bold text-white drop-shadow-md">Teams</h2>
 
           {teams.length === 0 ? (
-            <Card className="bg-card/40 backdrop-blur-md border-border/50">
+            <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
               <CardContent className="p-8 text-center">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No teams registered yet.</p>
@@ -284,15 +281,15 @@ function AdminContent() {
             </Card>
           ) : (
             teams.map((team, index) => (
-              <Card key={team.id} className="bg-card/40 backdrop-blur-md border-border/50 overflow-hidden">
+              <Card key={team.id} className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md overflow-hidden">
                 {/* Team header row */}
                 <div
-                  className="p-4 sm:p-6 cursor-pointer hover:bg-secondary/20 transition-colors"
+                  className="p-4 sm:p-6 cursor-pointer hover:bg-slate-50/60 transition-colors"
                   onClick={() => setExpandedTeam(expandedTeam === team.id ? null : team.id)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center font-display font-bold text-primary">
+                      <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center font-display font-bold text-slate-600">
                         #{index + 1}
                       </div>
                       <div>
@@ -318,17 +315,17 @@ function AdminContent() {
 
                 {/* Expanded scoring panel */}
                 {expandedTeam === team.id && (
-                  <div className="border-t border-border/50 p-4 sm:p-6 space-y-6">
+                  <div className="border-t border-slate-100 p-4 sm:p-6 space-y-6">
                     {/* Tab switcher */}
-                    <div className="flex gap-2 p-1 rounded-xl bg-secondary/30">
+                    <div className="flex gap-2 p-1 rounded-xl bg-white/60 backdrop-blur-sm border border-white/40">
                       {(['task', 'social', 'presentation'] as const).map((tab) => (
                         <button
                           key={tab}
                           onClick={() => setActiveTab(tab)}
                           className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                             activeTab === tab
-                              ? 'bg-card text-foreground shadow'
-                              : 'text-muted-foreground hover:text-foreground'
+                              ? 'bg-white text-slate-800 shadow'
+                              : 'text-slate-500 hover:text-slate-700'
                           }`}
                         >
                           {tab === 'task' && <FileText className="h-4 w-4 inline mr-1" />}
@@ -352,7 +349,7 @@ function AdminContent() {
                             placeholder="e.g., Translation Week 3"
                             value={taskForm.taskName}
                             onChange={(e) => setTaskForm({ ...taskForm, taskName: e.target.value })}
-                            className="bg-secondary/50"
+                            className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                           />
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -365,7 +362,7 @@ function AdminContent() {
                                 max={10}
                                 value={taskForm[field]}
                                 onChange={(e) => setTaskForm({ ...taskForm, [field]: clamp(parseInt(e.target.value) || 0) })}
-                                className="bg-secondary/50"
+                                className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                               />
                             </div>
                           ))}
@@ -385,13 +382,13 @@ function AdminContent() {
                             <h5 className="text-sm font-medium text-muted-foreground">Existing Task Scores</h5>
                             {team.taskScores.map((score) =>
                               editingTaskId === score.id ? (
-                                <div key={score.id} className="p-3 rounded-lg bg-secondary/40 border border-primary/20 space-y-3">
+                                <div key={score.id} className="p-3 rounded-lg bg-white/90 border border-slate-200 space-y-3">
                                   <div className="space-y-2">
                                     <Label className="text-xs">Task Name</Label>
                                     <Input
                                       value={editTaskForm.taskName}
                                       onChange={(e) => setEditTaskForm({ ...editTaskForm, taskName: e.target.value })}
-                                      className="bg-secondary/50 h-8 text-sm"
+                                      className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400 h-8 text-sm"
                                     />
                                   </div>
                                   <div className="grid grid-cols-4 gap-2">
@@ -404,7 +401,7 @@ function AdminContent() {
                                           max={10}
                                           value={editTaskForm[f]}
                                           onChange={(e) => setEditTaskForm({ ...editTaskForm, [f]: clamp(parseInt(e.target.value) || 0) })}
-                                          className="bg-secondary/50 h-8 text-sm"
+                                          className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400 h-8 text-sm"
                                         />
                                       </div>
                                     ))}
@@ -421,7 +418,7 @@ function AdminContent() {
                                   </div>
                                 </div>
                               ) : (
-                                <div key={score.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                                <div key={score.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50/80">
                                   <div>
                                     <span className="font-medium text-foreground">{score.taskName}</span>
                                     <span className="text-muted-foreground ml-2 text-sm">
@@ -429,14 +426,14 @@ function AdminContent() {
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-display font-bold text-primary">
+                                    <span className="font-display font-bold text-slate-700">
                                       {score.accuracy + score.quality + score.speed + score.tools} pts
                                     </span>
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       onClick={() => startEditTask(score)}
-                                      className="text-muted-foreground hover:text-primary"
+                                      className="text-muted-foreground hover:text-slate-700"
                                     >
                                       <Pencil className="h-4 w-4" />
                                     </Button>
@@ -472,7 +469,7 @@ function AdminContent() {
                             max={14}
                             value={socialForm.weekNumber}
                             onChange={(e) => setSocialForm({ ...socialForm, weekNumber: parseInt(e.target.value) || 1 })}
-                            className="bg-secondary/50 w-32"
+                            className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400 w-32"
                           />
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -494,7 +491,7 @@ function AdminContent() {
                                 max={10}
                                 value={socialForm[field]}
                                 onChange={(e) => setSocialForm({ ...socialForm, [field]: clamp(parseInt(e.target.value) || 0) })}
-                                className="bg-secondary/50"
+                                className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                               />
                             </div>
                           ))}
@@ -510,7 +507,7 @@ function AdminContent() {
                             <h5 className="text-sm font-medium text-muted-foreground">Existing Social Scores</h5>
                             {team.socialScores.map((score) =>
                               editingSocialId === score.id ? (
-                                <div key={score.id} className="p-3 rounded-lg bg-secondary/40 border border-primary/20 space-y-3">
+                                <div key={score.id} className="p-3 rounded-lg bg-white/90 border border-slate-200 space-y-3">
                                   <div className="space-y-1">
                                     <Label className="text-xs">Week</Label>
                                     <Input
@@ -519,7 +516,7 @@ function AdminContent() {
                                       max={14}
                                       value={editSocialForm.weekNumber}
                                       onChange={(e) => setEditSocialForm({ ...editSocialForm, weekNumber: parseInt(e.target.value) || 1 })}
-                                      className="bg-secondary/50 h-8 w-24 text-sm"
+                                      className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400 h-8 w-24 text-sm"
                                     />
                                   </div>
                                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
@@ -541,7 +538,7 @@ function AdminContent() {
                                           max={10}
                                           value={editSocialForm[field]}
                                           onChange={(e) => setEditSocialForm({ ...editSocialForm, [field]: clamp(parseInt(e.target.value) || 0) })}
-                                          className="bg-secondary/50 h-8 text-sm"
+                                          className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400 h-8 text-sm"
                                         />
                                       </div>
                                     ))}
@@ -558,7 +555,7 @@ function AdminContent() {
                                   </div>
                                 </div>
                               ) : (
-                                <div key={score.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                                <div key={score.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50/80">
                                   <div>
                                     <span className="font-medium text-foreground">Week {score.weekNumber}</span>
                                     <span className="text-muted-foreground ml-2 text-sm">
@@ -566,14 +563,14 @@ function AdminContent() {
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-display font-bold text-primary">
+                                    <span className="font-display font-bold text-slate-700">
                                       {score.contentQuality + score.postingFrequency + score.likes + score.views + score.followers + score.comments} pts
                                     </span>
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       onClick={() => startEditSocial(score)}
-                                      className="text-muted-foreground hover:text-primary"
+                                      className="text-muted-foreground hover:text-slate-700"
                                     >
                                       <Pencil className="h-4 w-4" />
                                     </Button>
@@ -602,10 +599,10 @@ function AdminContent() {
                           Presentation Score (Week 14)
                         </h4>
                         {team.presentationScore ? (
-                          <div className="p-4 rounded-lg bg-secondary/30 space-y-4">
+                          <div className="p-4 rounded-lg bg-slate-50/80 space-y-4">
                             <div className="flex items-center justify-between">
                               <span className="text-foreground">Current Score:</span>
-                              <span className="font-display text-2xl font-bold text-primary">
+                              <span className="font-display text-2xl font-bold text-slate-700">
                                 {team.presentationScore.score}/10
                               </span>
                             </div>
@@ -621,7 +618,7 @@ function AdminContent() {
                                   max={10}
                                   value={presentationForm.score}
                                   onChange={(e) => setPresentationForm({ score: clamp(parseInt(e.target.value) || 0) })}
-                                  className="bg-secondary/50 w-28"
+                                  className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400 w-28"
                                 />
                               </div>
                               <Button
@@ -652,7 +649,7 @@ function AdminContent() {
                                 max={10}
                                 value={presentationForm.score}
                                 onChange={(e) => setPresentationForm({ score: clamp(parseInt(e.target.value) || 0) })}
-                                className="bg-secondary/50 w-32"
+                                className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400 w-32"
                               />
                             </div>
                             <Button onClick={() => handleAddPresentationScore(team.id)} className="w-full sm:w-auto">
@@ -665,7 +662,7 @@ function AdminContent() {
                     )}
 
                     {/* Delete team */}
-                    <div className="pt-4 border-t border-border/50">
+                    <div className="pt-4 border-t border-slate-100">
                       <Button
                         variant="ghost"
                         onClick={() => handleDeleteTeam(team.id, team.companyName)}

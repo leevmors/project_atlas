@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/components/auth-provider';
 import { AppShell } from '@/components/app-shell';
 import { registerTeam, loginAsTeam } from '@/lib/store';
@@ -10,7 +11,7 @@ import type { TeamMember } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mountain, ArrowRight, Plus, X, Users } from 'lucide-react';
+import { ArrowRight, Plus, X, Users } from 'lucide-react';
 
 function RegisterContent() {
   const router = useRouter();
@@ -97,35 +98,38 @@ function RegisterContent() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/30 transition-colors" />
-              <Mountain className="relative h-10 w-10 text-primary" strokeWidth={1.5} />
-            </div>
-            <span className="font-display text-2xl font-bold tracking-tight text-foreground">
+            <Image
+              src="/images/logo.png"
+              alt="Project Atlas Logo"
+              width={48}
+              height={48}
+              className="rounded-lg"
+            />
+            <span className="text-2xl font-bold tracking-tight text-white drop-shadow-lg">
               Project Atlas
             </span>
           </Link>
         </div>
 
         {/* Registration form */}
-        <div className="p-6 sm:p-8 rounded-2xl bg-card/40 backdrop-blur-md border border-border/50">
-          <h1 className="font-display text-xl font-bold text-foreground mb-1">
+        <div className="p-6 sm:p-8 rounded-2xl bg-white/85 backdrop-blur-sm border border-white/50 shadow-lg">
+          <h1 className="text-xl font-bold text-slate-800 mb-1">
             Register Your Team
           </h1>
-          <p className="text-sm text-muted-foreground mb-6">
+          <p className="text-sm text-slate-500 mb-6">
             Create your translation company account to join the competition
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Company details */}
             <div className="space-y-4">
-              <h2 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">
+              <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
                 Company Information
               </h2>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="companyName">Company Name *</Label>
+                  <Label htmlFor="companyName" className="text-slate-700">Company Name *</Label>
                   <Input
                     id="companyName"
                     type="text"
@@ -133,12 +137,12 @@ function RegisterContent() {
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Your translation company"
                     required
-                    className="bg-secondary/50"
+                    className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Team Email *</Label>
+                  <Label htmlFor="email" className="text-slate-700">Team Email *</Label>
                   <Input
                     id="email"
                     type="email"
@@ -146,59 +150,59 @@ function RegisterContent() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="team@example.com"
                     required
-                    className="bg-secondary/50"
+                    className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="instagram">Instagram Handle</Label>
+                  <Label htmlFor="instagram" className="text-slate-700">Instagram Handle</Label>
                   <Input
                     id="instagram"
                     type="text"
                     value={instagram}
                     onChange={(e) => setInstagram(e.target.value)}
                     placeholder="@yourcompany"
-                    className="bg-secondary/50"
+                    className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="threads">Threads Handle</Label>
+                  <Label htmlFor="threads" className="text-slate-700">Threads Handle</Label>
                   <Input
                     id="threads"
                     type="text"
                     value={threads}
                     onChange={(e) => setThreads(e.target.value)}
                     placeholder="@yourcompany"
-                    className="bg-secondary/50"
+                    className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="groupNumber">Group Number</Label>
+                <Label htmlFor="groupNumber" className="text-slate-700">Group Number</Label>
                 <Input
                   id="groupNumber"
                   type="text"
                   value={groupNumber}
                   onChange={(e) => setGroupNumber(e.target.value)}
                   placeholder="e.g. 301-1"
-                  className="bg-secondary/50"
+                  className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div className="space-y-4">
-              <h2 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">
+              <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
                 Security
               </h2>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password *</Label>
+                  <Label htmlFor="password" className="text-slate-700">Password *</Label>
                   <Input
                     id="password"
                     type="password"
@@ -206,12 +210,12 @@ function RegisterContent() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Choose a password"
                     required
-                    className="bg-secondary/50"
+                    className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <Label htmlFor="confirmPassword" className="text-slate-700">Confirm Password *</Label>
                   <Input
                     id="confirmPassword"
                     type="password"
@@ -219,11 +223,11 @@ function RegisterContent() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm password"
                     required
-                    className="bg-secondary/50"
+                    className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500">
                 Remember this password! You will need it to log in.
               </p>
             </div>
@@ -231,7 +235,7 @@ function RegisterContent() {
             {/* Team members */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-display text-sm font-semibold text-foreground uppercase tracking-wider">
+                <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
                   Team Members
                 </h2>
                 <Button
@@ -240,7 +244,7 @@ function RegisterContent() {
                   size="sm"
                   onClick={addMember}
                   disabled={members.length >= 10}
-                  className="text-primary"
+                  className="text-slate-600 hover:text-slate-800"
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Add Member
@@ -256,14 +260,14 @@ function RegisterContent() {
                         value={member.name}
                         onChange={(e) => updateMember(index, 'name', e.target.value)}
                         placeholder="Member name"
-                        className="bg-secondary/50"
+                        className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                       />
                       <Input
                         type="text"
                         value={member.role}
                         onChange={(e) => updateMember(index, 'role', e.target.value)}
                         placeholder="Role (e.g., Translator, PM)"
-                        className="bg-secondary/50"
+                        className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                       />
                     </div>
                     {members.length > 1 && (
@@ -272,7 +276,7 @@ function RegisterContent() {
                         variant="ghost"
                         size="icon"
                         onClick={() => removeMember(index)}
-                        className="text-muted-foreground hover:text-destructive shrink-0"
+                        className="text-slate-400 hover:text-red-500 shrink-0"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -283,7 +287,7 @@ function RegisterContent() {
             </div>
 
             {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm">
                 {error}
               </div>
             )}
@@ -291,7 +295,7 @@ function RegisterContent() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full bg-slate-800 text-white hover:bg-slate-700"
             >
               <Users className="mr-2 h-4 w-4" />
               {isLoading ? 'Creating Team...' : 'Register Team'}
@@ -299,9 +303,9 @@ function RegisterContent() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-6 text-center text-sm text-slate-500">
             Already have a team?{' '}
-            <Link href="/login" className="text-primary hover:underline font-medium">
+            <Link href="/login" className="text-slate-800 hover:underline font-medium">
               Sign in here
             </Link>
           </p>

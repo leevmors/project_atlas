@@ -1,26 +1,19 @@
 import type { Metadata } from 'next'
-import { DM_Sans, Space_Grotesk, Cormorant_Garamond } from 'next/font/google'
+import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const dmSans = DM_Sans({ 
+const geist = Geist({ subsets: ["latin"] });
+const geistMono = Geist_Mono({ subsets: ["latin"] });
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: '--font-dm-sans',
-  weight: ['400', '500', '600', '700']
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: '--font-space-grotesk',
-  weight: ['400', '500', '600', '700']
-});
-
-const cormorantGaramond = Cormorant_Garamond({
-  subsets: ["latin"],
-  variable: '--font-cursive',
-  weight: ['600'],
   style: ['italic'],
+  variable: '--font-cursive'
 });
+
+// Suppress unused variable warnings — fonts are loaded for CSS availability
+void geist;
+void geistMono;
 
 export const metadata: Metadata = {
   title: 'Project Atlas | Lingua HQ Leaderboard',
@@ -51,8 +44,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${spaceGrotesk.variable} ${cormorantGaramond.variable}`}>
-      <body className="font-sans antialiased">
+    <html lang="en">
+      <body className={`font-sans antialiased ${playfair.variable}`}>
         {children}
         <Analytics />
       </body>

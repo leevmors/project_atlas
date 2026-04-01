@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { getAllTeamsWithScores } from '@/lib/store';
 import type { TeamWithScores } from '@/lib/types';
 import { LeaderboardCard } from './leaderboard-card';
-import { Trophy, Users, Sparkles } from 'lucide-react';
+import { Trophy, Users, Search, Calendar, Filter } from 'lucide-react';
 
 export function Leaderboard() {
   const [teams, setTeams] = useState<TeamWithScores[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'points' | 'tasks' | 'social' | 'present'>('points');
 
   const loadTeams = useCallback(async () => {
     try {
@@ -29,44 +31,38 @@ export function Leaderboard() {
     return () => clearInterval(interval);
   }, [loadTeams]);
 
+  // Filter and sort teams
+  const filteredTeams = teams
+    .filter((team) =>
+      searchQuery === '' ||
+      team.companyName.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'tasks': return (b.totalTaskPoints ?? 0) - (a.totalTaskPoints ?? 0);
+        case 'social': return (b.totalSocialPoints ?? 0) - (a.totalSocialPoints ?? 0);
+        case 'present': return (b.totalPresentationPoints ?? 0) - (a.totalPresentationPoints ?? 0);
+        default: return (b.grandTotal ?? 0) - (a.grandTotal ?? 0);
+      }
+    });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse" />
-            <Trophy className="relative h-12 w-12 text-primary animate-pulse" />
-          </div>
-          <p className="text-muted-foreground text-sm">Loading leaderboard...</p>
+          <Trophy className="h-12 w-12 text-white/70 animate-pulse" />
+          <p className="text-white/60 text-sm">Loading leaderboard...</p>
         </div>
       </div>
     );
   }
 
-  if (hasError && teams.length === 0) {
+  if ((hasError && teams.length === 0) || teams.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4">
-        <div className="relative mb-6">
-          <div className="absolute inset-0 bg-primary/10 blur-3xl rounded-full" />
-          <Users className="relative h-16 w-16 text-muted-foreground" />
-        </div>
-        <h3 className="font-display text-xl font-bold text-foreground mb-2">No Teams Yet</h3>
-        <p className="text-muted-foreground max-w-md">
-          The competition is about to begin! Register your team to be the first on the leaderboard.
-        </p>
-      </div>
-    );
-  }
-
-  if (teams.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4">
-        <div className="relative mb-6">
-          <div className="absolute inset-0 bg-primary/10 blur-3xl rounded-full" />
-          <Users className="relative h-16 w-16 text-muted-foreground" />
-        </div>
-        <h3 className="font-display text-xl font-bold text-foreground mb-2">No Teams Yet</h3>
-        <p className="text-muted-foreground max-w-md">
+        <Users className="h-16 w-16 text-white/50 mb-6" />
+        <h3 className="text-xl font-bold text-white mb-2">No Teams Yet</h3>
+        <p className="text-white/60 max-w-md">
           The competition is about to begin! Register your team to be the first on the leaderboard.
         </p>
       </div>
@@ -74,54 +70,69 @@ export function Leaderboard() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Hero section */}
-      <div className="text-center py-8 sm:py-12">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium text-primary uppercase tracking-wider">
-            Live Rankings
-          </span>
-        </div>
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl mb-3 text-balance">
-          <span className="font-display font-bold text-foreground">Project</span>{' '}
-          <span className="font-cursive italic text-primary text-[1.1em]">Atlas</span>
+    <div className="w-full max-w-[1400px] mx-auto">
+      {/* Hero Section */}
+      <div className="flex flex-col items-center mb-24 md:mb-32">
+        <h1 className="text-4xl md:text-5xl lg:text-6xl tracking-wide text-center">
+          <span className="font-bold text-white drop-shadow-lg">Project</span>
+          {' '}
+          <span className="font-cursive italic text-white/90 drop-shadow-lg">Atlas</span>
         </h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">
-          Real-time standings for all translation companies. Earn points through task completion,
-          social media engagement, and your final presentation.
+        <p className="mt-6 text-base md:text-lg text-white/50 font-light text-center max-w-lg leading-relaxed tracking-wide">
+          What you create is what you leave behind.
         </p>
       </div>
 
-      {/* Stats overview */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-2xl mx-auto mb-8">
-        <div className="text-center p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/50">
-          <div className="font-display text-2xl sm:text-3xl font-bold text-foreground">
-            {teams.length}
+      {/* Section Header with Controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+        <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-md">
+          Leaderboards
+        </h2>
+
+        {/* Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search teams..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50 text-sm text-slate-700 placeholder:text-slate-400 w-44 focus:outline-none focus:ring-2 focus:ring-white/50"
+            />
           </div>
-          <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Teams</div>
-        </div>
-        <div className="text-center p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/50">
-          <div className="font-display text-2xl sm:text-3xl font-bold text-primary">
-            {teams[0]?.grandTotal || 0}
+
+          {/* Time Filter */}
+          <div className="flex items-center gap-1 px-3 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50">
+            <Calendar className="w-4 h-4 text-slate-500" />
+            <select className="bg-transparent text-sm text-slate-700 font-medium focus:outline-none cursor-pointer">
+              <option>All Time</option>
+              <option>This Month</option>
+              <option>This Week</option>
+            </select>
           </div>
-          <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
-            Top Score
-          </div>
-        </div>
-        <div className="text-center p-4 rounded-2xl bg-card/30 backdrop-blur-sm border border-border/50">
-          <div className="font-display text-2xl sm:text-3xl font-bold text-foreground">
-            {teams.reduce((sum, t) => sum + (t.memberCount ?? 0), 0)}
-          </div>
-          <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
-            Competitors
+
+          {/* Sort */}
+          <div className="flex items-center gap-1 px-3 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50">
+            <Filter className="w-4 h-4 text-slate-500" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="bg-transparent text-sm text-slate-700 font-medium focus:outline-none cursor-pointer"
+            >
+              <option value="points">Points</option>
+              <option value="tasks">Tasks</option>
+              <option value="social">Social</option>
+              <option value="present">Present</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Leaderboard cards */}
-      <div className="space-y-5">
-        {teams.map((team, index) => (
+      {/* Cards Grid - 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pt-4">
+        {filteredTeams.map((team, index) => (
           <LeaderboardCard key={team.id} team={team} rank={index + 1} />
         ))}
       </div>

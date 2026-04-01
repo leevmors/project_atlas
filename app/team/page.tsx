@@ -127,11 +127,8 @@ function TeamContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse" />
-            <Trophy className="relative h-12 w-12 text-primary animate-pulse" />
-          </div>
-          <p className="text-muted-foreground text-sm">Loading your team...</p>
+          <Trophy className="h-12 w-12 text-white/70 animate-pulse" />
+          <p className="text-white/60 text-sm">Loading your team...</p>
         </div>
       </div>
     );
@@ -140,34 +137,34 @@ function TeamContent() {
   if (!team) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Team not found.</p>
+        <p className="text-white/60">Team not found.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8 pt-32 md:pt-36">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Team header */}
         <div className="text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
-            <Award className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-primary uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-white/50 mb-4">
+            <Award className="h-4 w-4 text-amber-500" />
+            <span className="text-xs font-medium text-slate-700 uppercase tracking-wider">
               Rank #{rank}
             </span>
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white drop-shadow-lg mb-2">
             {team.companyName}
           </h1>
-          <p className="text-muted-foreground">Your team dashboard and performance overview</p>
+          <p className="text-white/60">Your team dashboard and performance overview</p>
         </div>
 
         {/* Score overview */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
+          <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
             <CardContent className="p-4 sm:p-6 text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 mb-3">
-                <Trophy className="h-6 w-6 text-primary" />
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-100 mb-3">
+                <Trophy className="h-6 w-6 text-slate-700" />
               </div>
               <div className="font-display text-3xl font-bold text-foreground">
                 {team.grandTotal}
@@ -178,7 +175,7 @@ function TeamContent() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
+          <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
             <CardContent className="p-4 sm:p-6 text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-chart-1/10 mb-3">
                 <FileText className="h-6 w-6 text-chart-1" />
@@ -192,7 +189,7 @@ function TeamContent() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
+          <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
             <CardContent className="p-4 sm:p-6 text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-chart-2/10 mb-3">
                 <Share2 className="h-6 w-6 text-chart-2" />
@@ -206,7 +203,7 @@ function TeamContent() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
+          <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
             <CardContent className="p-4 sm:p-6 text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-chart-3/10 mb-3">
                 <Target className="h-6 w-6 text-chart-3" />
@@ -224,15 +221,15 @@ function TeamContent() {
         {/* Team info and members */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Team info */}
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
+          <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="font-display text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <TrendingUp className="h-5 w-5 text-slate-700" />
                   Team Information
                 </CardTitle>
                 {!isEditing && (
-                  <Button variant="ghost" size="sm" onClick={startEditing} className="text-muted-foreground hover:text-primary">
+                  <Button variant="ghost" size="sm" onClick={startEditing} className="text-muted-foreground hover:text-slate-700">
                     <Pencil className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
@@ -249,7 +246,7 @@ function TeamContent() {
                       value={editInstagram}
                       onChange={(e) => setEditInstagram(e.target.value)}
                       placeholder="@yourcompany"
-                      className="bg-secondary/50"
+                      className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                     />
                   </div>
                   <div className="space-y-2">
@@ -259,7 +256,7 @@ function TeamContent() {
                       value={editThreads}
                       onChange={(e) => setEditThreads(e.target.value)}
                       placeholder="@yourcompany"
-                      className="bg-secondary/50"
+                      className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                     />
                   </div>
                   <div className="space-y-2">
@@ -269,13 +266,13 @@ function TeamContent() {
                       value={editGroupNumber}
                       onChange={(e) => setEditGroupNumber(e.target.value)}
                       placeholder="e.g. 301-1"
-                      className="bg-secondary/50"
+                      className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                     />
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80">
                     <Mail className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <div className="text-xs text-muted-foreground">Email</div>
@@ -283,7 +280,7 @@ function TeamContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80">
                     <Instagram className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <div className="text-xs text-muted-foreground">Instagram</div>
@@ -293,7 +290,7 @@ function TeamContent() {
                             href={`https://instagram.com/${team.instagram.replace('@', '')}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="hover:text-primary transition-colors"
+                            className="hover:text-slate-700 transition-colors"
                           >
                             {team.instagram}
                           </a>
@@ -304,7 +301,7 @@ function TeamContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80">
                     <AtSign className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <div className="text-xs text-muted-foreground">Threads</div>
@@ -314,7 +311,7 @@ function TeamContent() {
                             href={`https://threads.net/${team.threads.replace('@', '')}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="hover:text-primary transition-colors"
+                            className="hover:text-slate-700 transition-colors"
                           >
                             {team.threads}
                           </a>
@@ -325,7 +322,7 @@ function TeamContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80">
                     <Hash className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <div className="text-xs text-muted-foreground">Group Number</div>
@@ -340,11 +337,11 @@ function TeamContent() {
           </Card>
 
           {/* Team members */}
-          <Card className="bg-card/40 backdrop-blur-md border-border/50">
+          <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="font-display text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
+                  <Users className="h-5 w-5 text-slate-700" />
                   Team Members ({isEditing ? editMembers.filter(m => m.name.trim()).length : (team.members?.length ?? 0)})
                 </CardTitle>
                 {isEditing && (
@@ -354,7 +351,7 @@ function TeamContent() {
                     size="sm"
                     onClick={addEditMember}
                     disabled={editMembers.length >= 10}
-                    className="text-primary"
+                    className="text-slate-700"
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add
@@ -372,13 +369,13 @@ function TeamContent() {
                           value={member.name}
                           onChange={(e) => updateEditMember(index, 'name', e.target.value)}
                           placeholder="Member name"
-                          className="bg-secondary/50"
+                          className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                         />
                         <Input
                           value={member.role}
                           onChange={(e) => updateEditMember(index, 'role', e.target.value)}
                           placeholder="Role (e.g. Translator)"
-                          className="bg-secondary/50"
+                          className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
                         />
                       </div>
                       {editMembers.length > 1 && (
@@ -400,9 +397,9 @@ function TeamContent() {
                   {(team.members ?? []).map((member, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30"
+                      className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80"
                     >
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary">
+                      <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-display font-bold text-slate-600">
                         {member.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -421,17 +418,17 @@ function TeamContent() {
 
         {/* Save/Cancel bar when editing */}
         {isEditing && (
-          <div className="flex items-center justify-between p-4 rounded-2xl bg-card/40 backdrop-blur-md border border-border/50">
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-white/85 backdrop-blur-sm border border-white/50 shadow-md">
             <div className="flex-1">
               {saveError && (
-                <p className="text-destructive text-sm">{saveError}</p>
+                <p className="text-red-600 text-sm">{saveError}</p>
               )}
             </div>
             <div className="flex gap-3">
               <Button variant="ghost" onClick={cancelEditing} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isSaving} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button onClick={handleSave} disabled={isSaving} className="bg-slate-800 text-white hover:bg-slate-700">
                 <Save className="h-4 w-4 mr-2" />
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </Button>
@@ -440,10 +437,10 @@ function TeamContent() {
         )}
 
         {/* Task scores */}
-        <Card className="bg-card/40 backdrop-blur-md border-border/50">
+        <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
           <CardHeader>
             <CardTitle className="font-display text-lg flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
+              <FileText className="h-5 w-5 text-slate-700" />
               Task Scores ({team.taskScores.length})
             </CardTitle>
           </CardHeader>
@@ -455,27 +452,27 @@ function TeamContent() {
             ) : (
               <div className="space-y-3">
                 {team.taskScores.map((score) => (
-                  <div key={score.id} className="p-4 rounded-xl bg-secondary/30">
+                  <div key={score.id} className="p-4 rounded-xl bg-slate-50/80">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-medium text-foreground">{score.taskName}</h4>
-                      <span className="font-display font-bold text-primary">
+                      <span className="font-display font-bold text-slate-700">
                         {score.accuracy + score.quality + score.speed + score.tools} pts
                       </span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 text-center">
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Accuracy</div>
                         <div className="font-semibold text-foreground">{score.accuracy}/10</div>
                       </div>
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Quality</div>
                         <div className="font-semibold text-foreground">{score.quality}/10</div>
                       </div>
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Speed</div>
                         <div className="font-semibold text-foreground">{score.speed}/10</div>
                       </div>
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Tools</div>
                         <div className="font-semibold text-foreground">{score.tools}/10</div>
                       </div>
@@ -488,10 +485,10 @@ function TeamContent() {
         </Card>
 
         {/* Social media scores */}
-        <Card className="bg-card/40 backdrop-blur-md border-border/50">
+        <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
           <CardHeader>
             <CardTitle className="font-display text-lg flex items-center gap-2">
-              <Share2 className="h-5 w-5 text-primary" />
+              <Share2 className="h-5 w-5 text-slate-700" />
               Social Media Scores ({team.socialScores.length} weeks)
             </CardTitle>
           </CardHeader>
@@ -503,10 +500,10 @@ function TeamContent() {
             ) : (
               <div className="space-y-3">
                 {team.socialScores.map((score) => (
-                  <div key={score.id} className="p-4 rounded-xl bg-secondary/30">
+                  <div key={score.id} className="p-4 rounded-xl bg-slate-50/80">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-medium text-foreground">Week {score.weekNumber}</h4>
-                      <span className="font-display font-bold text-primary">
+                      <span className="font-display font-bold text-slate-700">
                         {score.contentQuality +
                           score.postingFrequency +
                           score.likes +
@@ -517,31 +514,31 @@ function TeamContent() {
                       </span>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center">
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Quality</div>
                         <div className="font-semibold text-foreground">
                           {score.contentQuality}/10
                         </div>
                       </div>
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Freq</div>
                         <div className="font-semibold text-foreground">
                           {score.postingFrequency}/10
                         </div>
                       </div>
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Likes</div>
                         <div className="font-semibold text-foreground">{score.likes}/10</div>
                       </div>
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Views</div>
                         <div className="font-semibold text-foreground">{score.views}/10</div>
                       </div>
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Follows</div>
                         <div className="font-semibold text-foreground">{score.followers}/10</div>
                       </div>
-                      <div className="p-2 rounded-lg bg-background/50">
+                      <div className="p-2 rounded-lg bg-white/60">
                         <div className="text-xs text-muted-foreground">Comments</div>
                         <div className="font-semibold text-foreground">{score.comments}/10</div>
                       </div>
