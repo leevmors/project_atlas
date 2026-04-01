@@ -19,8 +19,9 @@ export function Header() {
               <Mountain className="relative h-8 w-8 text-primary" strokeWidth={1.5} />
             </div>
             <div className="flex flex-col">
-              <span className="font-display text-lg font-bold tracking-tight text-foreground leading-none">
-                Project Atlas
+              <span className="text-lg tracking-tight leading-none">
+                <span className="font-display font-bold text-foreground">Project</span>{' '}
+                <span className="font-cursive italic text-primary">Atlas</span>
               </span>
               <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                 Lingua HQ

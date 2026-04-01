@@ -83,8 +83,9 @@ export function Leaderboard() {
             Live Rankings
           </span>
         </div>
-        <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3 text-balance">
-          Competition Leaderboard
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl mb-3 text-balance">
+          <span className="font-display font-bold text-foreground">Project</span>{' '}
+          <span className="font-cursive italic text-primary text-[1.1em]">Atlas</span>
         </h1>
         <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">
           Real-time standings for all translation companies. Earn points through task completion,
@@ -119,7 +120,7 @@ export function Leaderboard() {
       </div>
 
       {/* Leaderboard cards */}
-      <div className="space-y-4">
+      <div className="space-y-5">
         {teams.map((team, index) => (
           <LeaderboardCard key={team.id} team={team} rank={index + 1} />
         ))}
