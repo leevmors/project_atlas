@@ -6,7 +6,8 @@
     "dev": "next dev --webpack -p 5000 -H 0.0.0.0",
     "build": "next build --webpack",
     "start": "next start -p 5000 -H 0.0.0.0",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "db:push": "npx tsx scripts/init-db.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

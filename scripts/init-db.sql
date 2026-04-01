@@ -68,3 +68,6 @@ CREATE TABLE IF NOT EXISTS presentation_scores (
   scored_by   varchar(255)  NOT NULL
 );
 CREATE INDEX IF NOT EXISTS presentation_scores_team_id_idx ON presentation_scores(team_id);
+
+-- Migrations (safe to re-run)
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
