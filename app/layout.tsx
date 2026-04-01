@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { DM_Sans, Space_Grotesk } from 'next/font/google'
+import { DM_Sans, Space_Grotesk, Cormorant_Garamond } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
@@ -9,10 +9,17 @@ const dmSans = DM_Sans({
   weight: ['400', '500', '600', '700']
 });
 
-const spaceGrotesk = Space_Grotesk({ 
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: '--font-space-grotesk',
   weight: ['400', '500', '600', '700']
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: '--font-cursive',
+  weight: ['600'],
+  style: ['italic'],
 });
 
 export const metadata: Metadata = {
@@ -44,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${spaceGrotesk.variable}`}>
+    <html lang="en" className={`${dmSans.variable} ${spaceGrotesk.variable} ${cormorantGaramond.variable}`}>
       <body className="font-sans antialiased">
         {children}
         <Analytics />

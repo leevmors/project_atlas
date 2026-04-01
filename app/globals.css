@@ -59,6 +59,7 @@
   --font-sans: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
   --font-display: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+  --font-cursive: var(--font-cursive), 'Cormorant Garamond', serif;
   
   --color-snow: var(--snow);
   --color-ice: var(--ice);
@@ -117,5 +118,14 @@
 @layer utilities {
   .font-display {
     font-family: var(--font-display);
+  }
+  .font-cursive {
+    font-family: var(--font-cursive);
+  }
+  .glass {
+    @apply bg-card/20 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/20;
+  }
+  .glass-inner {
+    @apply bg-white/5 border border-white/[0.07] rounded-xl;
   }
 }
