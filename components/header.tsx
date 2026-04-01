@@ -15,7 +15,7 @@ export function Header() {
   const isActive = (path: string) => pathname === path;
 
   const navLinkClass = (path: string) =>
-    `px-4 py-2 rounded-full text-base transition-all font-medium ${
+    `px-3 xl:px-4 py-1.5 xl:py-2 rounded-full text-sm xl:text-base transition-all font-medium ${
       isActive(path)
         ? 'text-white font-semibold bg-white/20 backdrop-blur-sm'
         : 'text-white/70 hover:text-white hover:bg-white/10'
@@ -24,8 +24,8 @@ export function Header() {
   return (
     <>
       {/* Desktop floating pill navbar */}
-      <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 hidden md:block">
-        <div className="flex items-center gap-8 px-8 py-4 rounded-full backdrop-blur-2xl bg-white/25 border border-white/40 shadow-xl">
+      <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 hidden lg:block">
+        <div className="flex items-center gap-4 xl:gap-6 px-6 xl:px-8 py-3 xl:py-4 rounded-full backdrop-blur-2xl bg-white/25 border border-white/40 shadow-xl">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
             <Image
@@ -104,7 +104,7 @@ export function Header() {
       </nav>
 
       {/* Mobile navbar */}
-      <nav className="fixed top-4 left-4 right-4 z-50 md:hidden">
+      <nav className="fixed top-4 left-4 right-4 z-50 lg:hidden">
         <div className="flex items-center justify-between px-5 py-3 rounded-2xl backdrop-blur-2xl bg-white/25 border border-white/40 shadow-xl">
           <Link href="/" className="flex items-center gap-2">
             <Image

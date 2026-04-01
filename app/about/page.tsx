@@ -89,8 +89,8 @@ function AboutContent() {
           </div>
           <div className="space-y-3">
             {TIMELINE.map((item) => (
-              <div key={item.week} className="flex gap-4 p-3 rounded-xl bg-slate-50/80">
-                <span className="font-bold text-slate-700 text-sm whitespace-nowrap min-w-[100px]">
+              <div key={item.week} className="flex flex-col sm:flex-row gap-1 sm:gap-4 p-3 rounded-xl bg-slate-50/80">
+                <span className="font-bold text-slate-700 text-sm whitespace-nowrap sm:min-w-[100px]">
                   {item.week}
                 </span>
                 <span className="text-slate-600 text-sm">{item.description}</span>

@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
+// useState/useEffect used by SakuraPetals below
 
 // Pre-generated petal configurations (deterministic - no hydration mismatch)
 const PETAL_CONFIGS = [
@@ -88,28 +89,19 @@ function SakuraPetals() {
 }
 
 export function SakuraBackground() {
-  const [scrollY, setScrollY] = useState(0);
-
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   return (
     <>
       {/* Falling Sakura Petals */}
       <SakuraPetals />
 
-      {/* Background Image with Parallax + Blur */}
+      {/* Background Image — fixed, covers entire viewport at all scroll depths */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <Image
           src="/images/background.png"
           alt="Serene anime-style meadow with pink cosmos flowers under a blue sky"
           fill
           priority
-          className="object-cover scale-110 blur-[2px]"
-          style={{ transform: `scale(1.1) translateY(${scrollY * 0.2}px)` }}
+          className="object-cover blur-[2px]"
         />
         {/* Darkened overlay for better content readability */}
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/20 via-slate-900/10 to-slate-900/30" />

@@ -84,13 +84,13 @@ export function Leaderboard() {
       </div>
 
       {/* Section Header with Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-        <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-md">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-md">
           Leaderboards
         </h2>
 
         {/* Controls */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -99,33 +99,35 @@ export function Leaderboard() {
               placeholder="Search teams..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50 text-sm text-slate-700 placeholder:text-slate-400 w-44 focus:outline-none focus:ring-2 focus:ring-white/50"
+              className="pl-9 pr-4 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50 text-sm text-slate-700 placeholder:text-slate-400 w-full sm:w-44 focus:outline-none focus:ring-2 focus:ring-white/50"
             />
           </div>
 
-          {/* Time Filter */}
-          <div className="flex items-center gap-1 px-3 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50">
-            <Calendar className="w-4 h-4 text-slate-500" />
-            <select className="bg-transparent text-sm text-slate-700 font-medium focus:outline-none cursor-pointer">
-              <option>All Time</option>
-              <option>This Month</option>
-              <option>This Week</option>
-            </select>
-          </div>
+          <div className="flex gap-2">
+            {/* Time Filter */}
+            <div className="flex-1 sm:flex-none flex items-center gap-1 px-3 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50">
+              <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+              <select className="bg-transparent text-sm text-slate-700 font-medium focus:outline-none cursor-pointer w-full">
+                <option>All Time</option>
+                <option>This Month</option>
+                <option>This Week</option>
+              </select>
+            </div>
 
-          {/* Sort */}
-          <div className="flex items-center gap-1 px-3 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50">
-            <Filter className="w-4 h-4 text-slate-500" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="bg-transparent text-sm text-slate-700 font-medium focus:outline-none cursor-pointer"
-            >
-              <option value="points">Points</option>
-              <option value="tasks">Tasks</option>
-              <option value="social">Social</option>
-              <option value="present">Present</option>
-            </select>
+            {/* Sort */}
+            <div className="flex-1 sm:flex-none flex items-center gap-1 px-3 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50">
+              <Filter className="w-4 h-4 text-slate-500 shrink-0" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="bg-transparent text-sm text-slate-700 font-medium focus:outline-none cursor-pointer w-full"
+              >
+                <option value="points">Points</option>
+                <option value="tasks">Tasks</option>
+                <option value="social">Social</option>
+                <option value="present">Present</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
