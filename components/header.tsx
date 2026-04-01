@@ -39,8 +39,17 @@ export function Header() {
 
           {/* Navigation Links */}
           <div className="flex items-center gap-2">
+            <Link href="/about" className={navLinkClass('/about')}>
+              About
+            </Link>
             <Link href="/" className={navLinkClass('/')}>
               Leaderboard
+            </Link>
+            <Link href="/rules" className={navLinkClass('/rules')}>
+              Rules
+            </Link>
+            <Link href="/games" className={navLinkClass('/games')}>
+              Games
             </Link>
             {session?.type === 'admin' && (
               <Link href="/admin" className={navLinkClass('/admin')}>
@@ -122,11 +131,32 @@ export function Header() {
           <div className="mt-2 p-4 rounded-2xl backdrop-blur-2xl bg-white/25 border border-white/40 shadow-xl">
             <div className="flex flex-col gap-1">
               <Link
+                href="/about"
+                onClick={() => setMobileOpen(false)}
+                className={navLinkClass('/about')}
+              >
+                About
+              </Link>
+              <Link
                 href="/"
                 onClick={() => setMobileOpen(false)}
                 className={navLinkClass('/')}
               >
                 Leaderboard
+              </Link>
+              <Link
+                href="/rules"
+                onClick={() => setMobileOpen(false)}
+                className={navLinkClass('/rules')}
+              >
+                Rules
+              </Link>
+              <Link
+                href="/games"
+                onClick={() => setMobileOpen(false)}
+                className={navLinkClass('/games')}
+              >
+                Games
               </Link>
               {session?.type === 'admin' && (
                 <Link
