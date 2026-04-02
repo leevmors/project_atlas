@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS admins (
 );
 
 CREATE TABLE IF NOT EXISTS teams (
-  id            serial        PRIMARY KEY,
+  id            uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
   company_name  varchar(255)  UNIQUE NOT NULL,
   password_hash varchar(255)  NOT NULL,
   instagram     varchar(255),
@@ -34,7 +34,7 @@ CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
 
 CREATE TABLE IF NOT EXISTS task_scores (
   id          serial        PRIMARY KEY,
-  team_id     integer       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  team_id     uuid          NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   task_name   varchar(255)  NOT NULL,
   accuracy    integer       NOT NULL DEFAULT 0 CHECK (accuracy BETWEEN 0 AND 10),
   quality     integer       NOT NULL DEFAULT 0 CHECK (quality BETWEEN 0 AND 10),
@@ -47,7 +47,7 @@ CREATE INDEX IF NOT EXISTS task_scores_team_id_idx ON task_scores(team_id);
 
 CREATE TABLE IF NOT EXISTS social_media_scores (
   id                  serial        PRIMARY KEY,
-  team_id             integer       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  team_id             uuid          NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   week_number         integer       NOT NULL,
   content_quality     integer       NOT NULL DEFAULT 0 CHECK (content_quality BETWEEN 0 AND 10),
   posting_frequency   integer       NOT NULL DEFAULT 0 CHECK (posting_frequency BETWEEN 0 AND 10),
@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS social_scores_team_id_idx ON social_media_scores(team
 
 CREATE TABLE IF NOT EXISTS presentation_scores (
   id          serial        PRIMARY KEY,
-  team_id     integer       NOT NULL UNIQUE REFERENCES teams(id) ON DELETE CASCADE,
+  team_id     uuid          NOT NULL UNIQUE REFERENCES teams(id) ON DELETE CASCADE,
   score       integer       NOT NULL DEFAULT 0 CHECK (score BETWEEN 0 AND 10),
   scored_at   timestamptz   DEFAULT NOW(),
   scored_by   varchar(255)  NOT NULL
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS games (
   status          varchar(20)   NOT NULL DEFAULT 'live',
   answer          varchar(255)  NOT NULL,
   bonus_points    integer       NOT NULL DEFAULT 100,
-  winner_team_id  integer       REFERENCES teams(id),
+  winner_team_id  uuid          REFERENCES teams(id),
   completed_at    timestamptz,
   created_at      timestamptz   DEFAULT NOW()
 );
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS games (
 CREATE TABLE IF NOT EXISTS game_attempts (
   id                    serial        PRIMARY KEY,
   game_id               integer       NOT NULL REFERENCES games(id),
-  team_id               integer       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  team_id               uuid          NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   current_level         integer       NOT NULL DEFAULT 1,
   final_answer_attempts integer       NOT NULL DEFAULT 0,
   is_locked_out         boolean       NOT NULL DEFAULT false,
