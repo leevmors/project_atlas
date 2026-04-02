@@ -6,6 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 import { getGames } from '@/lib/store';
 import type { Game } from '@/lib/types';
 import { MysteriousGame } from '@/components/games/mysterious-game';
+import { CodeBreakerGame } from '@/components/games/code-breaker-game';
 import { Gamepad2, Trophy, Lock } from 'lucide-react';
 import Link from 'next/link';
 
@@ -145,10 +146,17 @@ function GamesContent() {
                   {/* Game component */}
                   {isActive && (
                     <div className="border-t border-slate-200/50 p-4 sm:p-6">
-                      <MysteriousGame
-                        gameId={game.id}
-                        isAdmin={isAdmin ?? false}
-                      />
+                      {game.name === 'The Code Breaker' ? (
+                        <CodeBreakerGame
+                          gameId={game.id}
+                          isAdmin={isAdmin ?? false}
+                        />
+                      ) : (
+                        <MysteriousGame
+                          gameId={game.id}
+                          isAdmin={isAdmin ?? false}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
