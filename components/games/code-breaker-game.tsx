@@ -17,9 +17,9 @@ const SIMON_COLORS = [
 ];
 
 const EMOJI_ROUNDS = [
-  { emoji: '🌻🌱  +  🌍🌊', answer: 'PLANT' },
-  { emoji: '🍎  ⬇️  🌱🌱🌱', answer: 'FRUIT' },
-  { emoji: '🌱🌱🌱🌱🌱  +  🔑', answer: 'SEEDS' },
+  { emoji: '👑', answer: 'CROWN' },
+  { emoji: '🌰  ➡️  🌱🌱🌱', answer: 'SEEDS' },
+  { emoji: '👑  +  🌱🌱🌱', answer: 'CROWN OF SEEDS' },
 ];
 
 const BINARY_ROWS = [
