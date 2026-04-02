@@ -587,32 +587,61 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           )}
 
           {slidePhase === 'puzzle' && (
-            <div className="grid grid-cols-4 gap-1 max-w-[280px] mx-auto mb-4">
-              {tiles.map((tile, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleTileClick(idx)}
-                  disabled={slideCooldown > 0 || tile === 0}
-                  className={`aspect-square rounded-lg text-sm font-bold transition-all duration-200 ${
-                    tile === 0
-                      ? 'bg-transparent'
-                      : 'bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-md hover:scale-105 active:scale-95 border border-rose-400/30'
-                  } disabled:opacity-40`}
-                >
-                  {tile !== 0 ? tile : ''}
-                </button>
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-4 gap-1 max-w-[280px] mx-auto mb-4">
+                {tiles.map((tile, idx) => {
+                  if (tile === 0) {
+                    return (
+                      <div key={idx} className="aspect-square rounded-lg bg-slate-700/30" />
+                    );
+                  }
+                  // tile 1 = row 0 col 0, tile 2 = row 0 col 1, etc.
+                  const srcRow = Math.floor((tile - 1) / 4);
+                  const srcCol = (tile - 1) % 4;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => handleTileClick(idx)}
+                      disabled={slideCooldown > 0}
+                      className="aspect-square rounded-lg transition-all duration-200 shadow-md hover:scale-105 active:scale-95 border border-white/10 overflow-hidden"
+                      style={{
+                        backgroundImage: 'url(/images/ruby.png)',
+                        backgroundSize: '400% 400%',
+                        backgroundPosition: `${(srcCol / 3) * 100}% ${(srcRow / 3) * 100}%`,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              {/* Reference thumbnail */}
+              <div className="flex justify-center mb-2">
+                <div className="text-center">
+                  <p className="text-slate-500 text-xs mb-1">Reference</p>
+                  <img
+                    src="/images/ruby.png"
+                    alt="Solved puzzle"
+                    className="w-16 h-16 rounded-lg border border-slate-600 object-cover"
+                  />
+                </div>
+              </div>
+            </>
           )}
 
           {slidePhase === 'answer' && (
             <div className="space-y-3">
+              <div className="flex justify-center mb-2">
+                <img
+                  src="/images/ruby.png"
+                  alt="Solved puzzle — a ruby gemstone"
+                  className="w-40 h-40 rounded-xl border border-slate-600 object-cover"
+                />
+              </div>
               {slideAnswerCooldown > 0 && (
                 <div className="text-center py-2 rounded-lg bg-red-900/30 border border-red-800/50">
                   <p className="text-red-300 text-sm">Wrong! Cooldown: {formatCooldown(slideAnswerCooldown)}</p>
                 </div>
               )}
-              <p className="text-slate-300 text-sm text-center">What gemstone do the tiles represent?</p>
+              <p className="text-slate-300 text-sm text-center">What gemstone is this?</p>
               <div className="flex gap-2 max-w-md mx-auto">
                 <input
                   type="text"
