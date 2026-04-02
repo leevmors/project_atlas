@@ -135,13 +135,10 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
           )
         );
         setFlippedIndices([]);
-        setRestoresUsed((prev) => {
-          if (prev < 3) {
-            setLives((cl) => Math.min(3, cl + 1));
-            return prev + 1;
-          }
-          return prev;
-        });
+        if (restoresUsed < 3) {
+          setLives((cl) => Math.min(cl + 1, 3));
+          setRestoresUsed((prev) => prev + 1);
+        }
         const matchedSoFar = cards.filter((c) => c.isMatched).length;
         if (matchedSoFar + 2 === cards.length) {
           setTimeout(() => setGameState('won'), 500);
@@ -532,8 +529,7 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
             {l3Status === 'playing' && (
               <div className="text-center">
                 <p className="text-slate-400 mb-4">
-                  Find the hidden runes:{' '}
-                  <span className="font-bold text-amber-400 tracking-widest">WALL</span>
+                  Find the hidden word in the grid below.
                 </p>
                 <div className="grid grid-cols-10 gap-1 bg-slate-900 p-2 sm:p-3 rounded-lg border border-slate-700">
                   {grid.map((letter, idx) => {
