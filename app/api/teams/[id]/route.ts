@@ -77,7 +77,7 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const [teamRes, taskRes, socialRes, presentRes] = await Promise.all([
+    const [teamRes, taskRes, socialRes, presentRes, gameBonusRes] = await Promise.all([
       pool.query<TeamRow>(
         `SELECT id, company_name, instagram, threads, group_number, email, members, created_at
          FROM teams WHERE id = $1`,
@@ -95,6 +95,10 @@ export async function GET(
       ),
       pool.query<PresentationRow>(
         `SELECT id, team_id, score, scored_at, scored_by FROM presentation_scores WHERE team_id = $1`,
+        [id]
+      ),
+      pool.query<{ game_bonus: string }>(
+        `SELECT COALESCE(SUM(bonus_awarded), 0) as game_bonus FROM game_attempts WHERE team_id = $1 AND bonus_awarded > 0`,
         [id]
       ),
     ]);
@@ -153,6 +157,7 @@ export async function GET(
       0
     );
     const totalPresentationPoints = ps?.score ?? 0;
+    const totalGamePoints = parseInt(gameBonusRes.rows[0]?.game_bonus ?? '0', 10) || 0;
 
     return NextResponse.json({
       team: {
@@ -170,7 +175,8 @@ export async function GET(
         totalTaskPoints,
         totalSocialPoints,
         totalPresentationPoints,
-        grandTotal: totalTaskPoints + totalSocialPoints + totalPresentationPoints,
+        totalGamePoints,
+        grandTotal: totalTaskPoints + totalSocialPoints + totalPresentationPoints + totalGamePoints,
       },
     });
   } catch (err) {

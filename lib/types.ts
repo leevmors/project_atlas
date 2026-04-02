@@ -57,7 +57,28 @@ export interface TeamWithScores extends Team {
   totalTaskPoints: number;
   totalSocialPoints: number;
   totalPresentationPoints: number;
+  totalGamePoints: number;
   grandTotal: number;
+}
+
+export interface Game {
+  id: string;
+  name: string;
+  status: 'live' | 'completed';
+  bonusPoints: number;
+  winnerTeamId?: string;
+  winnerTeamName?: string;
+  completedAt?: string;
+}
+
+export interface GameProgress {
+  gameId: string;
+  teamId: string;
+  currentLevel: number;
+  finalAnswerAttempts: number;
+  isLockedOut: boolean;
+  bonusAwarded: number;
+  wordleLockedUntil?: string;
 }
 
 export interface AdminUser {

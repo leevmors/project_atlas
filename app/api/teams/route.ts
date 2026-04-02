@@ -48,6 +48,11 @@ interface PresentationRow {
   scored_by: string;
 }
 
+interface GameBonusRow {
+  team_id: number;
+  game_bonus: string;
+}
+
 interface SessionRow {
   user_type: string;
   user_id: string;
@@ -72,6 +77,7 @@ function buildTeamsWithScores(
   taskScores: TaskRow[],
   socialScores: SocialRow[],
   presentationScores: PresentationRow[],
+  gameBonuses: GameBonusRow[],
   isAdmin: boolean
 ) {
   return teams
@@ -121,6 +127,8 @@ function buildTeamsWithScores(
         0
       );
       const totalPresentationPoints = ps?.score ?? 0;
+      const gb = gameBonuses.find((g) => String(g.team_id) === teamIdStr);
+      const totalGamePoints = parseInt(gb?.game_bonus ?? '0', 10) || 0;
 
       const base = {
         id: teamIdStr,
@@ -144,7 +152,8 @@ function buildTeamsWithScores(
         totalTaskPoints,
         totalSocialPoints,
         totalPresentationPoints,
-        grandTotal: totalTaskPoints + totalSocialPoints + totalPresentationPoints,
+        totalGamePoints,
+        grandTotal: totalTaskPoints + totalSocialPoints + totalPresentationPoints + totalGamePoints,
       };
 
       if (isAdmin) {
@@ -165,7 +174,7 @@ export async function GET(req: NextRequest) {
       : `id, company_name, instagram, threads, group_number, members,
          jsonb_array_length(members) AS member_count, created_at`;
 
-    const [teamsRes, taskRes, socialRes, presentRes] = await Promise.all([
+    const [teamsRes, taskRes, socialRes, presentRes, gameBonusRes] = await Promise.all([
       pool.query<TeamRow>(
         `SELECT ${selectCols} FROM teams ORDER BY created_at`
       ),
@@ -180,6 +189,10 @@ export async function GET(req: NextRequest) {
       pool.query<PresentationRow>(
         `SELECT id, team_id, score, scored_at, scored_by FROM presentation_scores`
       ),
+      pool.query<GameBonusRow>(
+        `SELECT team_id, COALESCE(SUM(bonus_awarded), 0) as game_bonus
+         FROM game_attempts WHERE bonus_awarded > 0 GROUP BY team_id`
+      ),
     ]);
 
     const teams = buildTeamsWithScores(
@@ -187,6 +200,7 @@ export async function GET(req: NextRequest) {
       taskRes.rows,
       socialRes.rows,
       presentRes.rows,
+      gameBonusRes.rows,
       isAdmin
     );
 

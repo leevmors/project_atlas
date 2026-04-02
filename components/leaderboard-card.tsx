@@ -1,7 +1,7 @@
 'use client';
 
 import type { TeamWithScores } from '@/lib/types';
-import { Trophy, Instagram, AtSign, Mail, Users, ClipboardList, Share2, Award, Crown } from 'lucide-react';
+import { Trophy, Instagram, AtSign, Mail, Users, ClipboardList, Share2, Award, Crown, Gamepad2 } from 'lucide-react';
 
 interface LeaderboardCardProps {
   team: TeamWithScores;
@@ -139,7 +139,7 @@ export function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
 
       {/* Stats Bar */}
       <div className="bg-slate-50/80 border-t border-slate-100">
-        <div className="grid grid-cols-3 divide-x divide-slate-100">
+        <div className={`grid ${team.totalGamePoints > 0 ? 'grid-cols-4' : 'grid-cols-3'} divide-x divide-slate-100`}>
           <div className="flex flex-col items-center py-3">
             <div className="flex items-center gap-1 text-slate-500 text-[10px] uppercase tracking-wider mb-0.5 font-semibold">
               <ClipboardList className="w-3.5 h-3.5" />
@@ -161,6 +161,15 @@ export function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
             </div>
             <div className="text-xl font-bold text-slate-700">{team.totalPresentationPoints}</div>
           </div>
+          {team.totalGamePoints > 0 && (
+            <div className="flex flex-col items-center py-3">
+              <div className="flex items-center gap-1 text-amber-500 text-[10px] uppercase tracking-wider mb-0.5 font-semibold">
+                <Gamepad2 className="w-3.5 h-3.5" />
+                Games
+              </div>
+              <div className="text-xl font-bold text-amber-600">{team.totalGamePoints}</div>
+            </div>
+          )}
         </div>
       </div>
     </div>

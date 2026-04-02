@@ -6,6 +6,8 @@ import type {
   PresentationScore,
   TeamWithScores,
   AuthSession,
+  Game,
+  GameProgress,
 } from './types';
 
 async function apiFetch(path: string, options?: RequestInit) {
@@ -218,4 +220,46 @@ export async function getSession(): Promise<AuthSession> {
 
 export async function logout(): Promise<void> {
   await apiFetch('/api/auth/logout', { method: 'POST' });
+}
+
+// Games
+export async function getGames(): Promise<Game[]> {
+  const data = await apiFetch('/api/games');
+  return data.games ?? [];
+}
+
+export async function getGameProgress(
+  gameId: string
+): Promise<{ game: Game; progress: GameProgress | null }> {
+  const data = await apiFetch(`/api/games/${gameId}/progress`);
+  return { game: data.game, progress: data.progress };
+}
+
+export async function saveGameProgress(
+  gameId: string,
+  currentLevel: number
+): Promise<void> {
+  await apiFetch(`/api/games/${gameId}/progress`, {
+    method: 'POST',
+    body: JSON.stringify({ currentLevel }),
+  });
+}
+
+export async function submitGameAnswer(
+  gameId: string,
+  answer: string
+): Promise<{
+  correct: boolean;
+  attemptsRemaining: number;
+  isLockedOut: boolean;
+  gameCompleted: boolean;
+}> {
+  return apiFetch(`/api/games/${gameId}/answer`, {
+    method: 'POST',
+    body: JSON.stringify({ answer }),
+  });
+}
+
+export async function setWordleLock(gameId: string): Promise<void> {
+  await apiFetch(`/api/games/${gameId}/wordle-lock`, { method: 'POST' });
 }

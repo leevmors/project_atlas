@@ -69,5 +69,36 @@ CREATE TABLE IF NOT EXISTS presentation_scores (
 );
 CREATE INDEX IF NOT EXISTS presentation_scores_team_id_idx ON presentation_scores(team_id);
 
+CREATE TABLE IF NOT EXISTS games (
+  id              serial        PRIMARY KEY,
+  name            varchar(255)  NOT NULL,
+  status          varchar(20)   NOT NULL DEFAULT 'live',
+  answer          varchar(255)  NOT NULL,
+  bonus_points    integer       NOT NULL DEFAULT 100,
+  winner_team_id  integer       REFERENCES teams(id),
+  completed_at    timestamptz,
+  created_at      timestamptz   DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS game_attempts (
+  id                    serial        PRIMARY KEY,
+  game_id               integer       NOT NULL REFERENCES games(id),
+  team_id               integer       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  current_level         integer       NOT NULL DEFAULT 1,
+  final_answer_attempts integer       NOT NULL DEFAULT 0,
+  is_locked_out         boolean       NOT NULL DEFAULT false,
+  bonus_awarded         integer       NOT NULL DEFAULT 0,
+  wordle_locked_until   timestamptz,
+  completed_at          timestamptz,
+  created_at            timestamptz   DEFAULT NOW(),
+  UNIQUE(game_id, team_id)
+);
+CREATE INDEX IF NOT EXISTS game_attempts_team_id_idx ON game_attempts(team_id);
+
+-- Seed the first game (safe to re-run)
+INSERT INTO games (name, answer, bonus_points)
+SELECT 'Mysterious Game', 'GAME OF THRONES', 100
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Mysterious Game');
+
 -- Migrations (safe to re-run)
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
