@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   getGameProgress,
   saveGameProgress,
@@ -97,6 +97,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
   const [simonRound, setSimonRound] = useState(1);
   const [simonPlaying, setSimonPlaying] = useState(false);
   const [simonActiveBtn, setSimonActiveBtn] = useState<number | null>(null);
+  const [simonPressedBtn, setSimonPressedBtn] = useState<number | null>(null);
   const [simonCooldown, setSimonCooldown] = useState(0);
   const [simonStatus, setSimonStatus] = useState<'idle' | 'playing' | 'input' | 'won'>('idle');
 
@@ -125,7 +126,6 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
   const [finalAttemptsLeft, setFinalAttemptsLeft] = useState(3);
   const [isLockedOut, setIsLockedOut] = useState(false);
 
-  const simonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // ─── Initialization ──────────────────────────────────────────────────────
 
@@ -240,13 +240,17 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
 
   useEffect(() => {
     if (level === 1 && simonStatus === 'idle' && simonCooldown === 0) {
-      startSimonRound();
+      const timer = setTimeout(() => startSimonRound(), 600);
+      return () => clearTimeout(timer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level, simonCooldown]);
+  }, [level, simonCooldown, simonStatus, simonRound, startSimonRound]);
 
   const handleSimonPress = (btnIdx: number) => {
     if (simonPlaying || simonCooldown > 0 || simonStatus !== 'input') return;
+
+    // Visual press feedback
+    setSimonPressedBtn(btnIdx);
+    setTimeout(() => setSimonPressedBtn(null), 250);
 
     const nextInput = [...simonInput, btnIdx];
     setSimonInput(nextInput);
@@ -269,11 +273,6 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
         setSimonRound((r) => r + 1);
         setSimonInput([]);
         setSimonStatus('idle');
-        // Small delay before next round
-        if (simonTimeoutRef.current) clearTimeout(simonTimeoutRef.current);
-        simonTimeoutRef.current = setTimeout(() => {
-          // Will trigger via useEffect
-        }, 800);
       }
     }
   };
@@ -492,9 +491,9 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
                 className="w-full aspect-square rounded-xl transition-all duration-200 border-2 border-white/10 disabled:opacity-40"
                 style={{
                   backgroundColor: color,
-                  transform: simonActiveBtn === idx ? 'scale(1.15)' : 'scale(1)',
-                  boxShadow: simonActiveBtn === idx ? `0 0 20px ${color}` : 'none',
-                  opacity: simonActiveBtn !== null && simonActiveBtn !== idx ? 0.3 : 1,
+                  transform: (simonActiveBtn === idx || simonPressedBtn === idx) ? 'scale(1.15)' : 'scale(1)',
+                  boxShadow: (simonActiveBtn === idx || simonPressedBtn === idx) ? `0 0 24px ${color}, 0 0 8px ${color}` : 'none',
+                  opacity: (simonActiveBtn !== null && simonActiveBtn !== idx) ? 0.3 : 1,
                 }}
               />
             ))}
