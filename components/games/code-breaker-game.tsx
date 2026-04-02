@@ -168,16 +168,6 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
     return () => clearInterval(interval);
   }, [gameId, game?.status]);
 
-  // Advance level helper
-  const advanceLevel = useCallback(async (nextLevel: number) => {
-    try {
-      await saveGameProgress(gameId, nextLevel);
-      setLevel(nextLevel);
-    } catch {
-      // ignore
-    }
-  }, [gameId]);
-
   // ─── Cooldown timers ─────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -268,7 +258,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
       // Round complete
       if (simonRound >= 3) {
         setSimonStatus('won');
-        advanceLevel(2);
+        saveGameProgress(gameId, 2).catch(() => {});
       } else {
         setSimonRound((r) => r + 1);
         setSimonInput([]);
@@ -285,7 +275,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
     if (answer === EMOJI_ROUNDS[emojiRound].answer) {
       if (emojiRound >= 2) {
         setEmojiStatus('won');
-        advanceLevel(3);
+        saveGameProgress(gameId, 3).catch(() => {});
       } else {
         setEmojiRound((r) => r + 1);
         setEmojiInput('');
@@ -341,7 +331,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
     if (slideAnswerCooldown > 0) return;
     if (slideInput.trim().toUpperCase() === 'RUBY') {
       setSlidePhase('won');
-      advanceLevel(4);
+      saveGameProgress(gameId, 4).catch(() => {});
     } else {
       setSlideAnswerCooldown(300); // 5 minutes
       setSlideInput('');
@@ -354,7 +344,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
     if (binaryCooldown > 0) return;
     if (binaryInput.trim().toUpperCase() === 'JEWEL') {
       setBinaryStatus('won');
-      advanceLevel(5);
+      saveGameProgress(gameId, 5).catch(() => {});
     } else {
       setBinaryCooldown(300); // 5 minutes
       setBinaryInput('');
@@ -511,7 +501,14 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           {simonStatus === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Sequence Cracked!</p>
-              <p className="text-green-400 text-lg font-mono mt-1">PERSEPHONE</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">PERSEPHONE</p>
+              <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
+              <button
+                onClick={() => setLevel(2)}
+                className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
+              >
+                Continue to Level 2
+              </button>
             </div>
           )}
         </div>
@@ -558,7 +555,14 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           {emojiStatus === 'won' && (
             <div className="text-center py-4 mt-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Cipher Decoded!</p>
-              <p className="text-green-400 text-lg font-mono mt-1">SEEDS</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">SEEDS</p>
+              <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
+              <button
+                onClick={() => setLevel(3)}
+                className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
+              >
+                Continue to Level 3
+              </button>
             </div>
           )}
         </div>
@@ -633,7 +637,14 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           {slidePhase === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Puzzle Cracked!</p>
-              <p className="text-green-400 text-lg font-mono mt-1">RUBY</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">RUBY</p>
+              <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
+              <button
+                onClick={() => setLevel(4)}
+                className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
+              >
+                Continue to Level 4
+              </button>
             </div>
           )}
         </div>
@@ -690,7 +701,14 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           {binaryStatus === 'won' && (
             <div className="text-center py-4 mt-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Binary Decoded!</p>
-              <p className="text-green-400 text-lg font-mono mt-1">JEWEL</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">JEWEL</p>
+              <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
+              <button
+                onClick={() => setLevel(5)}
+                className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
+              >
+                Continue to Final Level
+              </button>
             </div>
           )}
         </div>
