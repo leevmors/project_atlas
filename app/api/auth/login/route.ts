@@ -80,6 +80,12 @@ export async function POST(req: NextRequest) {
     const sessionId = randomUUID();
     const expiresAt = new Date(Date.now() + SESSION_HOURS * 60 * 60 * 1000);
 
+    // Remove any existing sessions for this user — only one login at a time
+    await pool.query(
+      `DELETE FROM sessions WHERE user_id = $1 AND user_type = $2`,
+      [session.id, session.type]
+    );
+
     await pool.query(
       `INSERT INTO sessions (id, user_type, user_id, user_name, expires_at)
        VALUES ($1, $2, $3, $4, $5)`,
