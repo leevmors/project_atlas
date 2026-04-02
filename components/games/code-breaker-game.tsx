@@ -641,7 +641,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
                   <p className="text-red-300 text-sm">Wrong! Cooldown: {formatCooldown(slideAnswerCooldown)}</p>
                 </div>
               )}
-              <p className="text-slate-300 text-sm text-center">What gemstone is this?</p>
+              <p className="text-slate-300 text-sm text-center">What's the answer?</p>
               <div className="flex gap-2 max-w-md mx-auto">
                 <input
                   type="text"
