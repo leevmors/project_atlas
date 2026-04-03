@@ -17,9 +17,9 @@ const SIMON_COLORS = [
 ];
 
 const EMOJI_ROUNDS = [
-  { emoji: '👑', answer: 'CROWN' },
-  { emoji: '🌰  ➡️  🌱🌱🌱', answer: 'SEEDS' },
-  { emoji: '👑  +  🌱🌱🌱', answer: 'CROWN OF SEEDS' },
+  { emoji: '🐦‍⬛  +  1st letter of Norway', answer: 'CROWN', cooldown: 60 },
+  { emoji: '👀  +  Creator "Hidetaka Miyazaki" and his main creation (2 letters)', answer: 'SEEDS', cooldown: 180 },
+  { emoji: 'Combine your answers', answer: 'CROWN OF SEEDS', cooldown: 300 },
 ];
 
 const BINARY_ROWS = [
@@ -281,7 +281,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
         setEmojiInput('');
       }
     } else {
-      setEmojiCooldown(300); // 5 minutes
+      setEmojiCooldown(EMOJI_ROUNDS[emojiRound].cooldown);
       setEmojiInput('');
     }
   };
@@ -529,8 +529,8 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
             </div>
           )}
 
-          <div className="text-center py-8 mb-4 rounded-lg bg-slate-700/50 border border-slate-600/50">
-            <span className="text-4xl sm:text-5xl">{EMOJI_ROUNDS[emojiRound].emoji}</span>
+          <div className="text-center py-8 mb-4 rounded-lg bg-slate-700/50 border border-slate-600/50 px-4">
+            <span className="text-xl sm:text-2xl leading-relaxed">{EMOJI_ROUNDS[emojiRound].emoji}</span>
           </div>
 
           <div className="flex gap-2 max-w-md mx-auto">
