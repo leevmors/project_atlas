@@ -37,16 +37,14 @@ export async function POST(
 
     // Admin dry-run: check answer without persisting anything
     if (session.user_type === 'admin') {
-      const gameRes = await pool.query<{ answer: string }>(
+      const adminGameRes = await pool.query<{ answer: string }>(
         `SELECT answer FROM games WHERE id = $1`,
         [id]
       );
-      if (gameRes.rows.length === 0) {
-        client.release();
+      if (adminGameRes.rows.length === 0) {
         return NextResponse.json({ error: 'Game not found' }, { status: 404 });
       }
-      const isCorrect = answer.trim().toUpperCase() === gameRes.rows[0].answer;
-      client.release();
+      const isCorrect = answer.trim().toUpperCase() === adminGameRes.rows[0].answer;
       return NextResponse.json({
         correct: isCorrect,
         attemptsRemaining: 99,
