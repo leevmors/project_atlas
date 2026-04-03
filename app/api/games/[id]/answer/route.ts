@@ -6,16 +6,14 @@ interface SessionRow {
   user_id: string;
 }
 
-async function getTeamSession(req: NextRequest): Promise<SessionRow | null> {
+async function getSession(req: NextRequest): Promise<SessionRow | null> {
   const sessionId = req.cookies.get('atlas_sid')?.value;
   if (!sessionId) return null;
   const res = await pool.query<SessionRow>(
     `SELECT user_type, user_id FROM sessions WHERE id = $1 AND expires_at > NOW()`,
     [sessionId]
   );
-  const session = res.rows[0] ?? null;
-  if (session?.user_type !== 'team') return null;
-  return session;
+  return res.rows[0] ?? null;
 }
 
 export async function POST(
@@ -25,7 +23,7 @@ export async function POST(
   const client = await pool.connect();
   try {
     const { id } = await context.params;
-    const session = await getTeamSession(req);
+    const session = await getSession(req);
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -35,6 +33,26 @@ export async function POST(
 
     if (!answer || typeof answer !== 'string') {
       return NextResponse.json({ error: 'Answer is required' }, { status: 400 });
+    }
+
+    // Admin dry-run: check answer without persisting anything
+    if (session.user_type === 'admin') {
+      const gameRes = await pool.query<{ answer: string }>(
+        `SELECT answer FROM games WHERE id = $1`,
+        [id]
+      );
+      if (gameRes.rows.length === 0) {
+        client.release();
+        return NextResponse.json({ error: 'Game not found' }, { status: 404 });
+      }
+      const isCorrect = answer.trim().toUpperCase() === gameRes.rows[0].answer;
+      client.release();
+      return NextResponse.json({
+        correct: isCorrect,
+        attemptsRemaining: 99,
+        isLockedOut: false,
+        gameCompleted: false,
+      });
     }
 
     await client.query('BEGIN');
