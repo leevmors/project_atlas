@@ -619,7 +619,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
                   <p className="text-slate-500 text-xs mb-1">Reference</p>
                   <img
                     src="/images/ruby.png"
-                    alt="Solved puzzle"
+                    alt="Puzzle reference"
                     className="w-16 h-16 rounded-lg border border-slate-600 object-cover"
                   />
                 </div>
@@ -632,7 +632,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
               <div className="flex justify-center mb-2">
                 <img
                   src="/images/ruby.png"
-                  alt="Solved puzzle — a ruby gemstone"
+                  alt="Solved puzzle"
                   className="w-40 h-40 rounded-xl border border-slate-600 object-cover"
                 />
               </div>
@@ -666,8 +666,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           {slidePhase === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Puzzle Cracked!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">RUBY</p>
-              <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
+              <p className="text-slate-400 text-xs mt-2 mb-3">Remember your answer — you&apos;ll need it later.</p>
               <button
                 onClick={() => setLevel(4)}
                 className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
