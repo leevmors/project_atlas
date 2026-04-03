@@ -524,22 +524,7 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
       {/* ─── LEVEL 4: The Void ─── */}
       {level === 4 && (
         <div className="bg-slate-800/95 rounded-xl p-5 sm:p-6">
-          <h3 className="text-amber-400 font-bold text-lg mb-1">Level 4: The Void</h3>
-          <p className="text-slate-400 text-sm mb-6">
-            You've collected three fragments.
-          </p>
-
-          {/* Clue fragments */}
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            {CLUE_FRAGMENTS.map((frag) => (
-              <div
-                key={frag}
-                className="bg-gradient-to-br from-amber-600/20 to-amber-800/20 border border-amber-500/30 rounded-xl p-3 text-center"
-              >
-                <span className="text-amber-300 font-mono font-bold text-sm sm:text-base">{frag}</span>
-              </div>
-            ))}
-          </div>
+          <h3 className="text-amber-400 font-bold text-lg mb-4">Final Answer</h3>
 
           {isLockedOut ? (
             <div className="text-center py-6 rounded-lg bg-red-900/30 border border-red-800/50">
