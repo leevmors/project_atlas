@@ -188,8 +188,9 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
         }
         setFinalInput('');
       }
-    } catch {
-      setFinalError('An error occurred. Try again.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setFinalError(`Error: ${msg}`);
     }
   };
 
