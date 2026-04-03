@@ -384,11 +384,19 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // ─── Admin skip ───────────────────────────────────────────────────────────
+  // ─── Admin controls ────────────────────────────────────────────────────────
 
   const adminSkip = () => {
     if (!isAdmin) return;
-    if (level < 5) advanceLevel(level + 1);
+    if (level <= 5) advanceLevel(level + 1);
+  };
+
+  const adminSolveLevel = () => {
+    if (!isAdmin) return;
+    if (level === 1) { setSimonStatus('won'); saveGameProgress(gameId, 2).catch(() => {}); }
+    if (level === 2) { setEmojiStatus('won'); saveGameProgress(gameId, 3).catch(() => {}); }
+    if (level === 3) { setSlidePhase('won'); saveGameProgress(gameId, 4).catch(() => {}); }
+    if (level === 4) { setBinaryStatus('won'); saveGameProgress(gameId, 5).catch(() => {}); }
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -450,11 +458,30 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
         <span className="text-xs text-slate-400">Level {level}/5</span>
       </div>
 
-      {/* Admin skip button */}
-      {isAdmin && level < 5 && (
-        <button onClick={adminSkip} className="opacity-0 hover:opacity-100 text-xs text-slate-400">
-          [skip]
-        </button>
+      {/* Admin toolbar */}
+      {isAdmin && level <= 5 && (
+        <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 flex-wrap">
+          <span className="text-amber-600 text-xs font-bold uppercase tracking-wider">Admin</span>
+          <span className="text-slate-400 text-xs">Level {level}/5</span>
+          <div className="flex gap-2 ml-auto">
+            {level <= 4 && (
+              <button
+                onClick={adminSolveLevel}
+                className="px-3 py-1 rounded-md bg-green-600 hover:bg-green-500 text-white text-xs font-semibold transition-colors"
+              >
+                Auto-solve
+              </button>
+            )}
+            {level <= 5 && (
+              <button
+                onClick={adminSkip}
+                className="px-3 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors"
+              >
+                Skip Level
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ─── LEVEL 1: Sequence Recall ─── */}
@@ -530,7 +557,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           )}
 
           <div className="text-center py-8 mb-4 rounded-lg bg-slate-700/50 border border-slate-600/50 px-4">
-            <span className="text-xl sm:text-2xl leading-relaxed">{EMOJI_ROUNDS[emojiRound].emoji}</span>
+            <span className="text-xl sm:text-2xl leading-relaxed text-slate-100">{EMOJI_ROUNDS[emojiRound].emoji}</span>
           </div>
 
           <div className="flex gap-2 max-w-md mx-auto">

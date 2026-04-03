@@ -121,9 +121,12 @@ function GamesContent() {
                             Log in to play
                           </Link>
                         ) : isAdmin ? (
-                          <p className="text-sm text-slate-400 italic">
-                            Team accounts only
-                          </p>
+                          <button
+                            onClick={() => setActiveGameId(game.id)}
+                            className="px-5 py-2.5 rounded-full bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 transition-colors"
+                          >
+                            Admin Preview
+                          </button>
                         ) : isTeam && isLive ? (
                           <button
                             onClick={() => setActiveGameId(game.id)}

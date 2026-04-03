@@ -364,18 +364,41 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
     );
   }
 
+  const adminSolveLevel = () => {
+    if (!isAdmin) return;
+    if (level === 1) setGameState('won');
+    if (level === 2) setMorseStatus('won');
+    if (level === 3) setL3Status('won');
+    if (level === 4 && l4Status === 'playing') {
+      setGuesses(['REALM']);
+      setL4Status('won_wordle');
+    }
+  };
+
   return (
     <div className="relative">
-      {/* Admin skip (hidden) */}
-      {isAdmin && level < 4 && (
-        <button
-          onClick={() => {
-            if (level === 1) setGameState('won');
-            if (level === 2) setMorseStatus('won');
-            if (level === 3) setL3Status('won');
-          }}
-          className="absolute top-0 left-0 w-12 h-12 opacity-0 z-50"
-        />
+      {/* Admin toolbar */}
+      {isAdmin && (
+        <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 flex-wrap">
+          <span className="text-amber-600 text-xs font-bold uppercase tracking-wider">Admin</span>
+          <span className="text-slate-400 text-xs">Level {level}/4</span>
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={adminSolveLevel}
+              className="px-3 py-1 rounded-md bg-green-600 hover:bg-green-500 text-white text-xs font-semibold transition-colors"
+            >
+              Auto-solve
+            </button>
+            {level < 4 && (
+              <button
+                onClick={() => advanceLevel(level + 1)}
+                className="px-3 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors"
+              >
+                Skip Level
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Game area — dark themed interior */}

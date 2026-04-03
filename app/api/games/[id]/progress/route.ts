@@ -26,16 +26,14 @@ interface AttemptRow {
   wordle_locked_until: string | null;
 }
 
-async function getTeamSession(req: NextRequest): Promise<SessionRow | null> {
+async function getSession(req: NextRequest): Promise<SessionRow | null> {
   const sessionId = req.cookies.get('atlas_sid')?.value;
   if (!sessionId) return null;
   const res = await pool.query<SessionRow>(
     `SELECT user_type, user_id FROM sessions WHERE id = $1 AND expires_at > NOW()`,
     [sessionId]
   );
-  const session = res.rows[0] ?? null;
-  if (session?.user_type !== 'team') return null;
-  return session;
+  return res.rows[0] ?? null;
 }
 
 export async function GET(
@@ -44,7 +42,7 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
-    const session = await getTeamSession(req);
+    const session = await getSession(req);
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -63,6 +61,22 @@ export async function GET(
     }
 
     const gameRow = gameRes.rows[0];
+
+    // Admin preview — return game info without creating an attempt
+    if (session.user_type === 'admin') {
+      return NextResponse.json({
+        game: {
+          id: String(gameRow.id),
+          name: gameRow.name,
+          status: gameRow.status,
+          bonusPoints: gameRow.bonus_points,
+          winnerTeamId: gameRow.winner_team_id ? String(gameRow.winner_team_id) : undefined,
+          winnerTeamName: gameRow.winner_team_name ?? undefined,
+          completedAt: gameRow.completed_at ?? undefined,
+        },
+        progress: null,
+      });
+    }
 
     // Ensure attempt row exists
     await pool.query(
@@ -112,15 +126,20 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
-    const session = await getTeamSession(req);
+    const session = await getSession(req);
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Admin preview — don't persist progress
+    if (session.user_type === 'admin') {
+      return NextResponse.json({ ok: true });
+    }
+
     const { currentLevel } = await req.json();
 
-    if (typeof currentLevel !== 'number' || currentLevel < 1 || currentLevel > 5) {
+    if (typeof currentLevel !== 'number' || currentLevel < 1 || currentLevel > 6) {
       return NextResponse.json({ error: 'Invalid level' }, { status: 400 });
     }
 
