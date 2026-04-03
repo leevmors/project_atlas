@@ -19,7 +19,7 @@ const SIMON_COLORS = [
 const EMOJI_ROUNDS = [
   { emoji: '🐦‍⬛  +  1st letter of Norway', answer: 'CROWN', cooldown: 60 },
   { emoji: '👀  +  Creator "Hidetaka Miyazaki" and his main creation (2 letters)', answer: 'SEEDS', cooldown: 180 },
-  { emoji: 'Combine your answers', answer: 'CROWN OF SEEDS', cooldown: 300 },
+  { emoji: '🔗  CROWN  ___  SEEDS — fill the blank (a preposition)', answer: 'CROWN OF SEEDS', cooldown: 300 },
 ];
 
 const BINARY_ROWS = [
