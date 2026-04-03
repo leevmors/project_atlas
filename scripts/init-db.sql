@@ -105,5 +105,10 @@ INSERT INTO games (name, answer, bonus_points)
 SELECT 'The Code Breaker', 'POMEGRANATE', 40
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'The Code Breaker');
 
+-- Seed the third game (safe to re-run)
+INSERT INTO games (name, answer, bonus_points)
+SELECT 'Houston we have a problem!', 'BLACK HOLE', 150
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Houston we have a problem!');
+
 -- Migrations (safe to re-run)
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
