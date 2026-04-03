@@ -48,7 +48,6 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
   const [finalInput, setFinalInput] = useState('');
   const [finalError, setFinalError] = useState('');
   const [finalAttemptsLeft, setFinalAttemptsLeft] = useState(3);
-  const [finalCooldown, setFinalCooldown] = useState(0);
   const [isLockedOut, setIsLockedOut] = useState(false);
 
   // ─── Initialization ──────────────────────────────────────────────────────
@@ -112,11 +111,6 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
     return () => clearInterval(t);
   }, [l3Cooldown]);
 
-  useEffect(() => {
-    if (finalCooldown <= 0) return;
-    const t = setInterval(() => setFinalCooldown((v) => Math.max(0, v - 1)), 1000);
-    return () => clearInterval(t);
-  }, [finalCooldown]);
 
   // ─── Cooldown formatter ───────────────────────────────────────────────────
 
@@ -168,7 +162,7 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
   // ─── Level 4: The Void ────────────────────────────────────────────────────
 
   const handleFinalSubmit = async () => {
-    if (isLockedOut || finalAttemptsLeft <= 0 || finalCooldown > 0) return;
+    if (isLockedOut || finalAttemptsLeft <= 0) return;
     setFinalError('');
     try {
       const res = await submitGameAnswer(gameId, finalInput.trim());
@@ -184,7 +178,6 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
           setFinalError(
             `Wrong answer. ${res.attemptsRemaining} attempt${res.attemptsRemaining !== 1 ? 's' : ''} remaining.`
           );
-          setFinalCooldown(300);
         }
         setFinalInput('');
       }
@@ -541,13 +534,6 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
             </div>
           ) : (
             <>
-              {finalCooldown > 0 && (
-                <div className="text-center py-3 mb-3 rounded-lg bg-red-900/30 border border-red-800/50">
-                  <AlertTriangle className="w-5 h-5 text-red-400 mx-auto mb-1" />
-                  <p className="text-red-300 text-sm">Wrong! Cooldown: {formatCooldown(finalCooldown)}</p>
-                </div>
-              )}
-
               <p className="text-slate-300 text-sm text-center mb-3">What is the answer?</p>
 
               <div className="flex gap-2 max-w-md mx-auto">
@@ -557,12 +543,11 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
                   onChange={(e) => setFinalInput(e.target.value.toUpperCase())}
                   onKeyDown={(e) => e.key === 'Enter' && handleFinalSubmit()}
                   placeholder="Type your answer..."
-                  disabled={finalCooldown > 0}
-                  className="flex-1 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                 />
                 <button
                   onClick={handleFinalSubmit}
-                  disabled={finalCooldown > 0 || !finalInput.trim()}
+                  disabled={!finalInput.trim()}
                   className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
                 >
                   Submit
