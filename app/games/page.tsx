@@ -8,6 +8,7 @@ import type { Game } from '@/lib/types';
 import { MysteriousGame } from '@/components/games/mysterious-game';
 import { CodeBreakerGame } from '@/components/games/code-breaker-game';
 import { HoustonGame } from '@/components/games/houston-game';
+import { HuntGame } from '@/components/games/hunt-game';
 import { Gamepad2, Trophy, Lock } from 'lucide-react';
 import Link from 'next/link';
 
@@ -150,7 +151,12 @@ function GamesContent() {
                   {/* Game component */}
                   {isActive && (
                     <div className="border-t border-slate-200/50 p-4 sm:p-6">
-                      {game.name === 'Houston we have a problem!' ? (
+                      {game.name === 'The Hunt' ? (
+                        <HuntGame
+                          gameId={game.id}
+                          isAdmin={isAdmin ?? false}
+                        />
+                      ) : game.name === 'Houston we have a problem!' ? (
                         <HoustonGame
                           gameId={game.id}
                           isAdmin={isAdmin ?? false}
