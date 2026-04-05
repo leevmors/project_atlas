@@ -22,14 +22,6 @@ const PETAL_CONFIGS = [
   { id: 13, left: 40, delay: 1.5, duration: 14, size: 16, opacity: 0.6, swayDuration: 4.4, blur: 1.2, rotateStart: 220 },
   { id: 14, left: 50, delay: 10, duration: 20, size: 18, opacity: 0.7, swayDuration: 5, blur: 0.6, rotateStart: 290 },
   { id: 15, left: 60, delay: 3.5, duration: 12, size: 15, opacity: 0.5, swayDuration: 3.4, blur: 1.1, rotateStart: 15 },
-  { id: 16, left: 70, delay: 8.5, duration: 17, size: 25, opacity: 0.85, swayDuration: 4.7, blur: 0.9, rotateStart: 170 },
-  { id: 17, left: 80, delay: 5.5, duration: 15, size: 12, opacity: 0.55, swayDuration: 5.3, blur: 1.5, rotateStart: 310 },
-  { id: 18, left: 90, delay: 0.5, duration: 16, size: 20, opacity: 0.75, swayDuration: 3.9, blur: 0.7, rotateStart: 70 },
-  { id: 19, left: 8, delay: 7.5, duration: 14, size: 17, opacity: 0.65, swayDuration: 4.1, blur: 1, rotateStart: 250 },
-  { id: 20, left: 28, delay: 11, duration: 19, size: 22, opacity: 0.8, swayDuration: 5.1, blur: 1.3, rotateStart: 130 },
-  { id: 21, left: 48, delay: 2.8, duration: 13, size: 14, opacity: 0.58, swayDuration: 3.7, blur: 0.85, rotateStart: 195 },
-  { id: 22, left: 68, delay: 6.2, duration: 17, size: 19, opacity: 0.72, swayDuration: 4.3, blur: 1.15, rotateStart: 345 },
-  { id: 23, left: 88, delay: 4.2, duration: 15, size: 16, opacity: 0.62, swayDuration: 5.4, blur: 0.75, rotateStart: 55 },
 ];
 
 function SakuraPetals() {

@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { TeamWithScores } from '@/lib/types';
 import { Trophy, Instagram, AtSign, Mail, Users, ClipboardList, Share2, Award, Crown, Gamepad2 } from 'lucide-react';
 
@@ -42,7 +43,7 @@ function getScoreTextColor(rank: number): string {
   }
 }
 
-export function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
+export const LeaderboardCard = memo(function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
   const memberNames = team.members && team.members.length > 0
     ? team.members.map(m => m.name).join(', ')
     : `${team.memberCount ?? 0} member${(team.memberCount ?? 0) !== 1 ? 's' : ''}`;
@@ -174,4 +175,4 @@ export function LeaderboardCard({ team, rank }: LeaderboardCardProps) {
       </div>
     </div>
   );
-}
+});

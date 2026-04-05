@@ -3,12 +3,13 @@ import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const geist = Geist({ subsets: ["latin"] });
-const geistMono = Geist_Mono({ subsets: ["latin"] });
+const geist = Geist({ subsets: ["latin"], display: 'swap' });
+const geistMono = Geist_Mono({ subsets: ["latin"], display: 'swap' });
 const playfair = Playfair_Display({
   subsets: ["latin"],
   style: ['italic'],
-  variable: '--font-cursive'
+  variable: '--font-cursive',
+  display: 'swap',
 });
 
 // Suppress unused variable warnings — fonts are loaded for CSS availability

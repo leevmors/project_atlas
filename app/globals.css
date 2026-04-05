@@ -183,10 +183,12 @@
 
 .animate-fall {
   animation: fall ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 .animate-sway {
   animation: sway ease-in-out infinite;
+  will-change: transform;
 }
 
 /* Cinematic noise texture overlay */

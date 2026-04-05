@@ -3,9 +3,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: {
-    unoptimized: true,
-  },
   allowedDevOrigins: ['*.replit.dev', '*.spock.replit.dev'],
   onDemandEntries: {
     maxInactiveAge: 60 * 1000,

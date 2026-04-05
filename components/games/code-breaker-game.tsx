@@ -632,7 +632,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
                       disabled={slideCooldown > 0}
                       className="aspect-square rounded-lg transition-all duration-200 shadow-md hover:scale-105 active:scale-95 border border-white/10 overflow-hidden"
                       style={{
-                        backgroundImage: 'url(/images/ruby.png)',
+                        backgroundImage: 'url(/images/ruby.jpg)',
                         backgroundSize: '400% 400%',
                         backgroundPosition: `${(srcCol / 3) * 100}% ${(srcRow / 3) * 100}%`,
                       }}
@@ -645,7 +645,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
                 <div className="text-center">
                   <p className="text-slate-500 text-xs mb-1">Reference</p>
                   <img
-                    src="/images/ruby.png"
+                    src="/images/ruby.jpg"
                     alt="Puzzle reference"
                     className="w-16 h-16 rounded-lg border border-slate-600 object-cover"
                   />
@@ -658,7 +658,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
             <div className="space-y-3">
               <div className="flex justify-center mb-2">
                 <img
-                  src="/images/ruby.png"
+                  src="/images/ruby.jpg"
                   alt="Solved puzzle"
                   className="w-40 h-40 rounded-xl border border-slate-600 object-cover"
                 />

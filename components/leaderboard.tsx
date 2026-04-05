@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getAllTeamsWithScores } from '@/lib/store';
 import type { TeamWithScores } from '@/lib/types';
 import { LeaderboardCard } from './leaderboard-card';
+import { useDebounce } from '@/hooks/use-debounce';
 import { Trophy, Users, Search, Calendar, Filter } from 'lucide-react';
 
 export function Leaderboard() {
@@ -31,20 +32,25 @@ export function Leaderboard() {
     return () => clearInterval(interval);
   }, [loadTeams]);
 
-  // Filter and sort teams
-  const filteredTeams = teams
-    .filter((team) =>
-      searchQuery === '' ||
-      team.companyName.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'tasks': return (b.totalTaskPoints ?? 0) - (a.totalTaskPoints ?? 0);
-        case 'social': return (b.totalSocialPoints ?? 0) - (a.totalSocialPoints ?? 0);
-        case 'present': return (b.totalPresentationPoints ?? 0) - (a.totalPresentationPoints ?? 0);
-        default: return (b.grandTotal ?? 0) - (a.grandTotal ?? 0);
-      }
-    });
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Filter and sort teams (memoized to avoid recalculation on unrelated re-renders)
+  const filteredTeams = useMemo(() =>
+    teams
+      .filter((team) =>
+        debouncedSearch === '' ||
+        team.companyName.toLowerCase().includes(debouncedSearch.toLowerCase())
+      )
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'tasks': return (b.totalTaskPoints ?? 0) - (a.totalTaskPoints ?? 0);
+          case 'social': return (b.totalSocialPoints ?? 0) - (a.totalSocialPoints ?? 0);
+          case 'present': return (b.totalPresentationPoints ?? 0) - (a.totalPresentationPoints ?? 0);
+          default: return (b.grandTotal ?? 0) - (a.grandTotal ?? 0);
+        }
+      }),
+    [teams, debouncedSearch, sortBy]
+  );
 
   if (isLoading) {
     return (
