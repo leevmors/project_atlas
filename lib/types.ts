@@ -69,6 +69,9 @@ export interface Game {
   winnerTeamId?: string;
   winnerTeamName?: string;
   completedAt?: string;
+  activeTeams?: { teamName: string }[];
+  activeTeamCount?: number;
+  answer?: string; // only present when status === 'completed'
 }
 
 export interface GameProgress {

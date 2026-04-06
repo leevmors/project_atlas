@@ -10,7 +10,7 @@ import { CodeBreakerGame } from '@/components/games/code-breaker-game';
 import { HoustonGame } from '@/components/games/houston-game';
 import { HuntGame } from '@/components/games/hunt-game';
 import { FinalPieceGame } from '@/components/games/final-piece-game';
-import { Gamepad2, Trophy, Lock } from 'lucide-react';
+import { Gamepad2, Trophy, Lock, Crown, Users } from 'lucide-react';
 import Link from 'next/link';
 
 function GamesContent() {
@@ -60,13 +60,19 @@ function GamesContent() {
               return (
                 <div
                   key={game.id}
-                  className="bg-white/85 backdrop-blur-sm rounded-2xl border border-white/50 shadow-md overflow-hidden"
+                  className={`bg-white/85 backdrop-blur-sm rounded-2xl overflow-hidden transition-all ${
+                    isLive
+                      ? 'border border-white/50 shadow-md'
+                      : 'border-2 border-amber-300/60 shadow-lg shadow-amber-100/40'
+                  }`}
                 >
                   {/* Game header */}
                   <div className="p-5 sm:p-6">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shadow-sm">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${
+                          isLive ? 'bg-slate-100' : 'bg-amber-100'
+                        }`}>
                           {isLive ? (
                             <Gamepad2 className="w-5 h-5 text-slate-600" />
                           ) : (
@@ -86,24 +92,66 @@ function GamesContent() {
                                 </span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200">
-                                <Lock className="w-3 h-3 text-slate-400" />
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                  Completed
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 border border-amber-200">
+                                <Crown className="w-3 h-3 text-amber-500" />
+                                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">
+                                  Solved
                                 </span>
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-slate-500 mt-0.5">
-                            {isLive
-                              ? `First to solve wins ${game.bonusPoints} bonus points!`
-                              : `Won by ${game.winnerTeamName}`}
-                          </p>
+
+                          {/* Subtitle: live vs completed */}
+                          {isLive ? (
+                            <p className="text-sm text-slate-500 mt-0.5">
+                              First to solve wins {game.bonusPoints} bonus points!
+                            </p>
+                          ) : (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Crown className="w-4 h-4 text-amber-500" />
+                              <span className="text-sm font-bold text-amber-700">
+                                {game.winnerTeamName}
+                              </span>
+                              <span className="text-xs text-amber-500 font-medium">
+                                won +{game.bonusPoints} pts!
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Active players indicator (live games only) */}
+                          {isLive && (game.activeTeamCount ?? 0) > 0 && (
+                            <div className="flex items-center gap-2 flex-wrap mt-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                <Users className="w-3.5 h-3.5 text-blue-600" />
+                                <span className="text-xs font-semibold text-blue-700">
+                                  {game.activeTeamCount} team{game.activeTeamCount !== 1 ? 's' : ''} playing
+                                </span>
+                              </div>
+                              {(game.activeTeams ?? []).slice(0, 3).map((t) => (
+                                <span
+                                  key={t.teamName}
+                                  className="bg-blue-50 border border-blue-200 text-blue-700 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                >
+                                  {t.teamName}
+                                </span>
+                              ))}
+                              {(game.activeTeamCount ?? 0) > 3 && (
+                                <span className="text-xs text-blue-500 font-medium">
+                                  +{(game.activeTeamCount ?? 0) - 3} more
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       {/* Prize badge */}
-                      <div className="hidden sm:flex flex-col items-center px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200/50">
+                      <div className={`hidden sm:flex flex-col items-center px-3 py-1.5 rounded-xl ${
+                        isLive
+                          ? 'bg-amber-50 border border-amber-200/50'
+                          : 'bg-amber-100 border border-amber-300/50'
+                      }`}>
                         <span className="text-xl font-bold text-amber-600">
                           +{game.bonusPoints}
                         </span>
@@ -148,6 +196,18 @@ function GamesContent() {
                       </div>
                     )}
                   </div>
+
+                  {/* Answer reveal (completed games only) */}
+                  {!isLive && game.answer && (
+                    <div className="mx-5 sm:mx-6 mb-5 sm:mb-6 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">
+                        The answer was
+                      </p>
+                      <p className="text-base font-bold text-slate-800 font-mono tracking-wide">
+                        {game.answer}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Game component */}
                   {isActive && (
