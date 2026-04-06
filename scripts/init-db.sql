@@ -105,6 +105,11 @@ INSERT INTO games (name, answer, bonus_points)
 SELECT 'The Code Breaker', 'POMEGRANATE', 40
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'The Code Breaker');
 
+-- Seed the fifth game (safe to re-run)
+INSERT INTO games (name, answer, bonus_points)
+SELECT 'The Final Piece', 'ADOLF HITLER', 100
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'The Final Piece');
+
 -- Seed the fourth game (safe to re-run)
 INSERT INTO games (name, answer, bonus_points)
 SELECT 'The Hunt', 'KRATOS', 50

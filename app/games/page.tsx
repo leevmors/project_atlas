@@ -9,6 +9,7 @@ import { MysteriousGame } from '@/components/games/mysterious-game';
 import { CodeBreakerGame } from '@/components/games/code-breaker-game';
 import { HoustonGame } from '@/components/games/houston-game';
 import { HuntGame } from '@/components/games/hunt-game';
+import { FinalPieceGame } from '@/components/games/final-piece-game';
 import { Gamepad2, Trophy, Lock } from 'lucide-react';
 import Link from 'next/link';
 
@@ -151,7 +152,12 @@ function GamesContent() {
                   {/* Game component */}
                   {isActive && (
                     <div className="border-t border-slate-200/50 p-4 sm:p-6">
-                      {game.name === 'The Hunt' ? (
+                      {game.name === 'The Final Piece' ? (
+                        <FinalPieceGame
+                          gameId={game.id}
+                          isAdmin={isAdmin ?? false}
+                        />
+                      ) : game.name === 'The Hunt' ? (
                         <HuntGame
                           gameId={game.id}
                           isAdmin={isAdmin ?? false}
