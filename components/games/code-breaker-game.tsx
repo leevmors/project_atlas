@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   getGameProgress,
-  saveGameProgress,
   submitGameAnswer,
+  submitLevelAnswer,
+  completePuzzleLevel,
 } from '@/lib/store';
 import type { Game, GameProgress } from '@/lib/types';
 import { Trophy, Lock, AlertTriangle, Binary, Puzzle, Keyboard } from 'lucide-react';
@@ -16,36 +17,30 @@ const SIMON_COLORS = [
   '#a855f7', '#f97316', '#06b6d4', '#ec4899', '#6366f1',
 ];
 
-const EMOJI_ROUNDS = [
-  { emoji: '🐦‍⬛  +  1st letter of Norway', answer: 'CROWN', cooldown: 60 },
-  { emoji: '👀  +  Creator "Hidetaka Miyazaki" and his main creation (2 letters)', answer: 'SEEDS', cooldown: 180 },
-  { emoji: '🔗  CROWN  ___  SEEDS — fill the blank (a preposition)', answer: 'CROWN OF SEEDS', cooldown: 300 },
-];
+const EMOJI_PROMPTS = ['👑', '🌰  ➡️  🌱🌱🌱', '👑  +  🌱🌱🌱'];
 
 const BINARY_ROWS = [
-  '01001010', // J
-  '01011000', // X
-  '01000101', // E
-  '01011010', // Z
-  '01010111', // W
-  '01010001', // Q
-  '01000101', // E
-  '01001011', // K
-  '01001100', // L
-  '01010110', // V
-  '01001101', // M
-  '01001010', // J
-  '01000101', // E
-  '01010111', // W
-  '01000101', // E
-  '01001100', // L
-  '01011001', // Y
-  '01001000', // H
-  '01010010', // R
-  '01000110', // F
+  '01001010',
+  '01011000',
+  '01000101',
+  '01011010',
+  '01010111',
+  '01010001',
+  '01000101',
+  '01001011',
+  '01001100',
+  '01010110',
+  '01001101',
+  '01001010',
+  '01000101',
+  '01010111',
+  '01000101',
+  '01001100',
+  '01011001',
+  '01001000',
+  '01010010',
+  '01000110',
 ];
-
-const CLUE_FRAGMENTS = ['PERSEPHONE', 'SEEDS', 'RUBY', 'JEWEL'];
 
 // ─── Sliding Puzzle Helpers ──────────────────────────────────────────────────
 
@@ -77,6 +72,14 @@ function isSolved(tiles: number[]): boolean {
   return tiles[15] === 0;
 }
 
+// ─── Cooldown helpers ────────────────────────────────────────────────────────
+
+function computeCooldownSeconds(cooldownUntil: string | undefined): number {
+  if (!cooldownUntil) return 0;
+  const remaining = Math.floor((new Date(cooldownUntil).getTime() - Date.now()) / 1000);
+  return remaining > 0 ? remaining : 0;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 interface CodeBreakerGameProps {
@@ -90,6 +93,12 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState(1);
+
+  // Earned clues from server (displayed dynamically)
+  const [earnedClues, setEarnedClues] = useState<string[]>([]);
+
+  // Per-level clue revealed after completing that level
+  const [levelClue, setLevelClue] = useState<string | null>(null);
 
   // Level 1 — Sequence Recall
   const [simonSequence, setSimonSequence] = useState<number[]>([]);
@@ -138,6 +147,25 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
         setLevel(data.progress.currentLevel);
         setFinalAttemptsLeft(3 - data.progress.finalAnswerAttempts);
         setIsLockedOut(data.progress.isLockedOut);
+
+        // Restore earned clues from server
+        if (data.progress.earnedClues) {
+          setEarnedClues(data.progress.earnedClues);
+        }
+
+        // Restore emoji cipher sub-round position
+        if (data.progress.levelSubRound !== undefined && data.progress.levelSubRound > 0) {
+          setEmojiRound(data.progress.levelSubRound);
+        }
+
+        // Sync server-side cooldown
+        const cooldownSeconds = computeCooldownSeconds(data.progress.levelCooldownUntil);
+        if (cooldownSeconds > 0) {
+          const currentLevel = data.progress.currentLevel;
+          if (currentLevel === 2) setEmojiCooldown(cooldownSeconds);
+          if (currentLevel === 3) setSlideAnswerCooldown(cooldownSeconds);
+          if (currentLevel === 4) setBinaryCooldown(cooldownSeconds);
+        }
       }
     } catch {
       // ignore
@@ -257,8 +285,17 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
     if (nextInput.length === simonSequence.length) {
       // Round complete
       if (simonRound >= 3) {
-        setSimonStatus('won');
-        saveGameProgress(gameId, 2).catch(() => {});
+        // All 3 rounds done — notify server
+        completePuzzleLevel(gameId, 1)
+          .then((res) => {
+            setSimonStatus('won');
+            if (res.clue) {
+              setLevelClue(res.clue);
+            }
+          })
+          .catch(() => {
+            setSimonStatus('won');
+          });
       } else {
         setSimonRound((r) => r + 1);
         setSimonInput([]);
@@ -269,19 +306,32 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
 
   // ─── Level 2: Emoji Cipher ────────────────────────────────────────────────
 
-  const handleEmojiSubmit = () => {
+  const handleEmojiSubmit = async () => {
     if (emojiCooldown > 0) return;
     const answer = emojiInput.trim().toUpperCase();
-    if (answer === EMOJI_ROUNDS[emojiRound].answer) {
-      if (emojiRound >= 2) {
-        setEmojiStatus('won');
-        saveGameProgress(gameId, 3).catch(() => {});
+    if (!answer) return;
+
+    try {
+      const res = await submitLevelAnswer(gameId, 2, answer, emojiRound);
+      if (res.correct) {
+        if (res.nextRound !== undefined) {
+          // Advance to next emoji round
+          setEmojiRound(res.nextRound);
+          setEmojiInput('');
+        } else if (res.clue) {
+          // Level complete
+          setEmojiStatus('won');
+          setLevelClue(res.clue);
+        } else {
+          setEmojiStatus('won');
+        }
       } else {
-        setEmojiRound((r) => r + 1);
+        // Wrong answer — apply server cooldown
+        const cooldownSeconds = computeCooldownSeconds(res.cooldownUntil);
+        setEmojiCooldown(cooldownSeconds > 0 ? cooldownSeconds : 60);
         setEmojiInput('');
       }
-    } else {
-      setEmojiCooldown(EMOJI_ROUNDS[emojiRound].cooldown);
+    } catch {
       setEmojiInput('');
     }
   };
@@ -327,26 +377,48 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
     }
   };
 
-  const handleSlideAnswer = () => {
+  const handleSlideAnswer = async () => {
     if (slideAnswerCooldown > 0) return;
-    if (slideInput.trim().toUpperCase() === 'RUBY') {
-      setSlidePhase('won');
-      saveGameProgress(gameId, 4).catch(() => {});
-    } else {
-      setSlideAnswerCooldown(300); // 5 minutes
+    const answer = slideInput.trim().toUpperCase();
+    if (!answer) return;
+
+    try {
+      const res = await submitLevelAnswer(gameId, 3, answer);
+      if (res.correct) {
+        setSlidePhase('won');
+        if (res.clue) {
+          setLevelClue(res.clue);
+        }
+      } else {
+        const cooldownSeconds = computeCooldownSeconds(res.cooldownUntil);
+        setSlideAnswerCooldown(cooldownSeconds > 0 ? cooldownSeconds : 300);
+        setSlideInput('');
+      }
+    } catch {
       setSlideInput('');
     }
   };
 
   // ─── Level 4: Binary Decoder ──────────────────────────────────────────────
 
-  const handleBinarySubmit = () => {
+  const handleBinarySubmit = async () => {
     if (binaryCooldown > 0) return;
-    if (binaryInput.trim().toUpperCase() === 'JEWEL') {
-      setBinaryStatus('won');
-      saveGameProgress(gameId, 5).catch(() => {});
-    } else {
-      setBinaryCooldown(300); // 5 minutes
+    const answer = binaryInput.trim().toUpperCase();
+    if (!answer) return;
+
+    try {
+      const res = await submitLevelAnswer(gameId, 4, answer);
+      if (res.correct) {
+        setBinaryStatus('won');
+        if (res.clue) {
+          setLevelClue(res.clue);
+        }
+      } else {
+        const cooldownSeconds = computeCooldownSeconds(res.cooldownUntil);
+        setBinaryCooldown(cooldownSeconds > 0 ? cooldownSeconds : 300);
+        setBinaryInput('');
+      }
+    } catch {
       setBinaryInput('');
     }
   };
@@ -388,15 +460,34 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
 
   const adminSkip = () => {
     if (!isAdmin) return;
-    if (level <= 5) advanceLevel(level + 1);
+    if (level <= 5) setLevel(level + 1);
   };
 
   const adminSolveLevel = () => {
     if (!isAdmin) return;
-    if (level === 1) { setSimonStatus('won'); saveGameProgress(gameId, 2).catch(() => {}); }
-    if (level === 2) { setEmojiStatus('won'); saveGameProgress(gameId, 3).catch(() => {}); }
-    if (level === 3) { setSlidePhase('won'); saveGameProgress(gameId, 4).catch(() => {}); }
-    if (level === 4) { setBinaryStatus('won'); saveGameProgress(gameId, 5).catch(() => {}); }
+    if (level === 1) {
+      completePuzzleLevel(gameId, 1)
+        .then((res) => {
+          setSimonStatus('won');
+          if (res.clue) setLevelClue(res.clue);
+        })
+        .catch(() => setSimonStatus('won'));
+    }
+    if (level === 2) {
+      submitLevelAnswer(gameId, 2, '__ADMIN_SOLVE__', emojiRound)
+        .catch(() => {});
+      setEmojiStatus('won');
+    }
+    if (level === 3) {
+      submitLevelAnswer(gameId, 3, '__ADMIN_SOLVE__')
+        .catch(() => {});
+      setSlidePhase('won');
+    }
+    if (level === 4) {
+      submitLevelAnswer(gameId, 4, '__ADMIN_SOLVE__')
+        .catch(() => {});
+      setBinaryStatus('won');
+    }
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -528,10 +619,12 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           {simonStatus === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Sequence Cracked!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">PERSEPHONE</p>
-              <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
+              {levelClue && (
+                <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{levelClue}</p>
+              )}
+              <p className="text-slate-400 text-xs mb-3">Remember this clue — you&apos;ll need it later.</p>
               <button
-                onClick={() => setLevel(2)}
+                onClick={() => { setLevel(2); setLevelClue(null); }}
                 className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
               >
                 Continue to Level 2
@@ -557,7 +650,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           )}
 
           <div className="text-center py-8 mb-4 rounded-lg bg-slate-700/50 border border-slate-600/50 px-4">
-            <span className="text-xl sm:text-2xl leading-relaxed text-slate-100">{EMOJI_ROUNDS[emojiRound].emoji}</span>
+            <span className="text-xl sm:text-2xl leading-relaxed text-slate-100">{EMOJI_PROMPTS[emojiRound]}</span>
           </div>
 
           <div className="flex gap-2 max-w-md mx-auto">
@@ -582,10 +675,12 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           {emojiStatus === 'won' && (
             <div className="text-center py-4 mt-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Cipher Decoded!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">SEEDS</p>
-              <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
+              {levelClue && (
+                <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{levelClue}</p>
+              )}
+              <p className="text-slate-400 text-xs mb-3">Remember this clue — you&apos;ll need it later.</p>
               <button
-                onClick={() => setLevel(3)}
+                onClick={() => { setLevel(3); setLevelClue(null); }}
                 className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
               >
                 Continue to Level 3
@@ -668,7 +763,7 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
                   <p className="text-red-300 text-sm">Wrong! Cooldown: {formatCooldown(slideAnswerCooldown)}</p>
                 </div>
               )}
-              <p className="text-slate-300 text-sm text-center">What's the answer?</p>
+              <p className="text-slate-300 text-sm text-center">What&apos;s the answer?</p>
               <div className="flex gap-2 max-w-md mx-auto">
                 <input
                   type="text"
@@ -693,9 +788,12 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           {slidePhase === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Puzzle Cracked!</p>
+              {levelClue && (
+                <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{levelClue}</p>
+              )}
               <p className="text-slate-400 text-xs mt-2 mb-3">Remember your answer — you&apos;ll need it later.</p>
               <button
-                onClick={() => setLevel(4)}
+                onClick={() => { setLevel(4); setLevelClue(null); }}
                 className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
               >
                 Continue to Level 4
@@ -756,10 +854,12 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
           {binaryStatus === 'won' && (
             <div className="text-center py-4 mt-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Binary Decoded!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">JEWEL</p>
-              <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
+              {levelClue && (
+                <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{levelClue}</p>
+              )}
+              <p className="text-slate-400 text-xs mb-3">Remember this clue — you&apos;ll need it later.</p>
               <button
-                onClick={() => setLevel(5)}
+                onClick={() => { setLevel(5); setLevelClue(null); }}
                 className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
               >
                 Continue to Final Level
@@ -774,14 +874,14 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
         <div className="bg-slate-800/95 rounded-xl p-5 sm:p-6">
           <h3 className="text-amber-400 font-bold text-lg mb-1">Level 5: The Vault</h3>
           <p className="text-slate-400 text-sm mb-6">
-            You've collected four fragments. What connects them all?
+            You&apos;ve collected four fragments. What connects them all?
           </p>
 
-          {/* Clue fragments */}
+          {/* Clue fragments — loaded from server */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            {CLUE_FRAGMENTS.map((frag) => (
+            {earnedClues.map((frag, idx) => (
               <div
-                key={frag}
+                key={idx}
                 className="bg-gradient-to-br from-amber-600/20 to-amber-800/20 border border-amber-500/30 rounded-xl p-3 text-center"
               >
                 <span className="text-amber-300 font-mono font-bold text-sm sm:text-base">{frag}</span>

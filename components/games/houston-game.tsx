@@ -5,13 +5,12 @@ import {
   getGameProgress,
   saveGameProgress,
   submitGameAnswer,
+  submitLevelAnswer,
 } from '@/lib/store';
 import type { Game, GameProgress } from '@/lib/types';
 import { Trophy, Lock, AlertTriangle } from 'lucide-react';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-const CLUE_FRAGMENTS = ['INTERSTELLAR', 'HAWK', 'KING'];
 
 const YOUTUBE_VIDEO_ID = 'hn8N8p9P5gw';
 
@@ -44,6 +43,9 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
   const [l3Cooldown, setL3Cooldown] = useState(0);
   const [l3Status, setL3Status] = useState<'playing' | 'won'>('playing');
 
+  // Clue returned by server after completing a level
+  const [earnedClue, setEarnedClue] = useState<string>('');
+
   // Level 4 — The Void
   const [finalInput, setFinalInput] = useState('');
   const [finalError, setFinalError] = useState('');
@@ -61,6 +63,23 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
         setLevel(data.progress.currentLevel);
         setFinalAttemptsLeft(3 - data.progress.finalAnswerAttempts);
         setIsLockedOut(data.progress.isLockedOut);
+
+        // Sync server-enforced cooldown on page load
+        if (data.progress.levelCooldownUntil) {
+          const remaining = Math.ceil(
+            (new Date(data.progress.levelCooldownUntil).getTime() - Date.now()) / 1000
+          );
+          if (remaining > 0) {
+            if (data.progress.currentLevel === 1) setL1Cooldown(remaining);
+            else if (data.progress.currentLevel === 2) setL2Cooldown(remaining);
+            else if (data.progress.currentLevel === 3) setL3Cooldown(remaining);
+          }
+        }
+
+        // Restore last earned clue so won-state UI shows it after refresh
+        if (data.progress.earnedClues && data.progress.earnedClues.length > 0) {
+          setEarnedClue(data.progress.earnedClues[data.progress.earnedClues.length - 1]);
+        }
       }
     } catch {
       // ignore
@@ -122,39 +141,63 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
 
   // ─── Level 1: The Signal ──────────────────────────────────────────────────
 
-  const handleL1Submit = () => {
+  const handleL1Submit = async () => {
     if (l1Cooldown > 0) return;
-    if (l1Input.trim().toUpperCase() === 'INSTABILITY') {
-      setL1Status('won');
-      saveGameProgress(gameId, 2).catch(() => {});
-    } else {
-      setL1Cooldown(300);
+    try {
+      const res = await submitLevelAnswer(gameId, 1, l1Input.trim());
+      if (res.correct) {
+        setL1Status('won');
+        setEarnedClue(res.clue ?? '');
+      } else if (res.cooldownUntil) {
+        const remaining = Math.ceil(
+          (new Date(res.cooldownUntil).getTime() - Date.now()) / 1000
+        );
+        setL1Cooldown(Math.max(0, remaining));
+        setL1Input('');
+      }
+    } catch {
       setL1Input('');
     }
   };
 
   // ─── Level 2: The Darkness ────────────────────────────────────────────────
 
-  const handleL2Submit = () => {
+  const handleL2Submit = async () => {
     if (l2Cooldown > 0) return;
-    if (l2Input.trim().toUpperCase() === 'HAWK') {
-      setL2Status('won');
-      saveGameProgress(gameId, 3).catch(() => {});
-    } else {
-      setL2Cooldown(300);
+    try {
+      const res = await submitLevelAnswer(gameId, 2, l2Input.trim());
+      if (res.correct) {
+        setL2Status('won');
+        setEarnedClue(res.clue ?? '');
+      } else if (res.cooldownUntil) {
+        const remaining = Math.ceil(
+          (new Date(res.cooldownUntil).getTime() - Date.now()) / 1000
+        );
+        setL2Cooldown(Math.max(0, remaining));
+        setL2Input('');
+      }
+    } catch {
       setL2Input('');
     }
   };
 
   // ─── Level 3: The Fall ────────────────────────────────────────────────────
 
-  const handleL3Submit = () => {
+  const handleL3Submit = async () => {
     if (l3Cooldown > 0) return;
-    if (l3Input.trim() === '9.81') {
-      setL3Status('won');
-      saveGameProgress(gameId, 4).catch(() => {});
-    } else {
-      setL3Cooldown(300);
+    try {
+      const res = await submitLevelAnswer(gameId, 3, l3Input.trim());
+      if (res.correct) {
+        setL3Status('won');
+        setEarnedClue(res.clue ?? '');
+      } else if (res.cooldownUntil) {
+        const remaining = Math.ceil(
+          (new Date(res.cooldownUntil).getTime() - Date.now()) / 1000
+        );
+        setL3Cooldown(Math.max(0, remaining));
+        setL3Input('');
+      }
+    } catch {
       setL3Input('');
     }
   };
@@ -314,7 +357,7 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
           {l1Status === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Signal Decoded!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">INTERSTELLAR</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{earnedClue}</p>
               <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
               <button
                 onClick={() => setLevel(2)}
@@ -377,7 +420,7 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
           {l2Status === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Darkness Pierced!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">HAWK</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{earnedClue}</p>
               <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
               <button
                 onClick={() => setLevel(3)}
@@ -502,7 +545,7 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
           {l3Status === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Gravity Understood!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">KING</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{earnedClue}</p>
               <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
               <button
                 onClick={() => setLevel(4)}

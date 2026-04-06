@@ -122,3 +122,5 @@ WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Houston we have a problem!')
 
 -- Migrations (safe to re-run)
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
+ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_cooldown_until timestamptz;
+ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_sub_round integer NOT NULL DEFAULT 0;

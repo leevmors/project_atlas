@@ -3,13 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   getGameProgress,
-  saveGameProgress,
   submitGameAnswer,
+  submitLevelAnswer,
 } from '@/lib/store';
 import type { Game, GameProgress } from '@/lib/types';
 import { Trophy, Lock, AlertTriangle, ExternalLink } from 'lucide-react';
-
-const CLUE_FRAGMENTS = ['DAUGHTER', 'HATRED', 'VENGEANCE'];
 
 const RIDDLE_POEM = `It was a freezing day, winter and blizzard was hitting me
 Celebration of birthday they said,
@@ -59,6 +57,9 @@ export function HuntGame({ gameId, isAdmin }: HuntGameProps) {
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState(1);
 
+  // Earned clues from server
+  const [earnedClue, setEarnedClue] = useState('');
+
   // Level 1
   const [l1Input, setL1Input] = useState('');
   const [l1Cooldown, setL1Cooldown] = useState(0);
@@ -91,6 +92,29 @@ export function HuntGame({ gameId, isAdmin }: HuntGameProps) {
         setLevel(data.progress.currentLevel);
         setFinalAttemptsLeft(3 - data.progress.finalAnswerAttempts);
         setIsLockedOut(data.progress.isLockedOut);
+
+        // Sync server-side cooldown
+        if (data.progress.levelCooldownUntil) {
+          const remaining = Math.ceil(
+            (new Date(data.progress.levelCooldownUntil).getTime() - Date.now()) / 1000
+          );
+          if (remaining > 0) {
+            const currentLevel = data.progress.currentLevel;
+            if (currentLevel === 1) setL1Cooldown(remaining);
+            else if (currentLevel === 2) setL2Cooldown(remaining);
+            else if (currentLevel === 3) setL3Cooldown(remaining);
+          }
+        }
+
+        // Restore earned clues from previously completed levels
+        if (data.progress.earnedClues && data.progress.earnedClues.length > 0) {
+          const clues = data.progress.earnedClues;
+          const currentLevel = data.progress.currentLevel;
+          // Show the most recently earned clue for the level the player just completed
+          if (currentLevel > 1 && clues[currentLevel - 2]) {
+            setEarnedClue(clues[currentLevel - 2]);
+          }
+        }
       }
     } catch {
       // ignore
@@ -149,36 +173,60 @@ export function HuntGame({ gameId, isAdmin }: HuntGameProps) {
 
   // ─── Level handlers ───────────────────────────────────────────────────────
 
-  const handleL1Submit = () => {
+  const handleL1Submit = async () => {
     if (l1Cooldown > 0) return;
-    if (l1Input.trim().toUpperCase() === 'GUTS') {
-      setL1Status('won');
-      saveGameProgress(gameId, 2).catch(() => {});
-    } else {
-      setL1Cooldown(300);
-      setL1Input('');
+    try {
+      const res = await submitLevelAnswer(gameId, 1, l1Input.trim());
+      if (res.correct) {
+        setL1Status('won');
+        setEarnedClue(res.clue ?? '');
+      } else if (res.cooldownUntil) {
+        const remaining = Math.ceil(
+          (new Date(res.cooldownUntil).getTime() - Date.now()) / 1000
+        );
+        setL1Cooldown(Math.max(0, remaining));
+        setL1Input('');
+      }
+    } catch {
+      // handle error silently
     }
   };
 
-  const handleL2Submit = () => {
+  const handleL2Submit = async () => {
     if (l2Cooldown > 0) return;
-    if (l2Input.trim().toUpperCase() === 'RESIDENT EVIL REQUIEM') {
-      setL2Status('won');
-      saveGameProgress(gameId, 3).catch(() => {});
-    } else {
-      setL2Cooldown(300);
-      setL2Input('');
+    try {
+      const res = await submitLevelAnswer(gameId, 2, l2Input.trim());
+      if (res.correct) {
+        setL2Status('won');
+        setEarnedClue(res.clue ?? '');
+      } else if (res.cooldownUntil) {
+        const remaining = Math.ceil(
+          (new Date(res.cooldownUntil).getTime() - Date.now()) / 1000
+        );
+        setL2Cooldown(Math.max(0, remaining));
+        setL2Input('');
+      }
+    } catch {
+      // handle error silently
     }
   };
 
-  const handleL3Submit = () => {
+  const handleL3Submit = async () => {
     if (l3Cooldown > 0) return;
-    if (l3Input.trim().toUpperCase() === 'ERMAC') {
-      setL3Status('won');
-      saveGameProgress(gameId, 4).catch(() => {});
-    } else {
-      setL3Cooldown(300);
-      setL3Input('');
+    try {
+      const res = await submitLevelAnswer(gameId, 3, l3Input.trim());
+      if (res.correct) {
+        setL3Status('won');
+        setEarnedClue(res.clue ?? '');
+      } else if (res.cooldownUntil) {
+        const remaining = Math.ceil(
+          (new Date(res.cooldownUntil).getTime() - Date.now()) / 1000
+        );
+        setL3Cooldown(Math.max(0, remaining));
+        setL3Input('');
+      }
+    } catch {
+      // handle error silently
     }
   };
 
@@ -210,11 +258,18 @@ export function HuntGame({ gameId, isAdmin }: HuntGameProps) {
 
   // ─── Admin skip ───────────────────────────────────────────────────────────
 
-  const adminSkip = () => {
+  const adminSkip = async () => {
     if (!isAdmin) return;
     if (level < 4) {
-      saveGameProgress(gameId, level + 1).catch(() => {});
-      setLevel(level + 1);
+      try {
+        const res = await submitLevelAnswer(gameId, level, '__ADMIN_SKIP__');
+        if (res.correct) {
+          setLevel(level + 1);
+        }
+      } catch {
+        // Fallback: just advance locally
+        setLevel(level + 1);
+      }
     }
   };
 
@@ -337,7 +392,7 @@ export function HuntGame({ gameId, isAdmin }: HuntGameProps) {
           {l1Status === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Character Found!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">DAUGHTER</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{earnedClue}</p>
               <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
               <button
                 onClick={() => setLevel(2)}
@@ -401,7 +456,7 @@ export function HuntGame({ gameId, isAdmin }: HuntGameProps) {
           {l2Status === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Document Decoded!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">HATRED</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{earnedClue}</p>
               <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
               <button
                 onClick={() => setLevel(3)}
@@ -479,7 +534,7 @@ export function HuntGame({ gameId, isAdmin }: HuntGameProps) {
           {l3Status === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Oracle Answered!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">VENGEANCE</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{earnedClue}</p>
               <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
               <button
                 onClick={() => setLevel(4)}

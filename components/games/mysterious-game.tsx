@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   getGameProgress,
-  saveGameProgress,
   submitGameAnswer,
-  setWordleLock,
+  completePuzzleLevel,
+  submitLevelAnswer,
+  submitWordleGuess,
 } from '@/lib/store';
 import type { Game, GameProgress } from '@/lib/types';
 import { Trophy, Volume2, Lock, AlertTriangle } from 'lucide-react';
@@ -19,10 +20,21 @@ interface Card {
   isFlipped: boolean;
 }
 
+interface LetterResult {
+  readonly letter: string;
+  readonly status: 'correct' | 'present' | 'absent';
+}
+
 interface MysteriousGameProps {
   gameId: string;
   isAdmin: boolean;
 }
+
+const STATUS_CLASSES: Record<string, string> = {
+  correct: 'bg-green-600 border-green-500 text-white',
+  present: 'bg-yellow-500 border-yellow-400 text-white',
+  absent: 'bg-slate-600 border-slate-500 text-slate-300',
+};
 
 export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
   // Global state
@@ -31,16 +43,22 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState(1);
 
+  // Earned clues from server
+  const [earnedClues, setEarnedClues] = useState<string[]>([]);
+
   // Level 1 — Temple Match
   const [cards, setCards] = useState<Card[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [lives, setLives] = useState(3);
   const [gameState, setGameState] = useState<'playing' | 'won' | 'lost'>('playing');
   const [restoresUsed, setRestoresUsed] = useState(0);
+  const [level1Clue, setLevel1Clue] = useState<string | null>(null);
 
   // Level 2 — Signal Decode
   const [morseInput, setMorseInput] = useState('');
-  const [morseStatus, setMorseStatus] = useState<'playing' | 'error' | 'won'>('playing');
+  const [morseStatus, setMorseStatus] = useState<'playing' | 'error' | 'won' | 'cooldown'>('playing');
+  const [morseCooldownUntil, setMorseCooldownUntil] = useState<string | null>(null);
+  const [morseCooldownLeft, setMorseCooldownLeft] = useState('');
 
   // Level 3 — Rune Search
   const [grid, setGrid] = useState<string[]>([]);
@@ -50,6 +68,7 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
 
   // Level 4 — Final Realm
   const [guesses, setGuesses] = useState<string[]>([]);
+  const [guessResults, setGuessResults] = useState<ReadonlyArray<ReadonlyArray<LetterResult>>>([]);
   const [currentGuess, setCurrentGuess] = useState('');
   const [l4Status, setL4Status] = useState<'playing' | 'won_wordle' | 'timeout' | 'won'>('playing');
   const [timeLeft, setTimeLeft] = useState('');
@@ -57,6 +76,11 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
   const [finalError, setFinalError] = useState('');
   const [finalAttemptsLeft, setFinalAttemptsLeft] = useState(3);
   const [isLockedOut, setIsLockedOut] = useState(false);
+  const [wordleLockedUntil, setWordleLockedUntil] = useState<string | null>(null);
+  const [wordleSubmitting, setWordleSubmitting] = useState(false);
+  const [morseSubmitting, setMorseSubmitting] = useState(false);
+  const [level1Completing, setLevel1Completing] = useState(false);
+  const [level3Completing, setLevel3Completing] = useState(false);
 
   // --- Initialization ---
   const loadProgress = useCallback(async () => {
@@ -68,9 +92,29 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
         setLevel(data.progress.currentLevel);
         setFinalAttemptsLeft(3 - data.progress.finalAnswerAttempts);
         setIsLockedOut(data.progress.isLockedOut);
+
+        // Restore earned clues from server
+        if (data.progress.earnedClues) {
+          setEarnedClues(data.progress.earnedClues);
+          if (data.progress.earnedClues.length > 0) {
+            setLevel1Clue(data.progress.earnedClues[0]);
+          }
+        }
+
+        // Restore morse cooldown from server
+        if (data.progress.levelCooldownUntil) {
+          const cooldownTime = new Date(data.progress.levelCooldownUntil).getTime();
+          if (Date.now() < cooldownTime) {
+            setMorseCooldownUntil(data.progress.levelCooldownUntil);
+            setMorseStatus('cooldown');
+          }
+        }
+
+        // Restore wordle lock from server
         if (data.progress.wordleLockedUntil) {
           const lockTime = new Date(data.progress.wordleLockedUntil).getTime();
           if (Date.now() < lockTime) {
+            setWordleLockedUntil(data.progress.wordleLockedUntil);
             setL4Status('timeout');
           }
         }
@@ -174,6 +218,31 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
     setFlippedIndices((prev) => [...prev, index]);
   };
 
+  // Complete Level 1 via server
+  const handleLevel1Complete = async () => {
+    if (level1Completing) return;
+    setLevel1Completing(true);
+    try {
+      const result = await completePuzzleLevel(gameId, 1);
+      if (result.ok && result.clue) {
+        setLevel1Clue(result.clue);
+        setEarnedClues((prev) => [...prev, result.clue!]);
+      }
+    } catch {
+      // ignore — clue display will fall back gracefully
+    } finally {
+      setLevel1Completing(false);
+    }
+  };
+
+  // Trigger server call when Level 1 is won
+  useEffect(() => {
+    if (gameState === 'won' && level === 1 && !level1Clue) {
+      handleLevel1Complete();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState, level]);
+
   // --- Level 2: Signal Decode ---
   const playAudio = () => {
     const audio = new Audio(
@@ -182,15 +251,51 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
     audio.play();
   };
 
-  const handleMorseSubmit = (e: React.FormEvent) => {
+  const handleMorseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (morseInput.trim().toLowerCase() === 'betrayal') {
-      setMorseStatus('won');
-    } else {
+    if (morseSubmitting || morseStatus === 'cooldown') return;
+    const trimmed = morseInput.trim();
+    if (!trimmed) return;
+
+    setMorseSubmitting(true);
+    try {
+      const result = await submitLevelAnswer(gameId, 2, trimmed);
+      if (result.correct) {
+        setMorseStatus('won');
+      } else {
+        if (result.cooldownUntil) {
+          setMorseCooldownUntil(result.cooldownUntil);
+          setMorseStatus('cooldown');
+        } else {
+          setMorseStatus('error');
+          setTimeout(() => setMorseStatus('playing'), 2000);
+        }
+      }
+    } catch {
       setMorseStatus('error');
       setTimeout(() => setMorseStatus('playing'), 2000);
+    } finally {
+      setMorseSubmitting(false);
     }
   };
+
+  // Morse cooldown countdown timer
+  useEffect(() => {
+    if (morseStatus !== 'cooldown' || !morseCooldownUntil) return;
+    const interval = setInterval(() => {
+      const remaining = new Date(morseCooldownUntil).getTime() - Date.now();
+      if (remaining <= 0) {
+        setMorseStatus('playing');
+        setMorseCooldownUntil(null);
+        setMorseCooldownLeft('');
+      } else {
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        setMorseCooldownLeft(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [morseStatus, morseCooldownUntil]);
 
   // --- Level 3: Rune Search ---
   const initLevel3 = () => {
@@ -217,64 +322,100 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
       const newFound = [...foundIndices, index];
       setFoundIndices(newFound);
       if (newFound.length === 4) {
-        setTimeout(() => setL3Status('won'), 300);
+        setTimeout(() => {
+          setL3Status('won');
+          handleLevel3Complete();
+        }, 300);
       }
+    }
+  };
+
+  // Complete Level 3 via server
+  const handleLevel3Complete = async () => {
+    if (level3Completing) return;
+    setLevel3Completing(true);
+    try {
+      await completePuzzleLevel(gameId, 3);
+    } catch {
+      // ignore
+    } finally {
+      setLevel3Completing(false);
     }
   };
 
   // --- Level 4: Final Realm ---
   const checkTimeout = () => {
+    if (wordleLockedUntil) {
+      const lockTime = new Date(wordleLockedUntil).getTime();
+      if (Date.now() < lockTime) {
+        setL4Status('timeout');
+        return;
+      }
+    }
     if (progress?.wordleLockedUntil) {
       const lockTime = new Date(progress.wordleLockedUntil).getTime();
       if (Date.now() < lockTime) {
+        setWordleLockedUntil(progress.wordleLockedUntil);
         setL4Status('timeout');
         return;
       }
     }
     setL4Status('playing');
     setGuesses([]);
+    setGuessResults([]);
     setCurrentGuess('');
   };
 
   useEffect(() => {
     if (l4Status !== 'timeout') return;
+    const lockUntilStr = wordleLockedUntil ?? progress?.wordleLockedUntil;
+    if (!lockUntilStr) return;
     const interval = setInterval(() => {
-      const lockUntil = progress?.wordleLockedUntil;
-      if (lockUntil) {
-        const remaining = new Date(lockUntil).getTime() - Date.now();
-        if (remaining <= 0) {
-          setL4Status('playing');
-          setGuesses([]);
-          setCurrentGuess('');
-        } else {
-          const minutes = Math.floor(remaining / 60000);
-          const seconds = Math.floor((remaining % 60000) / 1000);
-          setTimeLeft(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
-        }
+      const remaining = new Date(lockUntilStr).getTime() - Date.now();
+      if (remaining <= 0) {
+        setL4Status('playing');
+        setGuesses([]);
+        setGuessResults([]);
+        setCurrentGuess('');
+        setWordleLockedUntil(null);
+      } else {
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        setTimeLeft(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [l4Status, progress?.wordleLockedUntil]);
+  }, [l4Status, wordleLockedUntil, progress?.wordleLockedUntil]);
 
   const handleWordleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentGuess.length !== 5 || l4Status !== 'playing') return;
-    const newGuesses = [...guesses, currentGuess.toUpperCase()];
-    setGuesses(newGuesses);
-    setCurrentGuess('');
+    if (currentGuess.length !== 5 || l4Status !== 'playing' || wordleSubmitting) return;
 
-    if (currentGuess.toUpperCase() === 'REALM') {
-      setL4Status('won_wordle');
-    } else if (newGuesses.length >= 6) {
-      setL4Status('timeout');
-      try {
-        await setWordleLock(gameId);
-        // Refresh progress to get server timestamp
-        const data = await getGameProgress(gameId);
-        if (data.progress) setProgress(data.progress);
-      } catch {
-        // ignore
+    setWordleSubmitting(true);
+    try {
+      const result = await submitWordleGuess(gameId, currentGuess);
+      const upperGuess = currentGuess.toUpperCase();
+      setGuesses((prev) => [...prev, upperGuess]);
+      setGuessResults((prev) => [...prev, result.letters]);
+      setCurrentGuess('');
+
+      if (result.correct) {
+        setL4Status('won_wordle');
+      } else if (result.lockedUntil) {
+        setWordleLockedUntil(result.lockedUntil);
+        setL4Status('timeout');
+        // Refresh progress to sync server state
+        try {
+          const data = await getGameProgress(gameId);
+          if (data.progress) setProgress(data.progress);
+        } catch {
+          // ignore
+        }
       }
+    } catch {
+      // ignore — don't advance state on network error
+    } finally {
+      setWordleSubmitting(false);
     }
   };
 
@@ -302,20 +443,8 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
     }
   };
 
-  const getLetterStatus = (letter: string, index: number) => {
-    const target = 'REALM';
-    if (target[index] === letter) return 'bg-green-600 border-green-500 text-white';
-    if (target.includes(letter)) return 'bg-yellow-500 border-yellow-400 text-white';
-    return 'bg-slate-600 border-slate-500 text-slate-300';
-  };
-
   const advanceLevel = async (nextLevel: number) => {
     setLevel(nextLevel);
-    try {
-      await saveGameProgress(gameId, nextLevel);
-    } catch {
-      // ignore
-    }
   };
 
   // --- Render ---
@@ -364,13 +493,29 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
     );
   }
 
-  const adminSolveLevel = () => {
+  const adminSolveLevel = async () => {
     if (!isAdmin) return;
-    if (level === 1) setGameState('won');
-    if (level === 2) setMorseStatus('won');
-    if (level === 3) setL3Status('won');
+    if (level === 1) {
+      setGameState('won');
+    }
+    if (level === 2) {
+      setMorseStatus('won');
+    }
+    if (level === 3) {
+      setL3Status('won');
+    }
     if (level === 4 && l4Status === 'playing') {
-      setGuesses(['REALM']);
+      // Admin auto-solve: submit via server
+      try {
+        const result = await submitWordleGuess(gameId, 'ADMIN');
+        // If the server gives a correct answer back, use it; otherwise just force won state
+        if (result.correct) {
+          setGuesses((prev) => [...prev, 'ADMIN']);
+          setGuessResults((prev) => [...prev, result.letters]);
+        }
+      } catch {
+        // ignore
+      }
       setL4Status('won_wordle');
     }
   };
@@ -453,13 +598,20 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
 
             {gameState === 'won' && (
               <div className="text-center py-8">
-                <p className="text-lg text-slate-300 mb-2">Your word is:</p>
-                <h2 className="text-4xl font-bold text-amber-400 uppercase tracking-widest mb-8 animate-pulse">
-                  &ldquo;BATTLE&rdquo;
-                </h2>
+                {level1Clue ? (
+                  <>
+                    <p className="text-lg text-slate-300 mb-2">Your word is:</p>
+                    <h2 className="text-4xl font-bold text-amber-400 uppercase tracking-widest mb-8 animate-pulse">
+                      &ldquo;{level1Clue}&rdquo;
+                    </h2>
+                  </>
+                ) : (
+                  <div className="animate-pulse text-slate-400 mb-8">Revealing clue...</div>
+                )}
                 <button
                   onClick={() => advanceLevel(2)}
-                  className="px-6 py-3 rounded-full bg-amber-600 hover:bg-amber-500 text-white font-bold uppercase tracking-wider transition-all shadow-lg"
+                  disabled={!level1Clue}
+                  className="px-6 py-3 rounded-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold uppercase tracking-wider transition-all shadow-lg"
                 >
                   Next Game
                 </button>
@@ -492,7 +644,15 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
               </h3>
             </div>
 
-            {morseStatus !== 'won' ? (
+            {morseStatus === 'cooldown' ? (
+              <div className="text-center py-8">
+                <h2 className="text-3xl font-bold text-red-500 uppercase tracking-widest mb-4 animate-pulse">
+                  LOCKED OUT
+                </h2>
+                <p className="text-slate-300 mb-2">Wrong decryption. Wait to try again.</p>
+                <div className="text-4xl font-mono text-red-400">{morseCooldownLeft}</div>
+              </div>
+            ) : morseStatus !== 'won' ? (
               <div className="text-center py-4">
                 <p className="text-slate-400 mb-6">
                   Listen to the ancient transmission and decipher the word.
@@ -517,9 +677,10 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
                   )}
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-full bg-amber-600 hover:bg-amber-500 text-white font-bold uppercase tracking-wider transition-all shadow-lg"
+                    disabled={morseSubmitting}
+                    className="w-full py-3 rounded-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold uppercase tracking-wider transition-all shadow-lg"
                   >
-                    Submit
+                    {morseSubmitting ? 'Checking...' : 'Submit'}
                   </button>
                 </form>
               </div>
@@ -608,12 +769,13 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
                 <div className="grid gap-2 mb-6 max-w-[250px] mx-auto">
                   {Array.from({ length: 6 }).map((_, rowIndex) => {
                     const guessStr = guesses[rowIndex] ?? '';
+                    const rowResult = guessResults[rowIndex];
                     return (
                       <div key={rowIndex} className="grid grid-cols-5 gap-2">
                         {Array.from({ length: 5 }).map((_, colIndex) => {
                           const letter = guessStr[colIndex] ?? '';
-                          const statusClass = guesses[rowIndex]
-                            ? getLetterStatus(letter, colIndex)
+                          const statusClass = rowResult
+                            ? STATUS_CLASSES[rowResult[colIndex].status]
                             : 'bg-slate-900 border-slate-700 text-slate-400';
                           return (
                             <div
@@ -639,10 +801,10 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
                   />
                   <button
                     type="submit"
-                    disabled={currentGuess.length !== 5}
+                    disabled={currentGuess.length !== 5 || wordleSubmitting}
                     className="w-full py-3 rounded-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold uppercase tracking-wider transition-all shadow-lg"
                   >
-                    Guess
+                    {wordleSubmitting ? 'Checking...' : 'Guess'}
                   </button>
                 </form>
               </div>

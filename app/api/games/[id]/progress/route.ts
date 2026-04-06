@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
+import { getEarnedClues } from '@/lib/game-answers';
 
 interface SessionRow {
   user_type: string;
@@ -24,6 +25,8 @@ interface AttemptRow {
   is_locked_out: boolean;
   bonus_awarded: number;
   wordle_locked_until: string | null;
+  level_cooldown_until: string | null;
+  level_sub_round: number;
 }
 
 async function getSession(req: NextRequest): Promise<SessionRow | null> {
@@ -85,12 +88,15 @@ export async function GET(
     );
 
     const attemptRes = await pool.query<AttemptRow>(
-      `SELECT game_id, team_id, current_level, final_answer_attempts, is_locked_out, bonus_awarded, wordle_locked_until
+      `SELECT game_id, team_id, current_level, final_answer_attempts, is_locked_out, bonus_awarded, wordle_locked_until, level_cooldown_until, level_sub_round
        FROM game_attempts WHERE game_id = $1 AND team_id = $2`,
       [id, session.user_id]
     );
 
     const attempt = attemptRes.rows[0];
+    const earnedClues = attempt
+      ? getEarnedClues(gameRow.name, attempt.current_level)
+      : [];
 
     return NextResponse.json({
       game: {
@@ -111,6 +117,9 @@ export async function GET(
             isLockedOut: attempt.is_locked_out,
             bonusAwarded: attempt.bonus_awarded,
             wordleLockedUntil: attempt.wordle_locked_until ?? undefined,
+            levelCooldownUntil: attempt.level_cooldown_until ?? undefined,
+            levelSubRound: attempt.level_sub_round,
+            earnedClues,
           }
         : null,
     });
@@ -132,9 +141,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Admin preview — don't persist progress
-    if (session.user_type === 'admin') {
-      return NextResponse.json({ ok: true });
+    // Admin-only: direct level setting for skip/preview functionality
+    // Teams must use /level-answer or /level-complete endpoints instead
+    if (session.user_type !== 'admin') {
+      return NextResponse.json({ error: 'Use level-answer or level-complete endpoints' }, { status: 403 });
     }
 
     const { currentLevel } = await req.json();
@@ -142,13 +152,6 @@ export async function POST(
     if (typeof currentLevel !== 'number' || currentLevel < 1 || currentLevel > 6) {
       return NextResponse.json({ error: 'Invalid level' }, { status: 400 });
     }
-
-    // Ensure row exists then update with GREATEST to prevent regression
-    await pool.query(
-      `INSERT INTO game_attempts (game_id, team_id, current_level) VALUES ($1, $2, $3)
-       ON CONFLICT (game_id, team_id) DO UPDATE SET current_level = GREATEST(game_attempts.current_level, $3)`,
-      [id, session.user_id, currentLevel]
-    );
 
     return NextResponse.json({ ok: true });
   } catch (err) {

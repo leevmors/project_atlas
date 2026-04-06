@@ -82,6 +82,9 @@ export interface GameProgress {
   isLockedOut: boolean;
   bonusAwarded: number;
   wordleLockedUntil?: string;
+  levelCooldownUntil?: string;
+  levelSubRound?: number;
+  earnedClues?: string[];
 }
 
 export interface AdminUser {

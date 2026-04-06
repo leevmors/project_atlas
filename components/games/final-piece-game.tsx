@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getGameProgress,
-  saveGameProgress,
   submitGameAnswer,
+  submitLevelAnswer,
 } from '@/lib/store';
 import type { Game, GameProgress } from '@/lib/types';
 import { Trophy, Lock, AlertTriangle, Play, Pause, Volume2 } from 'lucide-react';
@@ -37,6 +37,9 @@ export function FinalPieceGame({ gameId, isAdmin }: FinalPieceGameProps) {
   const [l3Cooldown, setL3Cooldown] = useState(0);
   const [l3Status, setL3Status] = useState<'playing' | 'won'>('playing');
 
+  // Earned clue from server (replaces hardcoded MEINCRAFT / JUICE / MASSACRE)
+  const [earnedClue, setEarnedClue] = useState('');
+
   // Level 4 — Final Answer
   const [finalInput, setFinalInput] = useState('');
   const [finalError, setFinalError] = useState('');
@@ -54,6 +57,24 @@ export function FinalPieceGame({ gameId, isAdmin }: FinalPieceGameProps) {
         setLevel(data.progress.currentLevel);
         setFinalAttemptsLeft(3 - data.progress.finalAnswerAttempts);
         setIsLockedOut(data.progress.isLockedOut);
+
+        // Sync server-side cooldown on load (survives page refresh)
+        if (data.progress.levelCooldownUntil) {
+          const remaining = Math.ceil(
+            (new Date(data.progress.levelCooldownUntil).getTime() - Date.now()) / 1000
+          );
+          if (remaining > 0) {
+            const lvl = data.progress.currentLevel;
+            if (lvl === 1) setL1Cooldown(remaining);
+            else if (lvl === 2) setL2Cooldown(remaining);
+            else if (lvl === 3) setL3Cooldown(remaining);
+          }
+        }
+
+        // Restore earned clues from progress
+        if (data.progress.earnedClues && data.progress.earnedClues.length > 0) {
+          setEarnedClue(data.progress.earnedClues[data.progress.earnedClues.length - 1]);
+        }
       }
     } catch {
       // ignore
@@ -125,40 +146,64 @@ export function FinalPieceGame({ gameId, isAdmin }: FinalPieceGameProps) {
 
   // ─── Level handlers ───────────────────────────────────────────────────────
 
-  const handleL1Submit = () => {
+  const handleL1Submit = async () => {
     if (l1Cooldown > 0) return;
-    if (l1Input.trim().toUpperCase() === 'FACADE') {
-      setL1Status('won');
-      if (audioRef.current) {
-        audioRef.current.pause();
-        setIsPlaying(false);
+    try {
+      const res = await submitLevelAnswer(gameId, 1, l1Input.trim());
+      if (res.correct) {
+        setL1Status('won');
+        setEarnedClue(res.clue ?? '');
+        if (audioRef.current) {
+          audioRef.current.pause();
+          setIsPlaying(false);
+        }
+      } else if (res.cooldownUntil) {
+        const remaining = Math.ceil(
+          (new Date(res.cooldownUntil).getTime() - Date.now()) / 1000
+        );
+        setL1Cooldown(Math.max(0, remaining));
+        setL1Input('');
       }
-      saveGameProgress(gameId, 2).catch(() => {});
-    } else {
-      setL1Cooldown(300);
-      setL1Input('');
+    } catch {
+      // handle error silently — server unavailable
     }
   };
 
-  const handleL2Submit = () => {
+  const handleL2Submit = async () => {
     if (l2Cooldown > 0) return;
-    if (l2Input.trim().toUpperCase() === 'BOMB') {
-      setL2Status('won');
-      saveGameProgress(gameId, 3).catch(() => {});
-    } else {
-      setL2Cooldown(300);
-      setL2Input('');
+    try {
+      const res = await submitLevelAnswer(gameId, 2, l2Input.trim());
+      if (res.correct) {
+        setL2Status('won');
+        setEarnedClue(res.clue ?? '');
+      } else if (res.cooldownUntil) {
+        const remaining = Math.ceil(
+          (new Date(res.cooldownUntil).getTime() - Date.now()) / 1000
+        );
+        setL2Cooldown(Math.max(0, remaining));
+        setL2Input('');
+      }
+    } catch {
+      // handle error silently
     }
   };
 
-  const handleL3Submit = () => {
+  const handleL3Submit = async () => {
     if (l3Cooldown > 0) return;
-    if (l3Input.trim().toUpperCase() === 'ATTACK') {
-      setL3Status('won');
-      saveGameProgress(gameId, 4).catch(() => {});
-    } else {
-      setL3Cooldown(300);
-      setL3Input('');
+    try {
+      const res = await submitLevelAnswer(gameId, 3, l3Input.trim());
+      if (res.correct) {
+        setL3Status('won');
+        setEarnedClue(res.clue ?? '');
+      } else if (res.cooldownUntil) {
+        const remaining = Math.ceil(
+          (new Date(res.cooldownUntil).getTime() - Date.now()) / 1000
+        );
+        setL3Cooldown(Math.max(0, remaining));
+        setL3Input('');
+      }
+    } catch {
+      // handle error silently
     }
   };
 
@@ -190,10 +235,17 @@ export function FinalPieceGame({ gameId, isAdmin }: FinalPieceGameProps) {
 
   // ─── Admin skip ───────────────────────────────────────────────────────────
 
-  const adminSkip = () => {
+  const adminSkip = async () => {
     if (!isAdmin) return;
     if (level < 4) {
-      saveGameProgress(gameId, level + 1).catch(() => {});
+      try {
+        const res = await submitLevelAnswer(gameId, level, '__ADMIN_SKIP__');
+        if (res.clue) {
+          setEarnedClue(res.clue);
+        }
+      } catch {
+        // skip failed — advance locally anyway for admin UX
+      }
       setLevel(level + 1);
     }
   };
@@ -321,7 +373,7 @@ export function FinalPieceGame({ gameId, isAdmin }: FinalPieceGameProps) {
           {l1Status === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Notes Decoded!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">MEINCRAFT</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{earnedClue}</p>
               <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
               <button
                 onClick={() => setLevel(2)}
@@ -379,7 +431,7 @@ export function FinalPieceGame({ gameId, isAdmin }: FinalPieceGameProps) {
           {l2Status === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Book Found!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">JUICE 🧃</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{earnedClue}</p>
               <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
               <button
                 onClick={() => setLevel(3)}
@@ -437,7 +489,7 @@ export function FinalPieceGame({ gameId, isAdmin }: FinalPieceGameProps) {
           {l3Status === 'won' && (
             <div className="text-center py-4 bg-green-900/30 rounded-lg border border-green-800/50">
               <p className="text-green-300 font-bold">Poster Found!</p>
-              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">MASSACRE</p>
+              <p className="text-green-400 text-2xl font-mono mt-2 mb-3">{earnedClue}</p>
               <p className="text-slate-400 text-xs mb-3">Remember this clue — you'll need it later.</p>
               <button
                 onClick={() => setLevel(4)}

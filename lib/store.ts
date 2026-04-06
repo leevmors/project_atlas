@@ -263,3 +263,47 @@ export async function submitGameAnswer(
 export async function setWordleLock(gameId: string): Promise<void> {
   await apiFetch(`/api/games/${gameId}/wordle-lock`, { method: 'POST' });
 }
+
+// ─── Server-validated level endpoints ──────────────────────────────────────
+
+export async function submitLevelAnswer(
+  gameId: string,
+  level: number,
+  answer: string,
+  round?: number
+): Promise<{
+  correct: boolean;
+  clue?: string;
+  cooldownUntil?: string;
+  nextRound?: number;
+}> {
+  return apiFetch(`/api/games/${gameId}/level-answer`, {
+    method: 'POST',
+    body: JSON.stringify({ level, answer, ...(round !== undefined ? { round } : {}) }),
+  });
+}
+
+export async function completePuzzleLevel(
+  gameId: string,
+  level: number
+): Promise<{ ok: boolean; clue?: string }> {
+  return apiFetch(`/api/games/${gameId}/level-complete`, {
+    method: 'POST',
+    body: JSON.stringify({ level }),
+  });
+}
+
+export async function submitWordleGuess(
+  gameId: string,
+  guess: string
+): Promise<{
+  correct: boolean;
+  letters: Array<{ letter: string; status: 'correct' | 'present' | 'absent' }>;
+  guessNumber: number;
+  lockedUntil?: string;
+}> {
+  return apiFetch(`/api/games/${gameId}/wordle-guess`, {
+    method: 'POST',
+    body: JSON.stringify({ guess }),
+  });
+}
