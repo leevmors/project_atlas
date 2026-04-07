@@ -115,6 +115,8 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
   const [emojiInput, setEmojiInput] = useState('');
   const [emojiCooldown, setEmojiCooldown] = useState(0);
   const [emojiStatus, setEmojiStatus] = useState<'playing' | 'won'>('playing');
+  const [emojiSubmitting, setEmojiSubmitting] = useState(false);
+  const [emojiError, setEmojiError] = useState('');
 
   // Level 3 — Sliding Puzzle
   const [tiles, setTiles] = useState<number[]>([]);
@@ -123,11 +125,16 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
   const [slidePhase, setSlidePhase] = useState<'puzzle' | 'answer' | 'won'>('puzzle');
   const [slideInput, setSlideInput] = useState('');
   const [slideAnswerCooldown, setSlideAnswerCooldown] = useState(0);
+  const [slideSubmitting, setSlideSubmitting] = useState(false);
+  const [slideError, setSlideError] = useState('');
 
   // Level 4 — Binary Decoder
   const [binaryInput, setBinaryInput] = useState('');
   const [binaryCooldown, setBinaryCooldown] = useState(0);
   const [binaryStatus, setBinaryStatus] = useState<'playing' | 'won'>('playing');
+  const [binarySubmitting, setBinarySubmitting] = useState(false);
+  const [binaryError, setBinaryError] = useState('');
+
 
   // Level 5 — The Vault
   const [finalInput, setFinalInput] = useState('');
@@ -307,10 +314,12 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
   // ─── Level 2: Emoji Cipher ────────────────────────────────────────────────
 
   const handleEmojiSubmit = async () => {
-    if (emojiCooldown > 0) return;
+    if (emojiCooldown > 0 || emojiSubmitting) return;
     const answer = emojiInput.trim().toUpperCase();
     if (!answer) return;
 
+    setEmojiSubmitting(true);
+    setEmojiError('');
     try {
       const res = await submitLevelAnswer(gameId, 2, answer, emojiRound);
       if (res.correct) {
@@ -331,8 +340,11 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
         setEmojiCooldown(cooldownSeconds > 0 ? cooldownSeconds : 60);
         setEmojiInput('');
       }
-    } catch {
+    } catch (err) {
+      setEmojiError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
       setEmojiInput('');
+    } finally {
+      setEmojiSubmitting(false);
     }
   };
 
@@ -378,10 +390,12 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
   };
 
   const handleSlideAnswer = async () => {
-    if (slideAnswerCooldown > 0) return;
+    if (slideAnswerCooldown > 0 || slideSubmitting) return;
     const answer = slideInput.trim().toUpperCase();
     if (!answer) return;
 
+    setSlideSubmitting(true);
+    setSlideError('');
     try {
       const res = await submitLevelAnswer(gameId, 3, answer);
       if (res.correct) {
@@ -394,18 +408,23 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
         setSlideAnswerCooldown(cooldownSeconds > 0 ? cooldownSeconds : 300);
         setSlideInput('');
       }
-    } catch {
+    } catch (err) {
+      setSlideError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
       setSlideInput('');
+    } finally {
+      setSlideSubmitting(false);
     }
   };
 
   // ─── Level 4: Binary Decoder ──────────────────────────────────────────────
 
   const handleBinarySubmit = async () => {
-    if (binaryCooldown > 0) return;
+    if (binaryCooldown > 0 || binarySubmitting) return;
     const answer = binaryInput.trim().toUpperCase();
     if (!answer) return;
 
+    setBinarySubmitting(true);
+    setBinaryError('');
     try {
       const res = await submitLevelAnswer(gameId, 4, answer);
       if (res.correct) {
@@ -418,8 +437,11 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
         setBinaryCooldown(cooldownSeconds > 0 ? cooldownSeconds : 300);
         setBinaryInput('');
       }
-    } catch {
+    } catch (err) {
+      setBinaryError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
       setBinaryInput('');
+    } finally {
+      setBinarySubmitting(false);
     }
   };
 
@@ -665,12 +687,13 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
             />
             <button
               onClick={handleEmojiSubmit}
-              disabled={emojiCooldown > 0 || !emojiInput.trim()}
+              disabled={emojiCooldown > 0 || emojiSubmitting || !emojiInput.trim()}
               className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
             >
-              Submit
+              {emojiSubmitting ? 'Submitting...' : 'Submit'}
             </button>
           </div>
+          {emojiError && <p className="text-red-400 text-sm text-center mt-2">{emojiError}</p>}
 
           {emojiStatus === 'won' && (
             <div className="text-center py-4 mt-4 bg-green-900/30 rounded-lg border border-green-800/50">
@@ -776,12 +799,13 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
                 />
                 <button
                   onClick={handleSlideAnswer}
-                  disabled={slideAnswerCooldown > 0 || !slideInput.trim()}
+                  disabled={slideAnswerCooldown > 0 || slideSubmitting || !slideInput.trim()}
                   className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
                 >
-                  Submit
+                  {slideSubmitting ? 'Submitting...' : 'Submit'}
                 </button>
               </div>
+              {slideError && <p className="text-red-400 text-sm text-center mt-2">{slideError}</p>}
             </div>
           )}
 
@@ -844,12 +868,13 @@ export function CodeBreakerGame({ gameId, isAdmin }: CodeBreakerGameProps) {
             />
             <button
               onClick={handleBinarySubmit}
-              disabled={binaryCooldown > 0 || !binaryInput.trim()}
+              disabled={binaryCooldown > 0 || binarySubmitting || !binaryInput.trim()}
               className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
             >
-              Submit
+              {binarySubmitting ? 'Submitting...' : 'Submit'}
             </button>
           </div>
+          {binaryError && <p className="text-red-400 text-sm text-center mt-2">{binaryError}</p>}
 
           {binaryStatus === 'won' && (
             <div className="text-center py-4 mt-4 bg-green-900/30 rounded-lg border border-green-800/50">

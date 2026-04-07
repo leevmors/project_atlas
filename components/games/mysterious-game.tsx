@@ -79,6 +79,7 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
   const [wordleLockedUntil, setWordleLockedUntil] = useState<string | null>(null);
   const [wordleSubmitting, setWordleSubmitting] = useState(false);
   const [morseSubmitting, setMorseSubmitting] = useState(false);
+  const [morseError, setMorseError] = useState('');
   const [level1Completing, setLevel1Completing] = useState(false);
   const [level3Completing, setLevel3Completing] = useState(false);
 
@@ -271,8 +272,9 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
           setTimeout(() => setMorseStatus('playing'), 2000);
         }
       }
-    } catch {
+    } catch (err) {
       setMorseStatus('error');
+      setMorseError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
       setTimeout(() => setMorseStatus('playing'), 2000);
     } finally {
       setMorseSubmitting(false);
@@ -682,6 +684,9 @@ export function MysteriousGame({ gameId, isAdmin }: MysteriousGameProps) {
                   >
                     {morseSubmitting ? 'Checking...' : 'Submit'}
                   </button>
+                  {morseError && (
+                    <p className="text-red-400 text-sm text-center mt-2">{morseError}</p>
+                  )}
                 </form>
               </div>
             ) : (

@@ -32,16 +32,22 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
   const [l1Input, setL1Input] = useState('');
   const [l1Cooldown, setL1Cooldown] = useState(0);
   const [l1Status, setL1Status] = useState<'playing' | 'won'>('playing');
+  const [l1Submitting, setL1Submitting] = useState(false);
+  const [l1Error, setL1Error] = useState('');
 
   // Level 2 — The Darkness
   const [l2Input, setL2Input] = useState('');
   const [l2Cooldown, setL2Cooldown] = useState(0);
   const [l2Status, setL2Status] = useState<'playing' | 'won'>('playing');
+  const [l2Submitting, setL2Submitting] = useState(false);
+  const [l2Error, setL2Error] = useState('');
 
   // Level 3 — The Fall
   const [l3Input, setL3Input] = useState('');
   const [l3Cooldown, setL3Cooldown] = useState(0);
   const [l3Status, setL3Status] = useState<'playing' | 'won'>('playing');
+  const [l3Submitting, setL3Submitting] = useState(false);
+  const [l3Error, setL3Error] = useState('');
 
   // Clue returned by server after completing a level
   const [earnedClue, setEarnedClue] = useState<string>('');
@@ -142,7 +148,9 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
   // ─── Level 1: The Signal ──────────────────────────────────────────────────
 
   const handleL1Submit = async () => {
-    if (l1Cooldown > 0) return;
+    if (l1Cooldown > 0 || l1Submitting) return;
+    setL1Submitting(true);
+    setL1Error('');
     try {
       const res = await submitLevelAnswer(gameId, 1, l1Input.trim());
       if (res.correct) {
@@ -155,15 +163,19 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
         setL1Cooldown(Math.max(0, remaining));
         setL1Input('');
       }
-    } catch {
-      setL1Input('');
+    } catch (err) {
+      setL1Error(err instanceof Error ? err.message : 'Something went wrong. Try again.');
+    } finally {
+      setL1Submitting(false);
     }
   };
 
   // ─── Level 2: The Darkness ────────────────────────────────────────────────
 
   const handleL2Submit = async () => {
-    if (l2Cooldown > 0) return;
+    if (l2Cooldown > 0 || l2Submitting) return;
+    setL2Submitting(true);
+    setL2Error('');
     try {
       const res = await submitLevelAnswer(gameId, 2, l2Input.trim());
       if (res.correct) {
@@ -176,15 +188,19 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
         setL2Cooldown(Math.max(0, remaining));
         setL2Input('');
       }
-    } catch {
-      setL2Input('');
+    } catch (err) {
+      setL2Error(err instanceof Error ? err.message : 'Something went wrong. Try again.');
+    } finally {
+      setL2Submitting(false);
     }
   };
 
   // ─── Level 3: The Fall ────────────────────────────────────────────────────
 
   const handleL3Submit = async () => {
-    if (l3Cooldown > 0) return;
+    if (l3Cooldown > 0 || l3Submitting) return;
+    setL3Submitting(true);
+    setL3Error('');
     try {
       const res = await submitLevelAnswer(gameId, 3, l3Input.trim());
       if (res.correct) {
@@ -197,8 +213,10 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
         setL3Cooldown(Math.max(0, remaining));
         setL3Input('');
       }
-    } catch {
-      setL3Input('');
+    } catch (err) {
+      setL3Error(err instanceof Error ? err.message : 'Something went wrong. Try again.');
+    } finally {
+      setL3Submitting(false);
     }
   };
 
@@ -340,17 +358,20 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
                   onChange={(e) => setL1Input(e.target.value.toUpperCase())}
                   onKeyDown={(e) => e.key === 'Enter' && handleL1Submit()}
                   placeholder="Type your answer..."
-                  disabled={l1Cooldown > 0}
+                  disabled={l1Cooldown > 0 || l1Submitting}
                   className="flex-1 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
                 />
                 <button
                   onClick={handleL1Submit}
-                  disabled={l1Cooldown > 0 || !l1Input.trim()}
+                  disabled={l1Cooldown > 0 || l1Submitting || !l1Input.trim()}
                   className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
                 >
-                  Submit
+                  {l1Submitting ? 'Submitting...' : 'Submit'}
                 </button>
               </div>
+              {l1Error && (
+                <p className="text-red-400 text-sm text-center mt-2">{l1Error}</p>
+              )}
             </>
           )}
 
@@ -403,17 +424,20 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
                   onChange={(e) => setL2Input(e.target.value.toUpperCase())}
                   onKeyDown={(e) => e.key === 'Enter' && handleL2Submit()}
                   placeholder="Type your answer..."
-                  disabled={l2Cooldown > 0}
+                  disabled={l2Cooldown > 0 || l2Submitting}
                   className="flex-1 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
                 />
                 <button
                   onClick={handleL2Submit}
-                  disabled={l2Cooldown > 0 || !l2Input.trim()}
+                  disabled={l2Cooldown > 0 || l2Submitting || !l2Input.trim()}
                   className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
                 >
-                  Submit
+                  {l2Submitting ? 'Submitting...' : 'Submit'}
                 </button>
               </div>
+              {l2Error && (
+                <p className="text-red-400 text-sm text-center mt-2">{l2Error}</p>
+              )}
             </>
           )}
 
@@ -528,17 +552,20 @@ export function HoustonGame({ gameId, isAdmin }: HoustonGameProps) {
                   onChange={(e) => setL3Input(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleL3Submit()}
                   placeholder="Type your answer..."
-                  disabled={l3Cooldown > 0}
+                  disabled={l3Cooldown > 0 || l3Submitting}
                   className="flex-1 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50"
                 />
                 <button
                   onClick={handleL3Submit}
-                  disabled={l3Cooldown > 0 || !l3Input.trim()}
+                  disabled={l3Cooldown > 0 || l3Submitting || !l3Input.trim()}
                   className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
                 >
-                  Submit
+                  {l3Submitting ? 'Submitting...' : 'Submit'}
                 </button>
               </div>
+              {l3Error && (
+                <p className="text-red-400 text-sm text-center mt-2">{l3Error}</p>
+              )}
             </>
           )}
 
