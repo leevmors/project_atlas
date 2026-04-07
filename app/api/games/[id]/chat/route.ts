@@ -184,7 +184,8 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: noCache });
     }
 
-    const { message } = await req.json();
+    const body = await req.json();
+    const { message, history: clientHistory } = body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400, headers: noCache });
@@ -204,13 +205,21 @@ export async function POST(
       return NextResponse.json({ error: 'Game is no longer active' }, { status: 400, headers: noCache });
     }
 
-    // Admin dry-run
+    // Admin dry-run — use client-provided history for context + crack detection
     if (session.user_type === 'admin') {
-      const reply = await callGemini(SYSTEM_PROMPT, [], trimmedMessage, null);
+      const adminHistory = Array.isArray(clientHistory)
+        ? clientHistory.map((m: { role: string; content: string }) => ({
+            role: m.role as 'user' | 'assistant',
+            content: String(m.content),
+          }))
+        : [];
+      const adminCrack = detectCrackAttempt(adminHistory, trimmedMessage);
+      const adminMsgCount = adminHistory.filter((m: { role: string }) => m.role === 'user').length + 1;
+      const reply = await callGemini(SYSTEM_PROMPT, adminHistory, trimmedMessage, adminCrack);
       return NextResponse.json({
         reply,
-        messagesUsed: 0,
-        messagesRemaining: MAX_MESSAGES,
+        messagesUsed: adminMsgCount,
+        messagesRemaining: Math.max(0, MAX_MESSAGES - adminMsgCount),
       }, { headers: noCache });
     }
 

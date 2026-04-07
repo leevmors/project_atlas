@@ -273,11 +273,12 @@ export async function getGameChat(
 
 export async function sendGameChat(
   gameId: string,
-  message: string
+  message: string,
+  history?: ChatMessage[]
 ): Promise<{ reply: string; messagesUsed: number; messagesRemaining: number }> {
   return apiFetch(`/api/games/${gameId}/chat`, {
     method: 'POST',
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, history }),
   });
 }
 

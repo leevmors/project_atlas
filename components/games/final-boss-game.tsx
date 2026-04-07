@@ -96,10 +96,12 @@ export function FinalBossGame({ gameId, isAdmin }: FinalBossGameProps) {
     setChatError('');
 
     // Optimistic: show user message immediately
-    setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
+    const updatedMessages = [...messages, { role: 'user' as const, content: userMsg }];
+    setMessages(updatedMessages);
 
     try {
-      const res = await sendGameChat(gameId, userMsg);
+      // Admin: pass full history so server can do crack detection without DB
+      const res = await sendGameChat(gameId, userMsg, isAdmin ? updatedMessages : undefined);
       setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }]);
       setMessagesUsed(res.messagesUsed);
       setMessagesRemaining(res.messagesRemaining);
