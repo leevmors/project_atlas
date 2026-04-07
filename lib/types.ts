@@ -87,6 +87,11 @@ export interface GameProgress {
   earnedClues?: string[];
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface AdminUser {
   username: string;
   password?: string;

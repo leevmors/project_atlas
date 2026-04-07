@@ -8,6 +8,7 @@ import type {
   AuthSession,
   Game,
   GameProgress,
+  ChatMessage,
 } from './types';
 
 async function apiFetch(path: string, options?: RequestInit) {
@@ -262,6 +263,22 @@ export async function submitGameAnswer(
 
 export async function setWordleLock(gameId: string): Promise<void> {
   await apiFetch(`/api/games/${gameId}/wordle-lock`, { method: 'POST' });
+}
+
+export async function getGameChat(
+  gameId: string
+): Promise<{ messages: ChatMessage[]; messagesUsed: number; messagesRemaining: number }> {
+  return apiFetch(`/api/games/${gameId}/chat`);
+}
+
+export async function sendGameChat(
+  gameId: string,
+  message: string
+): Promise<{ reply: string; messagesUsed: number; messagesRemaining: number }> {
+  return apiFetch(`/api/games/${gameId}/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  });
 }
 
 // ─── Server-validated level endpoints ──────────────────────────────────────

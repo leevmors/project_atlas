@@ -57,6 +57,9 @@ export const GAME_LEVEL_CONFIG: Record<string, Record<number, LevelConfig>> = {
     2: { type: 'text-answer', answer: 'BOMB', clue: 'JUICE', cooldownSeconds: 300 },
     3: { type: 'text-answer', answer: 'ATTACK', clue: 'MASSACRE', cooldownSeconds: 300 },
   },
+  'THE FINAL BOSS??!!': {
+    1: { type: 'text-answer', answer: 'RETRO', clue: undefined, cooldownSeconds: 0 },
+  },
 } as const;
 
 /**

@@ -120,6 +120,22 @@ INSERT INTO games (name, answer, bonus_points)
 SELECT 'Houston we have a problem!', 'BLACK HOLE', 150
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Houston we have a problem!');
 
+CREATE TABLE IF NOT EXISTS game_chat_messages (
+  id          serial        PRIMARY KEY,
+  game_id     integer       NOT NULL REFERENCES games(id),
+  team_id     uuid          NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  role        varchar(20)   NOT NULL,
+  content     text          NOT NULL,
+  created_at  timestamptz   DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS game_chat_messages_lookup_idx
+  ON game_chat_messages(game_id, team_id);
+
+-- Seed the sixth game (safe to re-run)
+INSERT INTO games (name, answer, bonus_points)
+SELECT 'THE FINAL BOSS??!!', 'RETRO', 200
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'THE FINAL BOSS??!!');
+
 -- Migrations (safe to re-run)
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
 ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_cooldown_until timestamptz;
