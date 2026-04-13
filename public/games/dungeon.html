@@ -639,14 +639,7 @@
         "Choose the door that was never built."
     ];
 
-    const special3Notes = [
-        { a: "The answer is the first door.\\nI am certain.", b: "Ignore him. The answer is the last door.", ans: 1 }, // Door 2
-        { a: "Only the middle leads to safety.", b: "The middle is death. Choose the first.", ans: 2 }, // Door 3
-        { a: "Walk through the last door.", b: "Walk through the middle door.", ans: 0 }, // Door 1
-        { a: "I built the trap behind door one.", b: "I built the trap behind door two.", ans: 2 }, // Door 3
-        { a: "The second door has\\nalways been safe.", b: "The second door has never been\\nsafe. Choose the third.", ans: 0 }, // Door 1
-        { a: "The first and only answer is door three.", b: "Door three is a grave. Door one is the way.", ans: 1 } // Door 2
-    ];
+    const special3Notes = [];
 
     let matWall, matFloor, matCeil, matDoor;
 
@@ -1133,7 +1126,7 @@
 
         // Pick special event rules
         specialStage = Math.floor(Math.random() * 4) + 7; // Random stage between 7 and 10
-        specialType = Math.floor(Math.random() * 3) + 1;  // Random type between 1 and 3
+        specialType = Math.floor(Math.random() * 2) + 1;  // Random type between 1 and 2 (The Swap removed)
 
         gameState = 'playing';
         isTransitioning = false;

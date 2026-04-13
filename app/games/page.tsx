@@ -20,6 +20,12 @@ function GamesContent() {
   const [games, setGames] = useState<Game[]>([]);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [, setTick] = useState(0); // Forces re-render for live timers
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     getGames()
@@ -119,6 +125,33 @@ function GamesContent() {
                               </span>
                             </div>
                           )}
+
+                          {/* 6-hour countdown for THE FINAL BOSS */}
+                          {isLive && game.name === 'THE FINAL BOSS??!!' && game.createdAt && (() => {
+                            const deadline = new Date(game.createdAt).getTime() + 6 * 60 * 60 * 1000;
+                            const remaining = deadline - Date.now();
+                            if (remaining <= 0) {
+                              return (
+                                <div className="flex items-center gap-1.5 mt-2">
+                                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                                  <span className="text-xs font-bold text-red-600">TIME EXPIRED</span>
+                                </div>
+                              );
+                            }
+                            const h = Math.floor(remaining / 3600000);
+                            const m = Math.floor((remaining % 3600000) / 60000);
+                            const s = Math.floor((remaining % 60000) / 1000);
+                            const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                            const isUrgent = remaining < 600000;
+                            return (
+                              <div className="flex items-center gap-1.5 mt-2">
+                                <span className={`w-2 h-2 rounded-full ${isUrgent ? 'bg-red-500 animate-pulse' : 'bg-amber-500'}`} />
+                                <span className={`text-xs font-mono font-bold ${isUrgent ? 'text-red-600 animate-pulse' : 'text-amber-600'}`}>
+                                  {timeStr} remaining
+                                </span>
+                              </div>
+                            );
+                          })()}
 
                           {/* Active players indicator (live games only) */}
                           {isLive && (game.activeTeamCount ?? 0) > 0 && (
