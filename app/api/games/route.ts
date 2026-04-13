@@ -10,6 +10,7 @@ interface GameRow {
   winner_team_id: number | null;
   winner_team_name: string | null;
   completed_at: string | null;
+  created_at: string | null;
 }
 
 interface ActiveTeamRow {
@@ -22,7 +23,7 @@ export async function GET() {
     const [gamesRes, activeRes] = await Promise.all([
       pool.query<GameRow>(
         `SELECT g.id, g.name, g.status, g.answer, g.bonus_points, g.winner_team_id,
-                t.company_name as winner_team_name, g.completed_at
+                t.company_name as winner_team_name, g.completed_at, g.created_at
          FROM games g
          LEFT JOIN teams t ON t.id = g.winner_team_id
          ORDER BY g.created_at`
@@ -57,6 +58,7 @@ export async function GET() {
         activeTeamCount: activeNames.length,
         // Security: only expose answer for completed games
         answer: row.status === 'completed' ? row.answer : undefined,
+        createdAt: row.created_at ?? undefined,
       };
     });
 

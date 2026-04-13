@@ -72,6 +72,7 @@ export interface Game {
   activeTeams?: { teamName: string }[];
   activeTeamCount?: number;
   answer?: string; // only present when status === 'completed'
+  createdAt?: string;
 }
 
 export interface GameProgress {

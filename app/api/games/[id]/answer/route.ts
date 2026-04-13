@@ -56,8 +56,8 @@ export async function POST(
     await client.query('BEGIN');
 
     // Lock the game row to prevent race conditions
-    const gameRes = await client.query<{ id: number; status: string; answer: string; bonus_points: number }>(
-      `SELECT id, status, answer, bonus_points FROM games WHERE id = $1 FOR UPDATE`,
+    const gameRes = await client.query<{ id: number; status: string; answer: string; bonus_points: number; name: string; created_at: string }>(
+      `SELECT id, status, answer, bonus_points, name, created_at FROM games WHERE id = $1 FOR UPDATE`,
       [id]
     );
 
@@ -67,6 +67,20 @@ export async function POST(
     }
 
     const game = gameRes.rows[0];
+
+    // 6-hour time limit for THE FINAL BOSS
+    if (game.name === 'THE FINAL BOSS??!!' && game.created_at) {
+      const elapsed = Date.now() - new Date(game.created_at).getTime();
+      if (elapsed > 6 * 60 * 60 * 1000) {
+        await client.query('ROLLBACK');
+        return NextResponse.json({
+          correct: false,
+          attemptsRemaining: 0,
+          isLockedOut: true,
+          gameCompleted: false,
+        });
+      }
+    }
 
     if (game.status !== 'live') {
       await client.query('ROLLBACK');

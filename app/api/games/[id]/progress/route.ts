@@ -15,6 +15,7 @@ interface GameRow {
   winner_team_id: number | null;
   winner_team_name: string | null;
   completed_at: string | null;
+  created_at: string | null;
 }
 
 interface AttemptRow {
@@ -53,7 +54,7 @@ export async function GET(
 
     const gameRes = await pool.query<GameRow>(
       `SELECT g.id, g.name, g.status, g.bonus_points, g.winner_team_id,
-              t.company_name as winner_team_name, g.completed_at
+              t.company_name as winner_team_name, g.completed_at, g.created_at
        FROM games g LEFT JOIN teams t ON t.id = g.winner_team_id
        WHERE g.id = $1`,
       [id]
@@ -76,6 +77,7 @@ export async function GET(
           winnerTeamId: gameRow.winner_team_id ? String(gameRow.winner_team_id) : undefined,
           winnerTeamName: gameRow.winner_team_name ?? undefined,
           completedAt: gameRow.completed_at ?? undefined,
+        createdAt: gameRow.created_at ?? undefined,
         },
         progress: null,
       });
@@ -107,6 +109,7 @@ export async function GET(
         winnerTeamId: gameRow.winner_team_id ? String(gameRow.winner_team_id) : undefined,
         winnerTeamName: gameRow.winner_team_name ?? undefined,
         completedAt: gameRow.completed_at ?? undefined,
+        createdAt: gameRow.created_at ?? undefined,
       },
       progress: attempt
         ? {

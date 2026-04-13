@@ -138,6 +138,33 @@ export function FinalBossGame({ gameId, isAdmin }: FinalBossGameProps) {
     }
   };
 
+  // --- 6-hour countdown timer ---
+  const GAME_DURATION_MS = 6 * 60 * 60 * 1000;
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!game?.createdAt) return;
+    const deadline = new Date(game.createdAt).getTime() + GAME_DURATION_MS;
+
+    const tick = () => {
+      const remaining = deadline - Date.now();
+      setTimeRemaining(Math.max(0, remaining));
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [game?.createdAt]);
+
+  const isExpired = timeRemaining !== null && timeRemaining <= 0 && game?.status === 'live';
+
+  const formatTimer = (ms: number): string => {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   // --- Message counter color ---
   const counterColor =
     messagesRemaining > 20
@@ -181,6 +208,17 @@ export function FinalBossGame({ gameId, isAdmin }: FinalBossGameProps) {
     );
   }
 
+  // Timer expired
+  if (isExpired) {
+    return (
+      <div className="text-center py-8">
+        <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800 mb-1">Time&apos;s Up!</h3>
+        <p className="text-slate-500 text-sm">The serpent has grown bored of waiting. The game has closed.</p>
+      </div>
+    );
+  }
+
   // Locked out
   if (isLockedOut) {
     return (
@@ -217,8 +255,15 @@ export function FinalBossGame({ gameId, isAdmin }: FinalBossGameProps) {
               <p className="text-slate-500 text-xs">The World Serpent</p>
             </div>
           </div>
-          <div className={`text-sm font-mono font-bold ${counterColor}`}>
-            {messagesUsed}/{50}
+          <div className="flex items-center gap-3">
+            {timeRemaining !== null && timeRemaining > 0 && (
+              <div className={`text-sm font-mono font-bold ${timeRemaining < 600000 ? 'text-red-400 animate-pulse' : timeRemaining < 3600000 ? 'text-amber-400' : 'text-slate-400'}`}>
+                {formatTimer(timeRemaining)}
+              </div>
+            )}
+            <div className={`text-sm font-mono font-bold ${counterColor}`}>
+              {messagesUsed}/{50}
+            </div>
           </div>
         </div>
 

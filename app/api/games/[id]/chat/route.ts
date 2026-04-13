@@ -193,9 +193,9 @@ export async function POST(
 
     const trimmedMessage = message.trim().slice(0, 1000);
 
-    // Check game is live
-    const gameRes = await pool.query<{ status: string }>(
-      `SELECT status FROM games WHERE id = $1`,
+    // Check game is live + time limit
+    const gameRes = await pool.query<{ status: string; name: string; created_at: string }>(
+      `SELECT status, name, created_at FROM games WHERE id = $1`,
       [id]
     );
     if (gameRes.rows.length === 0) {
@@ -203,6 +203,13 @@ export async function POST(
     }
     if (gameRes.rows[0].status !== 'live') {
       return NextResponse.json({ error: 'Game is no longer active' }, { status: 400, headers: noCache });
+    }
+    // 6-hour time limit for THE FINAL BOSS
+    if (gameRes.rows[0].name === 'THE FINAL BOSS??!!' && gameRes.rows[0].created_at) {
+      const elapsed = Date.now() - new Date(gameRes.rows[0].created_at).getTime();
+      if (elapsed > 6 * 60 * 60 * 1000) {
+        return NextResponse.json({ error: 'Time expired for this game' }, { status: 400, headers: noCache });
+      }
     }
 
     // Admin dry-run — use client-provided history for context + crack detection

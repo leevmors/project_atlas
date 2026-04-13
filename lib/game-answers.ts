@@ -60,6 +60,10 @@ export const GAME_LEVEL_CONFIG: Record<string, Record<number, LevelConfig>> = {
   'THE FINAL BOSS??!!': {
     1: { type: 'text-answer', answer: 'RETRO', clue: undefined, cooldownSeconds: 0 },
   },
+
+  'Dungeon - 12 Doors of Death': {
+    1: { type: 'text-answer', answer: 'AVADAKEDAVRAMRASYLBI', clue: undefined, cooldownSeconds: 0 },
+  },
 } as const;
 
 /**

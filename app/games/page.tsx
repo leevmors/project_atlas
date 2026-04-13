@@ -11,6 +11,7 @@ import { HoustonGame } from '@/components/games/houston-game';
 import { HuntGame } from '@/components/games/hunt-game';
 import { FinalPieceGame } from '@/components/games/final-piece-game';
 import { FinalBossGame } from '@/components/games/final-boss-game';
+import { DungeonGame } from '@/components/games/dungeon-game';
 import { Gamepad2, Trophy, Lock, Crown, Users } from 'lucide-react';
 import Link from 'next/link';
 
@@ -213,7 +214,12 @@ function GamesContent() {
                   {/* Game component */}
                   {isActive && (
                     <div className="border-t border-slate-200/50 p-4 sm:p-6">
-                      {game.name === 'THE FINAL BOSS??!!' ? (
+                      {game.name === 'Dungeon - 12 Doors of Death' ? (
+                        <DungeonGame
+                          gameId={game.id}
+                          isAdmin={isAdmin ?? false}
+                        />
+                      ) : game.name === 'THE FINAL BOSS??!!' ? (
                         <FinalBossGame
                           gameId={game.id}
                           isAdmin={isAdmin ?? false}
