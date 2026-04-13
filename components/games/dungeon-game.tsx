@@ -150,8 +150,7 @@ export function DungeonGame({ gameId, isAdmin }: DungeonGameProps) {
         </div>
         <h3 className="text-amber-400 font-bold text-lg mb-2">The Dungeon Awaits</h3>
         <p className="text-slate-400 text-sm max-w-md mx-auto mb-6 leading-relaxed">
-          Navigate 12 stages of a dark dungeon. Read the riddles, study the anomaly cards, and choose the correct door.
-          One wrong choice and you start over. Only the worthy will escape.
+          Finish all 12 stages of the game.
         </p>
 
         <a
