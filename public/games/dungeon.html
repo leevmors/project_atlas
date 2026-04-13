@@ -980,14 +980,83 @@
         currentModal = null;
     }
 
+    // --- META ANOMALIES (affect card UI chrome, not canvas content) ---
+    const ALL_META_ANOMALIES = [
+        // Page 1 - Dots
+        { page: 1, id: 'dots_wrongpage', apply: (el) => { el.title = `PAGE 2/6: DOTS`; } },
+        { page: 1, id: 'dots_wrongname', apply: (el) => { el.title = `PAGE 1/6: NUMBERS`; } },
+        { page: 1, id: 'dots_whitebg', apply: (el) => { el.canvasBg = '#ffffff'; } },
+        // Page 2 - Dice
+        { page: 2, id: 'dice_smalli', apply: (el) => { el.title = `PAGE 2/6: DiCE`; } },
+        { page: 2, id: 'dice_nocolon', apply: (el) => { el.title = `PAGE 2/6 DICE`; } },
+        { page: 2, id: 'dice_noclose', apply: (el) => { el.hideClose = true; } },
+        // Page 3 - Compass
+        { page: 3, id: 'compass_swapWE', apply: () => {} }, // handled in drawCompass
+        { page: 3, id: 'compass_swapNS', apply: () => {} }, // handled in drawCompass
+        { page: 3, id: 'compass_blackarrows', apply: () => {} }, // handled in drawCompass
+        // Page 4 - Playing Cards
+        { page: 4, id: 'cards_swapsuits', apply: () => {} }, // handled in drawPlayingCards
+        { page: 4, id: 'cards_nopage', apply: (el) => { el.title = `4/6: PLAYING CARDS`; } },
+        { page: 4, id: 'cards_noS', apply: (el) => { el.title = `PAGE 4/6: PLAYING CARD`; } },
+        // Page 5 - Symbols
+        { page: 5, id: 'symbols_bigger', apply: () => {} }, // handled in drawSymbols
+        { page: 5, id: 'symbols_smaller', apply: () => {} }, // handled in drawSymbols
+        { page: 5, id: 'symbols_backslash', apply: (el) => { el.title = `PAGE 5\\6: SYMBOLS`; } },
+        // Page 6 - Clock
+        { page: 6, id: 'clock_zero', apply: (el) => { el.title = `PAGE 6/6: CL0CK`; } },
+        { page: 6, id: 'clock_longteeth', apply: () => {} }, // handled in drawClock
+        { page: 6, id: 'clock_bigger', apply: () => {} }, // handled in drawClock
+    ];
+    let activeMetaAnomalies = {}; // page -> meta anomaly object
+
+    function shuffleMetaAnomalies() {
+        activeMetaAnomalies = {};
+        // Pick 3-4 random meta anomalies from different pages
+        let count = Math.floor(Math.random() * 2) + 3; // 3 or 4
+        let shuffled = [...ALL_META_ANOMALIES].sort(() => Math.random() - 0.5);
+        let usedPages = new Set();
+        let picked = 0;
+        for (let m of shuffled) {
+            if (picked >= count) break;
+            if (!usedPages.has(m.page)) {
+                activeMetaAnomalies[m.page] = m;
+                usedPages.add(m.page);
+                picked++;
+            }
+        }
+    }
+
+    function getActiveMetaAnomaly(page) {
+        return activeMetaAnomalies[page] || null;
+    }
+
     // --- CARDS RENDERING LOGIC ---
     function renderCardPage() {
-        const titles = ["DOTS", "DICE", "COMPASS", "PLAYING CARDS", "SYMBOLS", "CLOCK"];
-        document.getElementById('card-page-title').innerText = `PAGE ${currentCardPage}/6: ${titles[currentCardPage-1]}`;
+        const defaultTitles = ["DOTS", "DICE", "COMPASS", "PLAYING CARDS", "SYMBOLS", "CLOCK"];
+        let titleText = `PAGE ${currentCardPage}/6: ${defaultTitles[currentCardPage-1]}`;
+        let canvasBg = '#e8dbbc';
+        let hideClose = false;
+
+        // Apply meta anomaly if active for this page
+        let meta = getActiveMetaAnomaly(currentCardPage);
+        if (meta) {
+            let el = { title: titleText, canvasBg: canvasBg, hideClose: false };
+            meta.apply(el);
+            titleText = el.title;
+            canvasBg = el.canvasBg;
+            hideClose = el.hideClose;
+        }
+
+        document.getElementById('card-page-title').innerText = titleText;
+
+        // Show/hide close button based on meta anomaly
+        const closeBtn = document.querySelector('#cards-screen .close-modal-btn');
+        if (closeBtn) closeBtn.style.display = hideClose ? 'none' : '';
+
         const canvas = document.getElementById('card-canvas');
         const ctx = canvas.getContext('2d');
 
-        ctx.fillStyle = '#e8dbbc';
+        ctx.fillStyle = canvasBg;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         let variant = currentAnomalies[currentCardPage] || 'default';
@@ -1104,6 +1173,15 @@
         let needleAngle = -Math.PI/2;
         let labelOffsets = {topY:0, botY:0, rightX:0, leftX:0};
         let fontOverride = null;
+        let bothBlack = false;
+
+        // Check meta anomalies for compass
+        let meta = getActiveMetaAnomaly(3);
+        if (meta) {
+            if (meta.id === 'compass_swapWE') { labels.right = 'W'; labels.left = 'E'; }
+            else if (meta.id === 'compass_swapNS') { labels.top = 'S'; labels.bot = 'N'; }
+            else if (meta.id === 'compass_blackarrows') bothBlack = true;
+        }
 
         if(variant === 'C1') needleAngle = 0;
         else if(variant === 'C2') needleAngle = Math.PI/2;
@@ -1112,10 +1190,10 @@
         else if(variant === 'C5') needleAngle = Math.PI;
         else if(variant === 'C6') labels.bot = 'N';
         // Subtle anomalies:
-        else if(variant === 'C7') { labelOffsets.topY = 4; labelOffsets.botY = -3; } // N and S slightly off-center
-        else if(variant === 'C8') needleAngle = -Math.PI/2 + 0.09; // Needle ~5 degrees off north
-        else if(variant === 'C9') fontOverride = 'W'; // W in different font
-        else if(variant === 'C10') { labelOffsets.rightX = -8; labelOffsets.leftX = 6; } // E and W slightly shifted
+        else if(variant === 'C7') { labelOffsets.topY = 4; labelOffsets.botY = -3; }
+        else if(variant === 'C8') needleAngle = -Math.PI/2 + 0.09;
+        else if(variant === 'C9') fontOverride = 'W';
+        else if(variant === 'C10') { labelOffsets.rightX = -8; labelOffsets.leftX = 6; }
 
         let cx = canvas.width/2, cy = canvas.height/2;
         ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
@@ -1134,7 +1212,7 @@
 
         // Needle
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(needleAngle)*50, cy + Math.sin(needleAngle)*50);
-        ctx.strokeStyle = '#cc2222'; ctx.lineWidth = 4; ctx.stroke();
+        ctx.strokeStyle = bothBlack ? '#333' : '#cc2222'; ctx.lineWidth = 4; ctx.stroke();
         // Back of needle
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - Math.cos(needleAngle)*20, cy - Math.sin(needleAngle)*20);
         ctx.strokeStyle = '#333'; ctx.lineWidth = 4; ctx.stroke();
@@ -1145,6 +1223,12 @@
         let flipKing = false;
         let missingCornerIdx = -1;
         let diffBackIdx = -1;
+
+        // Check meta anomaly: swap hearts/diamond suits on 7 and K
+        let meta = getActiveMetaAnomaly(4);
+        if (meta && meta.id === 'cards_swapsuits') {
+            cards = [ {val:'A', suit:'♠', c:'#000'}, {val:'7', suit:'♦', c:'#cc2222'}, {val:'K', suit:'♥', c:'#cc2222'} ];
+        }
 
         if(variant === 'P1') cards[0] = {val:'A', suit:'♥', c:'#cc2222'};
         else if(variant === 'P2') cards[2] = {val:'A', suit:'♠', c:'#000'};
@@ -1204,6 +1288,12 @@
     function drawSymbols(ctx, canvas, variant) {
         let syms = ['⬤', '▲', '■', '★'];
         let customDraw = null;
+        let metaFontSize = 30; // default
+
+        // Check meta anomaly for symbols
+        let metaSym = getActiveMetaAnomaly(5);
+        if (metaSym && metaSym.id === 'symbols_bigger') metaFontSize = 38;
+        else if (metaSym && metaSym.id === 'symbols_smaller') metaFontSize = 22;
 
         if(variant === 'S1') syms = ['⬤', '▲', '⬤', '★'];
         else if(variant === 'S2') syms = ['⬤', '▲', '★'];
@@ -1227,22 +1317,20 @@
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
             if(customDraw === 'oval' && i === 0) {
-                // Draw oval instead of perfect circle
                 ctx.save();
                 ctx.translate(cx, cy);
-                ctx.scale(1, 0.8); // Slightly squished
-                ctx.font = '30px Arial';
+                ctx.scale(1, 0.8);
+                ctx.font = `${metaFontSize}px Arial`;
                 ctx.fillText('⬤', 0, 0);
                 ctx.restore();
             } else if(customDraw === 'filled' && i === 2) {
-                // Square with outline instead of filled (or vice versa)
                 ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-                ctx.strokeRect(cx-10, cy-10, 20, 20); // Outline only
+                ctx.strokeRect(cx-10, cy-10, 20, 20);
             } else if(customDraw === 'smaller' && i === 3) {
-                ctx.font = '22px Arial'; // Smaller star
+                ctx.font = '22px Arial';
                 ctx.fillText(sym, cx, cy);
             } else {
-                ctx.font = '30px Arial';
+                ctx.font = `${metaFontSize}px Arial`;
                 ctx.fillText(sym, cx, cy);
             }
         });
@@ -1257,6 +1345,13 @@
         let minuteOff = false;
         let swap69 = false;
         let shorterMark = -1;
+        let clockRadius = 60;
+        let longerTeeth = false;
+
+        // Check meta anomalies for clock
+        let metaClk = getActiveMetaAnomaly(6);
+        if (metaClk && metaClk.id === 'clock_longteeth') longerTeeth = true;
+        else if (metaClk && metaClk.id === 'clock_bigger') clockRadius = 72;
 
         if(variant === 'Cl1') time = 9;
         else if(variant === 'Cl2') marks = 10;
@@ -1272,17 +1367,19 @@
         else if(variant === 'Cl11') shorterMark = 8; // 9th mark slightly shorter
 
         let cx = canvas.width/2, cy = canvas.height/2;
+        let R = clockRadius;
         ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(cx, cy, 60, 0, Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.stroke();
 
         ctx.lineWidth = 2;
+        let teethInner = longerTeeth ? R - 15 : R - 10;
         for(let i=0; i<marks; i++) {
             let angle = (i * Math.PI * 2) / marks;
-            if(shiftedMark === i) angle += 0.08; // Slightly shifted mark
-            let innerR = (shorterMark === i) ? 53 : 50; // Slightly shorter mark
+            if(shiftedMark === i) angle += 0.08;
+            let innerR = (shorterMark === i) ? teethInner + 3 : teethInner;
             ctx.beginPath();
             ctx.moveTo(cx + Math.cos(angle)*innerR, cy + Math.sin(angle)*innerR);
-            ctx.lineTo(cx + Math.cos(angle)*60, cy + Math.sin(angle)*60);
+            ctx.lineTo(cx + Math.cos(angle)*R, cy + Math.sin(angle)*R);
             ctx.stroke();
 
             // Draw numbers for swap69 anomaly
@@ -1301,21 +1398,21 @@
         let hAngle = (time / 12) * Math.PI * 2 - Math.PI/2;
         if(hands >= 1 || hands === 3) {
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = thickerHour ? 6 : 4; // Thicker hour hand anomaly
+            ctx.lineWidth = thickerHour ? 6 : 4;
             ctx.beginPath();
-            ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(hAngle)*35, cy + Math.sin(hAngle)*35);
+            ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(hAngle)*(R*0.58), cy + Math.sin(hAngle)*(R*0.58));
             ctx.stroke();
         }
         if(hands >= 2) {
-            let mAngle = minuteOff ? -Math.PI/2 + 0.05 : -Math.PI/2; // 1 tick off from 12
+            let mAngle = minuteOff ? -Math.PI/2 + 0.05 : -Math.PI/2;
             ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.beginPath();
-            ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(mAngle)*50, cy + Math.sin(mAngle)*50);
+            ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(mAngle)*(R*0.83), cy + Math.sin(mAngle)*(R*0.83));
             ctx.stroke();
         }
         if(hands === 3) {
             let sAngle = 0;
             ctx.strokeStyle = '#cc2222'; ctx.lineWidth = 1.5; ctx.beginPath();
-            ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(sAngle)*55, cy + Math.sin(sAngle)*55);
+            ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(sAngle)*(R*0.92), cy + Math.sin(sAngle)*(R*0.92));
             ctx.stroke();
         }
     }
@@ -1333,8 +1430,9 @@
         specialStage = Math.floor(Math.random() * 4) + 7; // Random stage between 7 and 10
         specialType = Math.floor(Math.random() * 2) + 1;  // Random type between 1 and 2 (The Swap removed)
 
-        // Shuffle anomaly rules for this run
+        // Shuffle anomaly rules and meta anomalies for this run
         shuffleRules();
+        shuffleMetaAnomalies();
 
         gameState = 'playing';
         isTransitioning = false;
