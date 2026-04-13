@@ -392,15 +392,8 @@
 
     <div id="rules-screen" class="modal hidden">
         <h2 style="font-size: 14px; margin: 0;">ANOMALY RULES</h2>
-        <table class="rules-table">
+        <table class="rules-table" id="rules-table-body">
             <tr><th>Count</th><th>Rule Applied</th></tr>
-            <tr><td>0</td><td>Trust the note.</td></tr>
-            <tr><td>1</td><td>Choose the opposite door.</td></tr>
-            <tr><td>2</td><td>Trust the note.</td></tr>
-            <tr><td>3</td><td>Choose the opposite door.</td></tr>
-            <tr><td>4</td><td>Anything BUT door 1.</td></tr>
-            <tr><td>5</td><td>Choose the door you chose in stage 1.</td></tr>
-            <tr><td>6</td><td>Always choose door 3.</td></tr>
         </table>
         <button class="action-btn close-modal-btn">CLOSE</button>
     </div>
@@ -557,6 +550,34 @@
     let specialStage = -1;
     let specialType = -1;
     let specialTimerTimeout = null;
+
+    // Anomaly rule definitions (shuffled each run)
+    const ANOMALY_RULES = [
+        { label: 'Trust the note.', id: 'trust' },
+        { label: 'Choose the opposite door.', id: 'opposite' },
+        { label: 'Trust the note.', id: 'trust2' },
+        { label: 'Choose the opposite door.', id: 'opposite2' },
+        { label: 'Anything BUT door 1.', id: 'notdoor1' },
+        { label: 'Choose the door you chose in stage 1.', id: 'stage1' },
+        { label: 'Always choose door 3.', id: 'door3' },
+    ];
+    let ruleMapping = []; // ruleMapping[anomalyCount] = rule id
+
+    function shuffleRules() {
+        let indices = [0, 1, 2, 3, 4, 5, 6];
+        for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+        }
+        ruleMapping = indices.map(idx => ANOMALY_RULES[idx]);
+
+        // Update the rules table in the UI
+        const table = document.getElementById('rules-table-body');
+        if (table) {
+            table.innerHTML = '<tr><th>Count</th><th>Rule Applied</th></tr>' +
+                ruleMapping.map((rule, i) => `<tr><td>${i}</td><td>${rule.label}</td></tr>`).join('');
+        }
+    }
 
     const PIXEL_SCALE = 4;
 
@@ -884,17 +905,19 @@
                 currentAnomalies[pages[i]] = getRandomVariant(pages[i]);
             }
 
-            if (anomalyCount === 0 || anomalyCount === 2) {
+            // Use shuffled rule mapping to determine correct door
+            let ruleId = ruleMapping[anomalyCount] ? ruleMapping[anomalyCount].id : 'trust';
+            if (ruleId === 'trust' || ruleId === 'trust2') {
                 actualCorrectDoors = [intendedDoor];
-            } else if (anomalyCount === 1 || anomalyCount === 3) {
+            } else if (ruleId === 'opposite' || ruleId === 'opposite2') {
                 if (intendedDoor === 0) actualCorrectDoors = [2];
                 else if (intendedDoor === 2) actualCorrectDoors = [0];
                 else actualCorrectDoors = [1];
-            } else if (anomalyCount === 4) {
+            } else if (ruleId === 'notdoor1') {
                 actualCorrectDoors = [1, 2];
-            } else if (anomalyCount === 5) {
+            } else if (ruleId === 'stage1') {
                 actualCorrectDoors = [firstStageChoice];
-            } else if (anomalyCount === 6) {
+            } else if (ruleId === 'door3') {
                 actualCorrectDoors = [2];
             }
         }
@@ -1309,6 +1332,9 @@
         // Pick special event rules
         specialStage = Math.floor(Math.random() * 4) + 7; // Random stage between 7 and 10
         specialType = Math.floor(Math.random() * 2) + 1;  // Random type between 1 and 2 (The Swap removed)
+
+        // Shuffle anomaly rules for this run
+        shuffleRules();
 
         gameState = 'playing';
         isTransitioning = false;
