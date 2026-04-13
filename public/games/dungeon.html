@@ -1028,6 +1028,8 @@
     }
 
     function getActiveMetaAnomaly(page) {
+        // No anomalies for stages 0, 1, and 2
+        if (currentStage < 3) return null;
         return activeMetaAnomalies[page] || null;
     }
 
