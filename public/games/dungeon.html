@@ -822,9 +822,14 @@
 
     function getRandomVariant(pageNum) {
         let prefix = '';
-        if(pageNum===1) prefix='D'; if(pageNum===2) prefix='Di'; if(pageNum===3) prefix='C';
-        if(pageNum===4) prefix='P'; if(pageNum===5) prefix='S';  if(pageNum===6) prefix='Cl';
-        return prefix + (Math.floor(Math.random() * 6) + 1);
+        let maxVariant = 6;
+        if(pageNum===1) { prefix='D'; maxVariant=11; }
+        if(pageNum===2) { prefix='Di'; maxVariant=10; }
+        if(pageNum===3) { prefix='C'; maxVariant=10; }
+        if(pageNum===4) { prefix='P'; maxVariant=10; }
+        if(pageNum===5) { prefix='S'; maxVariant=11; }
+        if(pageNum===6) { prefix='Cl'; maxVariant=11; }
+        return prefix + (Math.floor(Math.random() * maxVariant) + 1);
     }
 
     function generateStage() {
@@ -974,32 +979,64 @@
 
     function drawDots(ctx, canvas, variant) {
         let colors = ['#22cc22', '#cc2222', '#2222cc', '#aa22aa', '#000000'];
+        let radii = [12, 12, 12, 12, 12];
+        let spacingOverride = null;
+        let outlineIdx = -1;
+        let overlapIdx = -1;
+
         if(variant === 'D1') colors = ['#22cc22', '#cc2222', '#2222cc', '#aa22aa', '#22cc22'];
         else if(variant === 'D2') colors = ['#22cc22', '#cc2222', '#2222cc', '#aa22aa'];
         else if(variant === 'D3') colors = ['#22cc22', '#cc2222', '#2222cc', '#aa22aa', '#000000', '#cccc22'];
         else if(variant === 'D4') colors = ['#cc2222', '#22cc22', '#2222cc', '#aa22aa', '#000000'];
         else if(variant === 'D5') colors = ['#22cc22', '#cc2222', '#cc2222', '#aa22aa', '#000000'];
         else if(variant === 'D6') colors = ['#22cc22', '#ffffff', '#2222cc', '#aa22aa', '#000000'];
+        // Subtle anomalies:
+        else if(variant === 'D7') radii = [12, 12, 15, 12, 12]; // One dot slightly larger
+        else if(variant === 'D8') colors = ['#22cc22', '#cc2222', '#2222cc', '#772266', '#000000']; // Wrong shade purple (dark)
+        else if(variant === 'D9') spacingOverride = [0, 40, 55, 40, 40]; // Uneven spacing — 3rd gap wider
+        else if(variant === 'D10') outlineIdx = 2; // One dot has thin outline only (no fill)
+        else if(variant === 'D11') overlapIdx = 3; // One dot slightly overlaps the next
 
         let spacing = 40;
         let startX = canvas.width/2 - ((colors.length-1)*spacing)/2;
         colors.forEach((c, i) => {
-            ctx.fillStyle = c;
-            ctx.beginPath();
-            ctx.arc(startX + i*spacing, canvas.height/2, 12, 0, Math.PI*2);
-            ctx.fill();
-            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
+            let xOff = spacingOverride ? spacingOverride.slice(0, i+1).reduce((a,b)=>a+b, 0) - spacingOverride[0] : i*spacing;
+            let dotX = startX + xOff;
+            if(overlapIdx === i) dotX -= 8; // Slight overlap with previous
+            let r = radii[i] || 12;
+
+            if(outlineIdx === i) {
+                // Outline only, no fill
+                ctx.beginPath();
+                ctx.arc(dotX, canvas.height/2, r, 0, Math.PI*2);
+                ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.stroke();
+            } else {
+                ctx.fillStyle = c;
+                ctx.beginPath();
+                ctx.arc(dotX, canvas.height/2, r, 0, Math.PI*2);
+                ctx.fill();
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
+            }
         });
     }
 
     function drawDice(ctx, canvas, variant) {
         let values = [2, 5, 1];
+        let rotations = [0, 0, 0];
+        let pipOverride = null; // {dieIdx, pips} for custom pip layouts
+        let bigPipIdx = -1; // die index where one pip is bigger
+
         if(variant === 'Di1') values = [2, 5, 7];
-        if(variant === 'Di2') values = [2, 5, 5];
-        if(variant === 'Di3') values = [2, 0, 1];
-        if(variant === 'Di4') values = [2, 5, 1, 3];
-        if(variant === 'Di5') values = [5, 2, 1];
-        if(variant === 'Di6') values = [2, 5, 0];
+        else if(variant === 'Di2') values = [2, 5, 5];
+        else if(variant === 'Di3') values = [2, 0, 1];
+        else if(variant === 'Di4') values = [2, 5, 1, 3];
+        else if(variant === 'Di5') values = [5, 2, 1];
+        else if(variant === 'Di6') values = [2, 5, 0];
+        // Subtle anomalies:
+        else if(variant === 'Di7') pipOverride = {dieIdx: 0, pips: [[-10,0], [10,0]]}; // 3 pips in straight line (horizontal not diagonal)
+        else if(variant === 'Di8') rotations = [0, 0.12, 0]; // Middle die slightly rotated
+        else if(variant === 'Di9') pipOverride = {dieIdx: 2, pips: [[3,2]]}; // "1" pip off-center
+        else if(variant === 'Di10') bigPipIdx = 1; // One pip on the 5-die is bigger
 
         let spacing = 60;
         let startX = canvas.width/2 - ((values.length-1)*spacing)/2;
@@ -1007,43 +1044,70 @@
             let cx = startX + i*spacing;
             let cy = canvas.height/2;
 
+            ctx.save();
+            if(rotations[i]) {
+                ctx.translate(cx, cy);
+                ctx.rotate(rotations[i]);
+                ctx.translate(-cx, -cy);
+            }
+
             ctx.fillStyle = '#fff';
             ctx.fillRect(cx-20, cy-20, 40, 40);
             ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(cx-20, cy-20, 40, 40);
 
             ctx.fillStyle = '#000';
             let dots = [];
-            if(v===1) dots=[[0,0]];
-            if(v===2) dots=[[-10,-10], [10,10]];
-            if(v===3) dots=[[-10,-10], [0,0], [10,10]];
-            if(v===5) dots=[[-10,-10], [10,-10], [0,0], [-10,10], [10,10]];
-            if(v===7) dots=[[-10,-10], [10,-10], [0,-12], [0,0], [-10,10], [10,10], [0,12]]; // Distinct 7
+            if(pipOverride && pipOverride.dieIdx === i) {
+                dots = pipOverride.pips;
+            } else {
+                if(v===1) dots=[[0,0]];
+                if(v===2) dots=[[-10,-10], [10,10]];
+                if(v===3) dots=[[-10,-10], [0,0], [10,10]];
+                if(v===5) dots=[[-10,-10], [10,-10], [0,0], [-10,10], [10,10]];
+                if(v===7) dots=[[-10,-10], [10,-10], [0,-12], [0,0], [-10,10], [10,10], [0,12]];
+            }
 
-            dots.forEach(d => {
-                ctx.beginPath(); ctx.arc(cx+d[0], cy+d[1], 3, 0, Math.PI*2); ctx.fill();
+            dots.forEach((d, di) => {
+                let r = 3;
+                if(bigPipIdx === i && di === 2) r = 5; // One pip bigger
+                ctx.beginPath(); ctx.arc(cx+d[0], cy+d[1], r, 0, Math.PI*2); ctx.fill();
             });
+            ctx.restore();
         });
     }
 
     function drawCompass(ctx, canvas, variant) {
         let labels = {top:'N', bot:'S', right:'E', left:'W'};
         let needleAngle = -Math.PI/2;
+        let labelOffsets = {topY:0, botY:0, rightX:0, leftX:0};
+        let fontOverride = null;
+
         if(variant === 'C1') needleAngle = 0;
-        if(variant === 'C2') needleAngle = Math.PI/2;
-        if(variant === 'C3') labels.left = 'E';
-        if(variant === 'C4') labels.right = '';
-        if(variant === 'C5') needleAngle = Math.PI;
-        if(variant === 'C6') labels.bot = 'N';
+        else if(variant === 'C2') needleAngle = Math.PI/2;
+        else if(variant === 'C3') labels.left = 'E';
+        else if(variant === 'C4') labels.right = '';
+        else if(variant === 'C5') needleAngle = Math.PI;
+        else if(variant === 'C6') labels.bot = 'N';
+        // Subtle anomalies:
+        else if(variant === 'C7') { labelOffsets.topY = 4; labelOffsets.botY = -3; } // N and S slightly off-center
+        else if(variant === 'C8') needleAngle = -Math.PI/2 + 0.09; // Needle ~5 degrees off north
+        else if(variant === 'C9') fontOverride = 'W'; // W in different font
+        else if(variant === 'C10') { labelOffsets.rightX = -8; labelOffsets.leftX = 6; } // E and W slightly shifted
 
         let cx = canvas.width/2, cy = canvas.height/2;
         ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(cx, cy, 60, 0, Math.PI*2); ctx.stroke();
 
-        ctx.fillStyle = '#000'; ctx.font = '20px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(labels.top, cx, cy - 75);
-        ctx.fillText(labels.bot, cx, cy + 75);
-        ctx.fillText(labels.right, cx + 75, cy);
-        ctx.fillText(labels.left, cx - 75, cy);
+        ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+        ctx.font = '20px monospace';
+        ctx.fillText(labels.top, cx, cy - 75 + labelOffsets.topY);
+        ctx.fillText(labels.bot, cx, cy + 75 + labelOffsets.botY);
+        ctx.fillText(labels.right, cx + 75 + labelOffsets.rightX, cy);
+
+        if(fontOverride === 'W') ctx.font = '20px serif';
+        ctx.fillText(labels.left, cx - 75 + labelOffsets.leftX, cy);
+        ctx.font = '20px monospace';
 
         // Needle
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(needleAngle)*50, cy + Math.sin(needleAngle)*50);
@@ -1055,12 +1119,21 @@
 
     function drawPlayingCards(ctx, canvas, variant) {
         let cards = [ {val:'A', suit:'♠', c:'#000'}, {val:'7', suit:'♥', c:'#cc2222'}, {val:'K', suit:'♦', c:'#cc2222'} ];
+        let flipKing = false;
+        let missingCornerIdx = -1;
+        let diffBackIdx = -1;
+
         if(variant === 'P1') cards[0] = {val:'A', suit:'♥', c:'#cc2222'};
-        if(variant === 'P2') cards[2] = {val:'A', suit:'♠', c:'#000'};
-        if(variant === 'P3') cards[1] = {val:'14', suit:'♥', c:'#cc2222'};
-        if(variant === 'P4') cards[1] = {val:'7', suit:'♠', c:'#000'};
-        if(variant === 'P5') cards[0] = 'down';
-        if(variant === 'P6') cards.push({val:'Q', suit:'♣', c:'#000'});
+        else if(variant === 'P2') cards[2] = {val:'A', suit:'♠', c:'#000'};
+        else if(variant === 'P3') cards[1] = {val:'14', suit:'♥', c:'#cc2222'};
+        else if(variant === 'P4') cards[1] = {val:'7', suit:'♠', c:'#000'};
+        else if(variant === 'P5') cards[0] = 'down';
+        else if(variant === 'P6') cards.push({val:'Q', suit:'♣', c:'#000'});
+        // Subtle anomalies:
+        else if(variant === 'P7') cards[1] = {val:'7', suit:'♥', c:'#dd5522'}; // Hearts are orange-red
+        else if(variant === 'P8') flipKing = true; // King card upside down
+        else if(variant === 'P9') missingCornerIdx = 0; // Missing corner pip on first card
+        else if(variant === 'P10') diffBackIdx = 1; // One card has different back pattern
 
         let spacing = 60;
         let startX = canvas.width/2 - ((cards.length-1)*spacing)/2;
@@ -1068,29 +1141,59 @@
             let cx = startX + i*spacing;
             let cy = canvas.height/2;
 
+            ctx.save();
+            if(flipKing && card !== 'down' && card.val === 'K') {
+                ctx.translate(cx, cy);
+                ctx.rotate(Math.PI);
+                ctx.translate(-cx, -cy);
+            }
+
             ctx.fillStyle = '#fff'; ctx.fillRect(cx-25, cy-35, 50, 70);
             ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(cx-25, cy-35, 50, 70);
 
-            if (card === 'down') {
-                ctx.fillStyle = '#55a'; ctx.fillRect(cx-20, cy-30, 40, 60);
+            if (card === 'down' || diffBackIdx === i) {
+                ctx.fillStyle = diffBackIdx === i ? '#a55' : '#55a';
+                ctx.fillRect(cx-20, cy-30, 40, 60);
+                if(diffBackIdx === i) {
+                    // Different cross-hatch pattern
+                    ctx.strokeStyle = '#733'; ctx.lineWidth = 1;
+                    for(let l=-30; l<70; l+=8) {
+                        ctx.beginPath(); ctx.moveTo(cx-20, cy-30+l); ctx.lineTo(cx+20, cy-30+l+20); ctx.stroke();
+                    }
+                }
             } else {
                 ctx.fillStyle = card.c;
                 ctx.font = '16px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText(card.val, cx, cy - 10);
                 ctx.font = '24px Arial';
                 ctx.fillText(card.suit, cx, cy + 15);
+
+                // Corner pip (normally top-left)
+                if(missingCornerIdx !== i) {
+                    ctx.font = '8px monospace';
+                    ctx.fillText(card.val, cx - 18, cy - 27);
+                }
             }
+            ctx.restore();
         });
     }
 
     function drawSymbols(ctx, canvas, variant) {
         let syms = ['⬤', '▲', '■', '★'];
+        let customDraw = null;
+
         if(variant === 'S1') syms = ['⬤', '▲', '⬤', '★'];
-        if(variant === 'S2') syms = ['⬤', '▲', '★'];
-        if(variant === 'S3') syms = ['⬤', '▲', '■', '★', '◆'];
-        if(variant === 'S4') syms = ['▲', '⬤', '■', '★'];
-        if(variant === 'S5') syms = ['⬤', '▲', '■', '⬢'];
-        if(variant === 'S6') syms = ['⬤', '▲', '■', '■'];
+        else if(variant === 'S2') syms = ['⬤', '▲', '★'];
+        else if(variant === 'S3') syms = ['⬤', '▲', '■', '★', '◆'];
+        else if(variant === 'S4') syms = ['▲', '⬤', '■', '★'];
+        else if(variant === 'S5') syms = ['⬤', '▲', '■', '⬢'];
+        else if(variant === 'S6') syms = ['⬤', '▲', '■', '■'];
+        // Subtle anomalies:
+        else if(variant === 'S7') customDraw = 'oval'; // Circle is slightly oval
+        else if(variant === 'S8') syms = ['⬤', '▲', '■', '✡']; // 6-pointed star instead of 5
+        else if(variant === 'S9') customDraw = 'filled'; // One outline symbol has fill
+        else if(variant === 'S10') syms = ['⬤', '▼', '■', '★']; // Triangle pointing down
+        else if(variant === 'S11') customDraw = 'smaller'; // One symbol smaller
 
         let spacing = 50;
         let startX = canvas.width/2 - ((syms.length-1)*spacing)/2;
@@ -1098,8 +1201,27 @@
             let cx = startX + i*spacing;
             let cy = canvas.height/2;
             ctx.fillStyle = '#000';
-            ctx.font = '30px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(sym, cx, cy);
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+            if(customDraw === 'oval' && i === 0) {
+                // Draw oval instead of perfect circle
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.scale(1, 0.8); // Slightly squished
+                ctx.font = '30px Arial';
+                ctx.fillText('⬤', 0, 0);
+                ctx.restore();
+            } else if(customDraw === 'filled' && i === 2) {
+                // Square with outline instead of filled (or vice versa)
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+                ctx.strokeRect(cx-10, cy-10, 20, 20); // Outline only
+            } else if(customDraw === 'smaller' && i === 3) {
+                ctx.font = '22px Arial'; // Smaller star
+                ctx.fillText(sym, cx, cy);
+            } else {
+                ctx.font = '30px Arial';
+                ctx.fillText(sym, cx, cy);
+            }
         });
     }
 
@@ -1107,12 +1229,24 @@
         let time = 6;
         let marks = 12;
         let hands = 2;
+        let shiftedMark = -1;
+        let thickerHour = false;
+        let minuteOff = false;
+        let swap69 = false;
+        let shorterMark = -1;
+
         if(variant === 'Cl1') time = 9;
-        if(variant === 'Cl2') marks = 10;
-        if(variant === 'Cl3') hands = 3;
-        if(variant === 'Cl4') hands = 1;
-        if(variant === 'Cl5') time = 3;
-        if(variant === 'Cl6') marks = 14;
+        else if(variant === 'Cl2') marks = 10;
+        else if(variant === 'Cl3') hands = 3;
+        else if(variant === 'Cl4') hands = 1;
+        else if(variant === 'Cl5') time = 3;
+        else if(variant === 'Cl6') marks = 14;
+        // Subtle anomalies:
+        else if(variant === 'Cl7') shiftedMark = 4; // 5th hour mark shifted slightly
+        else if(variant === 'Cl8') thickerHour = true; // Hour hand slightly thicker
+        else if(variant === 'Cl9') minuteOff = true; // Minute hand 1 tick off from 12
+        else if(variant === 'Cl10') swap69 = true; // 6 and 9 swapped
+        else if(variant === 'Cl11') shorterMark = 8; // 9th mark slightly shorter
 
         let cx = canvas.width/2, cy = canvas.height/2;
         ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
@@ -1121,21 +1255,37 @@
         ctx.lineWidth = 2;
         for(let i=0; i<marks; i++) {
             let angle = (i * Math.PI * 2) / marks;
+            if(shiftedMark === i) angle += 0.08; // Slightly shifted mark
+            let innerR = (shorterMark === i) ? 53 : 50; // Slightly shorter mark
             ctx.beginPath();
-            ctx.moveTo(cx + Math.cos(angle)*50, cy + Math.sin(angle)*50);
+            ctx.moveTo(cx + Math.cos(angle)*innerR, cy + Math.sin(angle)*innerR);
             ctx.lineTo(cx + Math.cos(angle)*60, cy + Math.sin(angle)*60);
             ctx.stroke();
+
+            // Draw numbers for swap69 anomaly
+            if(swap69 && marks === 12) {
+                ctx.fillStyle = '#000';
+                ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                let num = i === 0 ? 12 : i;
+                // Swap 6 and 9
+                if(num === 6) num = 9;
+                else if(num === 9) num = 6;
+                let labelR = 42;
+                ctx.fillText(String(num), cx + Math.cos(angle - Math.PI/2 + (i * Math.PI * 2 / 12))*labelR, cy + Math.sin(angle - Math.PI/2 + (i * Math.PI * 2 / 12))*labelR);
+            }
         }
 
         let hAngle = (time / 12) * Math.PI * 2 - Math.PI/2;
         if(hands >= 1 || hands === 3) {
-            ctx.lineWidth = 4; ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = thickerHour ? 6 : 4; // Thicker hour hand anomaly
+            ctx.beginPath();
             ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(hAngle)*35, cy + Math.sin(hAngle)*35);
             ctx.stroke();
         }
         if(hands >= 2) {
-            let mAngle = -Math.PI/2;
-            ctx.lineWidth = 3; ctx.beginPath();
+            let mAngle = minuteOff ? -Math.PI/2 + 0.05 : -Math.PI/2; // 1 tick off from 12
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.beginPath();
             ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(mAngle)*50, cy + Math.sin(mAngle)*50);
             ctx.stroke();
         }
