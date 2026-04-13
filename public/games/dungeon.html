@@ -13,6 +13,7 @@
             width: 100%;
             height: 100%;
             background-color: #000;
+            touch-action: none;
             overflow: hidden;
             font-family: 'Press Start 2P', monospace;
             user-select: none;
@@ -332,10 +333,37 @@
             #note-text { font-size: 10px; }
             .note-half { padding: 8px; }
         }
+
+        /* Force landscape on mobile */
+        @media (orientation: portrait) and (max-width: 900px) {
+            #rotate-overlay {
+                display: flex !important;
+            }
+        }
+
+        #rotate-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #000;
+            color: #ffaa00;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            line-height: 2;
+        }
+
+        canvas { touch-action: none; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
+
+<div id="rotate-overlay">ROTATE YOUR DEVICE<br><br>Play in landscape mode</div>
 
 <div id="game-container">
     <div id="crt-overlay"></div>
@@ -699,6 +727,9 @@
             e.preventDefault();
         }, {passive: false});
 
+        // Prevent pinch-zoom and scroll on mobile
+        document.addEventListener('touchmove', (e) => { e.preventDefault(); }, {passive: false});
+
         document.getElementById('start-btn').addEventListener('click', startGame);
         document.getElementById('play-again-btn').addEventListener('click', startGame);
 
@@ -799,6 +830,7 @@
     function generateStage() {
         doors.forEach(d => scene.remove(d));
         doors = [];
+        selectedDoor = null;
         if (specialTimerTimeout) clearTimeout(specialTimerTimeout);
 
         let riddleHTML = "The paper is blank...";
@@ -1300,6 +1332,16 @@
         touchStartX = x; touchStartY = y;
     }
 
+    let selectedDoor = null; // For two-tap door selection on mobile
+
+    function clearDoorSelection() {
+        if (selectedDoor) {
+            selectedDoor.material.emissive.setHex(0x1a0f05);
+            selectedDoor = null;
+        }
+        document.getElementById('door-indicator').classList.add('hidden');
+    }
+
     function handleInputUp(x, y) {
         if (!isDragging || currentModal) return;
         isDragging = false;
@@ -1307,15 +1349,40 @@
         const deltaX = x - touchStartX;
         const deltaY = y - touchStartY;
 
-        if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        // Swipe detection — only allow turning during Special Event 2 (4th door)
+        const canTurn = currentStage === specialStage && specialType === 2;
+        if (canTurn && Math.abs(deltaX) > 120 && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaY) < 40) {
+            clearDoorSelection();
             triggerTurn();
-        } else if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+        } else if (Math.abs(deltaX) < 20 && Math.abs(deltaY) < 20) {
+            // Tap — door selection with two-tap confirm
             mouse.x = (x / window.innerWidth) * 2 - 1;
             mouse.y = -(y / window.innerHeight) * 2 + 1;
 
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(doors);
-            if (intersects.length > 0) handleDoorChoice(intersects[0].object);
+
+            if (intersects.length > 0) {
+                const tapped = intersects[0].object;
+                if (selectedDoor === tapped) {
+                    // Second tap on same door — enter it
+                    clearDoorSelection();
+                    handleDoorChoice(tapped);
+                } else {
+                    // First tap — highlight the door
+                    clearDoorSelection();
+                    selectedDoor = tapped;
+                    tapped.material.emissive.setHex(0xffaa33);
+                    const idx = tapped.userData.index;
+                    const label = idx === 3 ? 'DOOR BEHIND' : `DOOR ${idx + 1}`;
+                    const indicator = document.getElementById('door-indicator');
+                    indicator.innerText = `TAP AGAIN: ${label}`;
+                    indicator.classList.remove('hidden');
+                }
+            } else {
+                // Tapped empty space — clear selection
+                clearDoorSelection();
+            }
         }
     }
 
