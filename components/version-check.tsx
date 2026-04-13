@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 const BUILD_VERSION = Date.now().toString(); // Set at build time
 
-export function VersionCheck() {
+export default function VersionCheck() {
   const [needsRefresh, setNeedsRefresh] = useState(false);
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import { VersionCheck } from '@/components/version-check'
+import VersionCheck from '@/components/version-check'
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"], display: 'swap' });
