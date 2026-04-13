@@ -204,10 +204,10 @@ export async function POST(
     if (gameRes.rows[0].status !== 'live') {
       return NextResponse.json({ error: 'Game is no longer active' }, { status: 400, headers: noCache });
     }
-    // 6-hour time limit for THE FINAL BOSS
-    if (gameRes.rows[0].name === 'THE FINAL BOSS??!!' && gameRes.rows[0].created_at) {
-      const elapsed = Date.now() - new Date(gameRes.rows[0].created_at).getTime();
-      if (elapsed > 6 * 60 * 60 * 1000) {
+    // Fixed deadline for THE FINAL BOSS: April 14, 2026 00:00 GMT+5 = April 13, 2026 19:00 UTC
+    if (gameRes.rows[0].name === 'THE FINAL BOSS??!!') {
+      const deadline = new Date('2026-04-13T19:00:00Z').getTime();
+      if (Date.now() > deadline) {
         return NextResponse.json({ error: 'Time expired for this game' }, { status: 400, headers: noCache });
       }
     }

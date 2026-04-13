@@ -126,9 +126,9 @@ function GamesContent() {
                             </div>
                           )}
 
-                          {/* 6-hour countdown for THE FINAL BOSS */}
-                          {isLive && game.name === 'THE FINAL BOSS??!!' && game.createdAt && (() => {
-                            const deadline = new Date(game.createdAt).getTime() + 6 * 60 * 60 * 1000;
+                          {/* Countdown for THE FINAL BOSS — deadline: April 14, 2026 00:00 GMT+5 */}
+                          {isLive && game.name === 'THE FINAL BOSS??!!' && (() => {
+                            const deadline = new Date('2026-04-13T19:00:00Z').getTime();
                             const remaining = deadline - Date.now();
                             if (remaining <= 0) {
                               return (

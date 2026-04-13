@@ -68,10 +68,10 @@ export async function POST(
 
     const game = gameRes.rows[0];
 
-    // 6-hour time limit for THE FINAL BOSS
-    if (game.name === 'THE FINAL BOSS??!!' && game.created_at) {
-      const elapsed = Date.now() - new Date(game.created_at).getTime();
-      if (elapsed > 6 * 60 * 60 * 1000) {
+    // Fixed deadline for THE FINAL BOSS: April 14, 2026 00:00 GMT+5 = April 13, 2026 19:00 UTC
+    if (game.name === 'THE FINAL BOSS??!!') {
+      const deadline = new Date('2026-04-13T19:00:00Z').getTime();
+      if (Date.now() > deadline) {
         await client.query('ROLLBACK');
         return NextResponse.json({
           correct: false,

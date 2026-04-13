@@ -138,13 +138,13 @@ export function FinalBossGame({ gameId, isAdmin }: FinalBossGameProps) {
     }
   };
 
-  // --- 6-hour countdown timer ---
-  const GAME_DURATION_MS = 6 * 60 * 60 * 1000;
+  // --- Countdown timer to fixed deadline: April 14, 2026 00:00 GMT+5 ---
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!game?.createdAt) return;
-    const deadline = new Date(game.createdAt).getTime() + GAME_DURATION_MS;
+    if (!game) return;
+    // April 14, 2026 00:00:00 GMT+5 = April 13, 2026 19:00:00 UTC
+    const deadline = new Date('2026-04-13T19:00:00Z').getTime();
 
     const tick = () => {
       const remaining = deadline - Date.now();
