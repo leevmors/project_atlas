@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { VersionCheck } from '@/components/version-check'
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"], display: 'swap' });
@@ -48,6 +49,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-sans antialiased ${playfair.variable}`}>
         {children}
+        <VersionCheck />
         <Analytics />
       </body>
     </html>
