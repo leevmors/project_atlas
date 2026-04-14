@@ -558,6 +558,9 @@
     let lastTimerSeconds = -1;
     let actualCorrectDoors = [];
     let currentAnomalies = {};
+    let lastAnomalyCount = 0; // The anomaly count used for the LAST door decision
+    let lastRuleId = 'trust'; // The rule ID used for the LAST door decision
+    let lastIntendedDoor = -1; // The riddle's intended door before rule override
     let currentCardPage = 1;
     let activeRunRiddles = {};
     let firstStageChoice = 1; // Tracks the door chosen in stage 1
@@ -592,31 +595,13 @@
 
         const doorNames = ['LEFT (1)', 'CENTER (2)', 'RIGHT (3)', 'BACK (4)'];
         const correctStr = actualCorrectDoors.map(d => doorNames[d] || d).join(' or ');
+        const intendedStr = lastIntendedDoor >= 0 ? doorNames[lastIntendedDoor] : 'N/A';
 
-        // Count content anomalies
+        // Content anomalies (from currentAnomalies object)
         const contentKeys = Object.keys(currentAnomalies);
         const contentDetails = contentKeys.map(k => `P${k}:${currentAnomalies[k]}`).join(', ') || 'none';
 
-        // Combined anomaly count (content + meta, counting unique pages)
-        let totalAnomalyCount = 0;
-        let affectedPages = new Set();
-        if (currentStage >= 3) {
-            for (let p of contentKeys) affectedPages.add(parseInt(p));
-            for (let p of Object.keys(activeMetaAnomalies)) affectedPages.add(parseInt(p));
-            totalAnomalyCount = affectedPages.size;
-        }
-
-        // Current rule
-        let ruleStr = 'N/A (no rule)';
-        if (currentStage < 3) {
-            ruleStr = 'BYPASSED (stage < 3, trust the note)';
-        } else if (currentStage === specialStage) {
-            ruleStr = 'SPECIAL EVENT';
-        } else if (ruleMapping[totalAnomalyCount]) {
-            ruleStr = `[${totalAnomalyCount}] ${ruleMapping[totalAnomalyCount].label} (${ruleMapping[totalAnomalyCount].id})`;
-        }
-
-        // Meta anomalies for this stage
+        // Meta anomalies
         let metaStr = 'none';
         let metaCount = 0;
         if (currentStage >= 3) {
@@ -627,14 +612,23 @@
             }
         }
 
+        // Show the ACTUAL values used by game logic (not recomputed)
+        let ruleStr = lastRuleId;
+        if (currentStage === specialStage) {
+            ruleStr = 'SPECIAL EVENT';
+        } else if (ruleMapping[lastAnomalyCount]) {
+            ruleStr = `[${lastAnomalyCount}] ${ruleMapping[lastAnomalyCount].label} (${lastRuleId})`;
+        }
+
         content.innerHTML = `
             <div>Stage: <span style="color:#fff">${currentStage}</span></div>
-            <div style="margin-top:4px">Correct: <span style="color:#0ff; font-weight:bold">${correctStr}</span></div>
-            <div style="margin-top:4px">Content: <span style="color:#fff">${contentKeys.length}</span> — ${contentDetails}</div>
-            <div style="margin-top:4px">Meta: <span style="color:#aaa">${metaCount}</span> — ${metaStr}</div>
-            <div style="margin-top:4px">Total (unique pages): <span style="color:#f0f; font-weight:bold">${totalAnomalyCount}</span> → pages: ${[...affectedPages].sort().map(p=>'P'+p).join(', ') || 'none'}</div>
-            <div style="margin-top:4px">Rule: <span style="color:#ff0">${ruleStr}</span></div>
-            <div style="margin-top:4px">1st door: <span style="color:#fff">${doorNames[firstStageChoice] || '?'}</span></div>
+            <div style="margin-top:4px">Riddle answer: <span style="color:#aaa">${intendedStr}</span></div>
+            <div style="margin-top:4px">Correct door: <span style="color:#0ff; font-weight:bold">${correctStr}</span></div>
+            <div style="margin-top:4px">Content anomalies: <span style="color:#fff">${contentKeys.length}</span> — ${contentDetails}</div>
+            <div style="margin-top:4px">Meta anomalies: <span style="color:#aaa">${metaCount}</span> — ${metaStr}</div>
+            <div style="margin-top:4px">Total count (game used): <span style="color:#f0f; font-weight:bold">${lastAnomalyCount}</span></div>
+            <div style="margin-top:4px">Rule (game used): <span style="color:#ff0">${ruleStr}</span></div>
+            <div style="margin-top:4px">1st door memory: <span style="color:#fff">${doorNames[firstStageChoice] || '?'}</span></div>
             ${extra ? `<div style="margin-top:4px; color:#f90">${extra}</div>` : ''}
         `;
     }
@@ -1018,12 +1012,18 @@
                 anomalyCount = Math.min(affectedPages.size, 6); // Cap at 6 (max rule table index)
             }
 
+            // Save for debug
+            lastAnomalyCount = anomalyCount;
+            lastIntendedDoor = intendedDoor;
+
             // Use shuffled rule mapping to determine correct door
             // Stages 0-2: NO anomaly rules — always use the riddle's intended answer
             if (currentStage < 3) {
+                lastRuleId = 'trust (bypassed)';
                 actualCorrectDoors = [intendedDoor];
             } else {
                 let ruleId = ruleMapping[anomalyCount] ? ruleMapping[anomalyCount].id : 'trust';
+                lastRuleId = ruleId;
                 if (ruleId === 'trust' || ruleId === 'trust2') {
                     actualCorrectDoors = [intendedDoor];
                 } else if (ruleId === 'opposite' || ruleId === 'opposite2') {
@@ -1124,7 +1124,7 @@
         { page: 5, id: 'symbols_smaller', apply: () => {} }, // handled in drawSymbols
         { page: 5, id: 'symbols_backslash', apply: (el) => { el.title = `PAGE 5\\6: SYMBOLS`; } },
         // Page 6 - Clock
-        { page: 6, id: 'clock_zero', apply: (el) => { el.title = `PAGE 6/6: CL0CK`; } },
+        { page: 6, id: 'clock_zero', apply: (el) => { el.title = `PAGE 6/6: CL\u00D8CK`; } },
         { page: 6, id: 'clock_longteeth', apply: () => {} }, // handled in drawClock
         { page: 6, id: 'clock_bigger', apply: () => {} }, // handled in drawClock
     ];
