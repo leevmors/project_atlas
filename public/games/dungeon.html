@@ -646,12 +646,14 @@
     let ruleMapping = []; // ruleMapping[anomalyCount] = rule id
 
     function shuffleRules() {
-        let indices = [0, 1, 2, 3, 4, 5, 6];
-        for (let i = indices.length - 1; i > 0; i--) {
+        // Shuffle indices 1-6 only (skip index 0 which is always 'trust')
+        let remaining = [1, 2, 3, 4, 5, 6];
+        for (let i = remaining.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [indices[i], indices[j]] = [indices[j], indices[i]];
+            [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
         }
-        ruleMapping = indices.map(idx => ANOMALY_RULES[idx]);
+        // Index 0 = always "Trust the note" (0 anomalies = no deviation)
+        ruleMapping = [ANOMALY_RULES[0], ...remaining.map(idx => ANOMALY_RULES[idx])];
 
         // Update the rules table in the UI
         const table = document.getElementById('rules-table-body');
