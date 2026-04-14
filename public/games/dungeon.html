@@ -907,19 +907,24 @@
             }
 
             // Use shuffled rule mapping to determine correct door
-            let ruleId = ruleMapping[anomalyCount] ? ruleMapping[anomalyCount].id : 'trust';
-            if (ruleId === 'trust' || ruleId === 'trust2') {
+            // Stages 0-2: NO anomaly rules — always use the riddle's intended answer
+            if (currentStage < 3) {
                 actualCorrectDoors = [intendedDoor];
-            } else if (ruleId === 'opposite' || ruleId === 'opposite2') {
-                if (intendedDoor === 0) actualCorrectDoors = [2];
-                else if (intendedDoor === 2) actualCorrectDoors = [0];
-                else actualCorrectDoors = [1];
-            } else if (ruleId === 'notdoor1') {
-                actualCorrectDoors = [1, 2];
-            } else if (ruleId === 'stage1') {
-                actualCorrectDoors = [firstStageChoice];
-            } else if (ruleId === 'door3') {
-                actualCorrectDoors = [2];
+            } else {
+                let ruleId = ruleMapping[anomalyCount] ? ruleMapping[anomalyCount].id : 'trust';
+                if (ruleId === 'trust' || ruleId === 'trust2') {
+                    actualCorrectDoors = [intendedDoor];
+                } else if (ruleId === 'opposite' || ruleId === 'opposite2') {
+                    if (intendedDoor === 0) actualCorrectDoors = [2];
+                    else if (intendedDoor === 2) actualCorrectDoors = [0];
+                    else actualCorrectDoors = [1];
+                } else if (ruleId === 'notdoor1') {
+                    actualCorrectDoors = [1, 2];
+                } else if (ruleId === 'stage1') {
+                    actualCorrectDoors = [firstStageChoice];
+                } else if (ruleId === 'door3') {
+                    actualCorrectDoors = [2];
+                }
             }
         }
 
