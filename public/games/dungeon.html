@@ -408,6 +408,22 @@
         </div>
     </div>
 
+    <!-- Admin Debug Overlay -->
+    <div id="admin-overlay" style="display:none; position:fixed; top:10px; right:10px; z-index:9999; background:rgba(0,0,0,0.85); color:#0f0; font-family:monospace; font-size:11px; padding:12px 16px; border-radius:8px; border:1px solid #0f03; max-width:280px; pointer-events:none;">
+        <div style="color:#ff0; font-weight:bold; margin-bottom:6px;">ADMIN DEBUG</div>
+        <div id="admin-debug-content">Waiting for stage...</div>
+    </div>
+
+    <!-- Admin Password Gate -->
+    <div id="admin-gate" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.9); display:none; align-items:center; justify-content:center;">
+        <div style="background:#1a1a1a; border:1px solid #333; border-radius:12px; padding:24px; text-align:center; max-width:300px;">
+            <div style="color:#ff0; font-weight:bold; font-family:monospace; margin-bottom:12px;">ADMIN ACCESS</div>
+            <input id="admin-password" type="password" placeholder="Enter password" style="width:100%; padding:8px 12px; background:#000; border:1px solid #444; color:#0f0; font-family:monospace; border-radius:6px; text-align:center; margin-bottom:12px;" />
+            <button id="admin-login-btn" style="width:100%; padding:8px; background:#333; color:#0f0; border:1px solid #444; border-radius:6px; font-family:monospace; cursor:pointer;">ENTER</button>
+            <div id="admin-error" style="color:#f00; font-size:11px; margin-top:8px; display:none;">Wrong password</div>
+        </div>
+    </div>
+
     <div id="start-screen" class="screen">
         <h1>THE 12 DOORS</h1>
         <p>You hold a single torch in the dark.<br><br>Before you lie doors.<br>Only one leads forward.<br>Trust the note, but verify the cards.<br>Choose wrong, and the dungeon resets.</p>
@@ -545,6 +561,72 @@
     let currentCardPage = 1;
     let activeRunRiddles = {};
     let firstStageChoice = 1; // Tracks the door chosen in stage 1
+
+    // Admin debug mode — activated via ?admin URL parameter + password "shnick"
+    let isAdminMode = false;
+    const wantsAdmin = new URLSearchParams(window.location.search).has('admin');
+
+    if (wantsAdmin) {
+        const gate = document.getElementById('admin-gate');
+        gate.style.display = 'flex';
+        document.getElementById('admin-login-btn').onclick = function() {
+            if (document.getElementById('admin-password').value === 'shnick') {
+                isAdminMode = true;
+                gate.style.display = 'none';
+                document.getElementById('admin-overlay').style.display = 'block';
+            } else {
+                document.getElementById('admin-error').style.display = 'block';
+            }
+        };
+        document.getElementById('admin-password').onkeydown = function(e) {
+            if (e.key === 'Enter') document.getElementById('admin-login-btn').click();
+        };
+    }
+
+    function updateAdminDebug(extra) {
+        if (!isAdminMode) return;
+        const overlay = document.getElementById('admin-overlay');
+        const content = document.getElementById('admin-debug-content');
+        if (!overlay || !content) return;
+        overlay.style.display = 'block';
+
+        const doorNames = ['LEFT (1)', 'CENTER (2)', 'RIGHT (3)', 'BACK (4)'];
+        const correctStr = actualCorrectDoors.map(d => doorNames[d] || d).join(' or ');
+
+        // Count content anomalies
+        const anomalyKeys = Object.keys(currentAnomalies);
+        const anomalyCount = anomalyKeys.length;
+        const anomalyDetails = anomalyKeys.map(k => `P${k}:${currentAnomalies[k]}`).join(', ') || 'none';
+
+        // Current rule
+        let ruleStr = 'N/A (no rule)';
+        if (currentStage < 3) {
+            ruleStr = 'BYPASSED (stage < 3, trust the note)';
+        } else if (currentStage === specialStage) {
+            ruleStr = 'SPECIAL EVENT';
+        } else if (ruleMapping[anomalyCount]) {
+            ruleStr = `[${anomalyCount}] ${ruleMapping[anomalyCount].label} (${ruleMapping[anomalyCount].id})`;
+        }
+
+        // Meta anomalies for this stage
+        let metaStr = 'none';
+        if (currentStage >= 3) {
+            const metaPages = Object.keys(activeMetaAnomalies);
+            if (metaPages.length > 0) {
+                metaStr = metaPages.map(p => `P${p}:${activeMetaAnomalies[p].id}`).join(', ');
+            }
+        }
+
+        content.innerHTML = `
+            <div>Stage: <span style="color:#fff">${currentStage}</span></div>
+            <div style="margin-top:4px">Correct: <span style="color:#0ff; font-weight:bold">${correctStr}</span></div>
+            <div style="margin-top:4px">Anomalies: <span style="color:#fff">${anomalyCount}</span> — ${anomalyDetails}</div>
+            <div style="margin-top:4px">Rule: <span style="color:#ff0">${ruleStr}</span></div>
+            <div style="margin-top:4px">Meta: <span style="color:#aaa">${metaStr}</span></div>
+            <div style="margin-top:4px">1st door: <span style="color:#fff">${doorNames[firstStageChoice] || '?'}</span></div>
+            ${extra ? `<div style="margin-top:4px; color:#f90">${extra}</div>` : ''}
+        `;
+    }
 
     // Special Events Tracking
     let specialStage = -1;
@@ -929,6 +1011,9 @@
         }
 
         document.getElementById('note-text').innerHTML = riddleHTML;
+
+        // Update admin debug overlay
+        updateAdminDebug(currentStage === specialStage ? `Special type: ${specialType}` : null);
 
         let numDoors = 3;
         // The 4th door is strictly part of the environment ONLY for Special 2
