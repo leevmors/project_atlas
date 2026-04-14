@@ -594,9 +594,17 @@
         const correctStr = actualCorrectDoors.map(d => doorNames[d] || d).join(' or ');
 
         // Count content anomalies
-        const anomalyKeys = Object.keys(currentAnomalies);
-        const anomalyCount = anomalyKeys.length;
-        const anomalyDetails = anomalyKeys.map(k => `P${k}:${currentAnomalies[k]}`).join(', ') || 'none';
+        const contentKeys = Object.keys(currentAnomalies);
+        const contentDetails = contentKeys.map(k => `P${k}:${currentAnomalies[k]}`).join(', ') || 'none';
+
+        // Combined anomaly count (content + meta, counting unique pages)
+        let totalAnomalyCount = 0;
+        let affectedPages = new Set();
+        if (currentStage >= 3) {
+            for (let p of contentKeys) affectedPages.add(parseInt(p));
+            for (let p of Object.keys(activeMetaAnomalies)) affectedPages.add(parseInt(p));
+            totalAnomalyCount = affectedPages.size;
+        }
 
         // Current rule
         let ruleStr = 'N/A (no rule)';
@@ -604,14 +612,16 @@
             ruleStr = 'BYPASSED (stage < 3, trust the note)';
         } else if (currentStage === specialStage) {
             ruleStr = 'SPECIAL EVENT';
-        } else if (ruleMapping[anomalyCount]) {
-            ruleStr = `[${anomalyCount}] ${ruleMapping[anomalyCount].label} (${ruleMapping[anomalyCount].id})`;
+        } else if (ruleMapping[totalAnomalyCount]) {
+            ruleStr = `[${totalAnomalyCount}] ${ruleMapping[totalAnomalyCount].label} (${ruleMapping[totalAnomalyCount].id})`;
         }
 
         // Meta anomalies for this stage
         let metaStr = 'none';
+        let metaCount = 0;
         if (currentStage >= 3) {
             const metaPages = Object.keys(activeMetaAnomalies);
+            metaCount = metaPages.length;
             if (metaPages.length > 0) {
                 metaStr = metaPages.map(p => `P${p}:${activeMetaAnomalies[p].id}`).join(', ');
             }
@@ -620,9 +630,10 @@
         content.innerHTML = `
             <div>Stage: <span style="color:#fff">${currentStage}</span></div>
             <div style="margin-top:4px">Correct: <span style="color:#0ff; font-weight:bold">${correctStr}</span></div>
-            <div style="margin-top:4px">Anomalies: <span style="color:#fff">${anomalyCount}</span> — ${anomalyDetails}</div>
+            <div style="margin-top:4px">Content: <span style="color:#fff">${contentKeys.length}</span> — ${contentDetails}</div>
+            <div style="margin-top:4px">Meta: <span style="color:#aaa">${metaCount}</span> — ${metaStr}</div>
+            <div style="margin-top:4px">Total (unique pages): <span style="color:#f0f; font-weight:bold">${totalAnomalyCount}</span> → pages: ${[...affectedPages].sort().map(p=>'P'+p).join(', ') || 'none'}</div>
             <div style="margin-top:4px">Rule: <span style="color:#ff0">${ruleStr}</span></div>
-            <div style="margin-top:4px">Meta: <span style="color:#aaa">${metaStr}</span></div>
             <div style="margin-top:4px">1st door: <span style="color:#fff">${doorNames[firstStageChoice] || '?'}</span></div>
             ${extra ? `<div style="margin-top:4px; color:#f90">${extra}</div>` : ''}
         `;
@@ -978,16 +989,33 @@
             let intendedDoor = riddle.answer - 1;
             riddleHTML = `STAGE ${currentStage}<br><br>` + riddle.note.replace(/\\n/g, '<br>');
 
-            let anomalyCount = 0;
-            // Anomalies start from stage 3
-            if (currentStage >= 3 && currentStage <= 4) anomalyCount = Math.floor(Math.random() * 2); // 0 or 1
-            else if (currentStage >= 5 && currentStage <= 7) anomalyCount = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
-            else if (currentStage >= 8 && currentStage <= 10) anomalyCount = Math.floor(Math.random() * 3) + 2; // 2, 3, or 4
-            else if (currentStage >= 11) anomalyCount = Math.floor(Math.random() * 3) + 4; // 4, 5, or 6
+            // Determine how many CONTENT anomalies this stage gets
+            let contentAnomalyCount = 0;
+            // Content anomalies start from stage 3
+            if (currentStage >= 3 && currentStage <= 4) contentAnomalyCount = Math.floor(Math.random() * 2); // 0 or 1
+            else if (currentStage >= 5 && currentStage <= 7) contentAnomalyCount = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
+            else if (currentStage >= 8 && currentStage <= 10) contentAnomalyCount = Math.floor(Math.random() * 3) + 2; // 2, 3, or 4
+            else if (currentStage >= 11) contentAnomalyCount = Math.floor(Math.random() * 3) + 4; // 4, 5, or 6
 
             let pages = [1,2,3,4,5,6].sort(() => Math.random() - 0.5);
-            for (let i=0; i<anomalyCount; i++) {
+            for (let i=0; i<contentAnomalyCount; i++) {
                 currentAnomalies[pages[i]] = getRandomVariant(pages[i]);
+            }
+
+            // Total anomaly count = pages that have ANY anomaly (content OR meta OR both)
+            // Meta anomalies only active on stages 3+
+            let anomalyCount = 0;
+            if (currentStage >= 3) {
+                let affectedPages = new Set();
+                // Content anomaly pages
+                for (let p of Object.keys(currentAnomalies)) {
+                    affectedPages.add(parseInt(p));
+                }
+                // Meta anomaly pages (active for the whole run)
+                for (let p of Object.keys(activeMetaAnomalies)) {
+                    affectedPages.add(parseInt(p));
+                }
+                anomalyCount = Math.min(affectedPages.size, 6); // Cap at 6 (max rule table index)
             }
 
             // Use shuffled rule mapping to determine correct door
