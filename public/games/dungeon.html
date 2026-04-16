@@ -34,6 +34,10 @@
             image-rendering: -webkit-crisp-edges;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
+        }
+
+        /* Only the Three.js game canvas should fill screen */
+        #game-container > canvas {
             width: 100% !important;
             height: 100% !important;
         }
@@ -358,6 +362,225 @@
         }
 
         canvas { touch-action: none; }
+
+        /* --- TUTORIAL OVERLAY --- */
+        #tutorial-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 10001;
+            background: rgba(0,0,0,0.97);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Press Start 2P', monospace;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #tutorial-overlay.hidden { display: none; }
+
+        .tutorial-slide {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 640px;
+            gap: 18px;
+        }
+
+        .tutorial-slide.active { display: flex; }
+
+        .tutorial-title {
+            color: #ffaa00;
+            font-size: 18px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .tutorial-subtitle {
+            color: #aaa;
+            font-size: 9px;
+            text-align: center;
+            line-height: 2;
+            max-width: 520px;
+        }
+
+        .tutorial-compare {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .tutorial-card-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tutorial-card-label {
+            font-size: 9px;
+            color: #aaa;
+        }
+
+        .tutorial-card-label.anomaly-label { color: #ff5555; }
+
+        .tutorial-card-canvas {
+            background: #e8dbbc;
+            border: 3px solid #4a3b2c;
+            width: 220px;
+            height: 130px;
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        .tutorial-rule-list {
+            background: rgba(255,255,255,0.04);
+            border: 2px solid #444;
+            padding: 16px 20px;
+            width: 100%;
+            max-width: 480px;
+            box-sizing: border-box;
+        }
+
+        .tutorial-rule-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #333;
+            font-size: 9px;
+            color: #ccc;
+            gap: 12px;
+        }
+
+        .tutorial-rule-row:last-child { border-bottom: none; }
+
+        .tutorial-rule-count {
+            color: #ffaa00;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        .tutorial-rule-desc { color: #aaa; flex: 1; }
+        .tutorial-rule-locked { color: #555; font-style: italic; }
+
+        .tutorial-tips {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 100%;
+            max-width: 480px;
+        }
+
+        .tutorial-tip {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(255,255,255,0.04);
+            border: 2px solid #333;
+            padding: 14px 18px;
+            box-sizing: border-box;
+        }
+
+        .tutorial-tip-icon {
+            font-size: 22px;
+            min-width: 32px;
+            text-align: center;
+        }
+
+        .tutorial-tip-text {
+            font-size: 9px;
+            color: #ccc;
+            line-height: 2;
+        }
+
+        .tutorial-tip-text strong { color: #ffaa00; }
+
+        .tutorial-nav {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            margin-top: 4px;
+        }
+
+        .tutorial-btn {
+            font-family: 'Press Start 2P', monospace;
+            background-color: #333;
+            color: #fff;
+            border: 3px solid #fff;
+            padding: 10px 20px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .tutorial-btn:hover { background-color: #555; }
+
+        .tutorial-btn.primary {
+            background-color: #8b0000;
+            border-color: #ff5555;
+            color: #fff;
+        }
+
+        .tutorial-btn.primary:hover { background-color: #aa1111; }
+
+        .tutorial-btn.skip {
+            background: none;
+            border-color: #444;
+            color: #555;
+            font-size: 9px;
+            padding: 8px 14px;
+        }
+
+        .tutorial-btn.skip:hover { color: #888; border-color: #666; }
+
+        .tutorial-dots {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .tutorial-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #444;
+            transition: background 0.2s;
+        }
+
+        .tutorial-dot.active { background: #ffaa00; }
+
+        .anomaly-badge {
+            display: inline-block;
+            background: #8b0000;
+            color: #ff9999;
+            border: 2px solid #ff5555;
+            padding: 3px 8px;
+            font-size: 8px;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 600px) {
+            .tutorial-title { font-size: 13px; }
+            .tutorial-subtitle { font-size: 8px; }
+            .tutorial-card-canvas { width: 160px; height: 100px; }
+            .tutorial-btn { font-size: 9px; padding: 8px 14px; }
+            .tutorial-compare { gap: 12px; }
+            .tutorial-rule-row { font-size: 8px; }
+            .tutorial-tip-text { font-size: 8px; }
+        }
+
+        @media (max-height: 450px) {
+            .tutorial-slide { gap: 10px; }
+            .tutorial-title { font-size: 11px; }
+            .tutorial-card-canvas { width: 140px; height: 84px; }
+            .tutorial-compare { gap: 10px; }
+            .tutorial-tips { gap: 8px; }
+            .tutorial-tip { padding: 8px 12px; }
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -424,6 +647,123 @@
         </div>
     </div>
 
+    <!-- Tutorial Overlay -->
+    <div id="tutorial-overlay">
+
+        <!-- Slide 1: What are anomalies? -->
+        <div class="tutorial-slide active" id="tut-slide-1">
+            <div class="tutorial-title">⚠ ANOMALIES ⚠</div>
+            <div class="tutorial-subtitle">
+                Each run you carry a book with 6 pages of cards.<br>
+                Some pages look slightly <span style="color:#ff5555">DIFFERENT</span> from normal.<br>
+                These are <strong style="color:#ff5555">anomalies</strong> — and you must count them.
+            </div>
+            <div class="tutorial-compare">
+                <div class="tutorial-card-wrap">
+                    <canvas class="tutorial-card-canvas" id="tut-normal-canvas" width="220" height="130"></canvas>
+                    <div class="tutorial-card-label">✓ NORMAL</div>
+                </div>
+                <div class="tutorial-card-wrap">
+                    <canvas class="tutorial-card-canvas" id="tut-anomaly-canvas" width="220" height="130"></canvas>
+                    <div class="tutorial-card-label anomaly-label">✗ ANOMALY</div>
+                    <div class="anomaly-badge">SPOT THE DIFFERENCE</div>
+                </div>
+            </div>
+            <div class="tutorial-subtitle" style="margin-top:4px">
+                Look carefully — missing element, swapped label, wrong color...<br>
+                Even ONE page with a difference counts as 1 anomaly.
+            </div>
+            <div class="tutorial-nav">
+                <div class="tutorial-dots">
+                    <div class="tutorial-dot active" id="tdot-1"></div>
+                    <div class="tutorial-dot" id="tdot-2"></div>
+                    <div class="tutorial-dot" id="tdot-3"></div>
+                </div>
+                <button class="tutorial-btn" onclick="tutorialNext()">NEXT →</button>
+                <button class="tutorial-btn skip" onclick="tutorialFinish()">SKIP</button>
+            </div>
+        </div>
+
+        <!-- Slide 2: Rules change every run -->
+        <div class="tutorial-slide" id="tut-slide-2">
+            <div class="tutorial-title">📖 THE RULES TABLE</div>
+            <div class="tutorial-subtitle">
+                Your anomaly count determines <strong style="color:#ffaa00">which door to choose</strong>.<br>
+                The rules <strong style="color:#ff5555">SHUFFLE every time you die</strong>.
+            </div>
+            <div class="tutorial-rule-list">
+                <div class="tutorial-rule-row">
+                    <span class="tutorial-rule-count">0</span>
+                    <span class="tutorial-rule-desc">→ <strong style="color:#88cc88">Trust the note</strong> (always safe)</span>
+                </div>
+                <div class="tutorial-rule-row">
+                    <span class="tutorial-rule-count">1</span>
+                    <span class="tutorial-rule-desc tutorial-rule-locked">→ ??? (check rules book)</span>
+                </div>
+                <div class="tutorial-rule-row">
+                    <span class="tutorial-rule-count">2</span>
+                    <span class="tutorial-rule-desc tutorial-rule-locked">→ ??? (changes each run)</span>
+                </div>
+                <div class="tutorial-rule-row">
+                    <span class="tutorial-rule-count">3+</span>
+                    <span class="tutorial-rule-desc tutorial-rule-locked">→ ??? (shuffled)</span>
+                </div>
+            </div>
+            <div class="tutorial-subtitle">
+                Open the <strong style="color:#ffaa00">📖 Rules Book</strong> at any time during a run.<br>
+                0 anomalies = <strong style="color:#88cc88">always trust the note</strong>. All others change.
+            </div>
+            <div class="tutorial-nav">
+                <button class="tutorial-btn" onclick="tutorialPrev()">← BACK</button>
+                <div class="tutorial-dots">
+                    <div class="tutorial-dot" id="tdot2-1"></div>
+                    <div class="tutorial-dot active" id="tdot2-2"></div>
+                    <div class="tutorial-dot" id="tdot2-3"></div>
+                </div>
+                <button class="tutorial-btn" onclick="tutorialNext()">NEXT →</button>
+                <button class="tutorial-btn skip" onclick="tutorialFinish()">SKIP</button>
+            </div>
+        </div>
+
+        <!-- Slide 3: Core advice -->
+        <div class="tutorial-slide" id="tut-slide-3">
+            <div class="tutorial-title" style="color:#ff5555">SURVIVE THE DUNGEON</div>
+            <div class="tutorial-tips">
+                <div class="tutorial-tip">
+                    <div class="tutorial-tip-icon">📜</div>
+                    <div class="tutorial-tip-text">
+                        <strong>ALWAYS READ THE NOTE.</strong><br>
+                        Each stage gives you a note. It tells you which door is intended.
+                    </div>
+                </div>
+                <div class="tutorial-tip">
+                    <div class="tutorial-tip-icon">🃏</div>
+                    <div class="tutorial-tip-text">
+                        <strong>COUNT ALL ANOMALY PAGES.</strong><br>
+                        Check all 6 card pages for differences. Count each anomaly page once.
+                    </div>
+                </div>
+                <div class="tutorial-tip">
+                    <div class="tutorial-tip-icon">📖</div>
+                    <div class="tutorial-tip-text">
+                        <strong>FOLLOW THE RULE FOR YOUR COUNT.</strong><br>
+                        Match your anomaly count to the rules table. Pick the correct door.
+                    </div>
+                </div>
+            </div>
+            <div class="tutorial-nav" style="margin-top:10px">
+                <button class="tutorial-btn" onclick="tutorialPrev()">← BACK</button>
+                <div class="tutorial-dots">
+                    <div class="tutorial-dot" id="tdot3-1"></div>
+                    <div class="tutorial-dot" id="tdot3-2"></div>
+                    <div class="tutorial-dot active" id="tdot3-3"></div>
+                </div>
+                <button class="tutorial-btn primary" onclick="tutorialFinish()">BEGIN ⚔</button>
+            </div>
+        </div>
+
+    </div>
+
     <div id="start-screen" class="screen">
         <h1>THE 12 DOORS</h1>
         <p>You hold a single torch in the dark.<br><br>Before you lie doors.<br>Only one leads forward.<br>Trust the note, but verify the cards.<br>Choose wrong, and the dungeon resets.</p>
@@ -438,6 +778,97 @@
 </div>
 
 <script>
+    // --- TUTORIAL LOGIC ---
+    let tutorialCurrentSlide = 1;
+    const TUTORIAL_KEY = 'dungeon_tutorial_seen';
+
+    function tutorialDrawNormal(canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#e8dbbc';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Draw normal compass: N/S/E/W, red needle pointing up
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, cy, 44, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '14px monospace';
+        ctx.fillText('N', cx, cy - 54);
+        ctx.fillText('S', cx, cy + 54);
+        ctx.fillText('E', cx + 54, cy);
+        ctx.fillText('W', cx - 54, cy);
+        // Red needle pointing North
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - 36);
+        ctx.strokeStyle = '#cc2222'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + 15);
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 3; ctx.stroke();
+    }
+
+    function tutorialDrawAnomaly(canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#e8dbbc';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Same compass but W and E are SWAPPED
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, cy, 44, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '14px monospace';
+        ctx.fillText('N', cx, cy - 54);
+        ctx.fillText('S', cx, cy + 54);
+        // Swapped: E is on the left, W is on the right
+        ctx.fillStyle = '#cc2222';
+        ctx.fillText('W', cx + 54, cy); // W where E should be
+        ctx.fillText('E', cx - 54, cy); // E where W should be
+        ctx.fillStyle = '#000';
+        // Red needle pointing North
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - 36);
+        ctx.strokeStyle = '#cc2222'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + 15);
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 3; ctx.stroke();
+        // "ANOMALY" watermark arrow hint
+        ctx.font = '9px monospace'; ctx.fillStyle = 'rgba(204,34,34,0.6)';
+        ctx.fillText('← swapped →', cx, cy + 66);
+    }
+
+    function tutorialSetSlide(n) {
+        tutorialCurrentSlide = n;
+        document.querySelectorAll('.tutorial-slide').forEach((el, i) => {
+            el.classList.toggle('active', i + 1 === n);
+        });
+    }
+
+    function tutorialNext() {
+        if (tutorialCurrentSlide < 3) tutorialSetSlide(tutorialCurrentSlide + 1);
+    }
+
+    function tutorialPrev() {
+        if (tutorialCurrentSlide > 1) tutorialSetSlide(tutorialCurrentSlide - 1);
+    }
+
+    function tutorialFinish() {
+        try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch(e) {}
+        document.getElementById('tutorial-overlay').classList.add('hidden');
+    }
+
+    function initTutorial() {
+        let seen = false;
+        try { seen = localStorage.getItem(TUTORIAL_KEY) === '1'; } catch(e) {}
+        const overlay = document.getElementById('tutorial-overlay');
+        if (seen) {
+            overlay.classList.add('hidden');
+            return;
+        }
+        // Draw the side-by-side comparison canvases
+        const normalCanvas = document.getElementById('tut-normal-canvas');
+        const anomalyCanvas = document.getElementById('tut-anomaly-canvas');
+        if (normalCanvas) tutorialDrawNormal(normalCanvas);
+        if (anomalyCanvas) tutorialDrawAnomaly(anomalyCanvas);
+    }
+
+    // Script is at bottom of body so DOM is already parsed — call directly
+    initTutorial();
+    // ---END TUTORIAL LOGIC---
+
     const AudioSys = {
         ctx: null,
         init: function() {
