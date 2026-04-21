@@ -2,11 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>PRESS THE BUTTON</title>
   <link rel="stylesheet" href="styles/game.css" />
 </head>
 <body>
+  <div id="rotate-overlay" aria-hidden="true">
+    <div class="rotate-inner">
+      <div class="rotate-icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="72" height="72" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="4" width="20" height="36" rx="3" ry="3" fill="none" stroke="currentColor" stroke-width="2.5"/>
+          <circle cx="18" cy="35" r="1.4" fill="currentColor"/>
+          <path d="M32 14 Q42 20 42 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M38 28 L42 30 L40 34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="rotate-title">Rotate your device</div>
+      <div class="rotate-subtitle">Play in landscape mode</div>
+      <div class="rotate-subtitle rotate-subtitle-ru">Поверните устройство горизонтально</div>
+    </div>
+  </div>
+
   <div id="hud">
     <button id="menu-toggle" type="button" data-i18n="hud.menu">Menu</button>
     <div id="timer-chip" class="chip">

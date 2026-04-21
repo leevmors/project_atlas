@@ -60,6 +60,74 @@
       cursor: auto;
     }
 
+    /* --- ROTATE OVERLAY (mobile portrait lock) --- */
+    #rotate-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background:
+        radial-gradient(circle at center, rgba(224, 170, 97, 0.08), transparent 55%),
+        linear-gradient(180deg, #030405 0%, #090d10 50%, #020304 100%);
+      color: #e0aa61;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      font-family: "Palatino Linotype", "Book Antiqua", "Iowan Old Style", serif;
+    }
+
+    #rotate-overlay .rotate-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      max-width: 420px;
+    }
+
+    #rotate-overlay .rotate-icon {
+      color: #e0aa61;
+      animation: rotatePhone 2.4s ease-in-out infinite;
+    }
+
+    #rotate-overlay .rotate-title {
+      font-size: 1.35rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #f0d4a3;
+      margin-top: 0.5rem;
+    }
+
+    #rotate-overlay .rotate-subtitle {
+      font-size: 0.92rem;
+      color: rgba(233, 228, 214, 0.75);
+      letter-spacing: 0.06em;
+    }
+
+    #rotate-overlay .rotate-subtitle-ru {
+      color: rgba(120, 177, 200, 0.8);
+      font-size: 0.82rem;
+      font-style: italic;
+    }
+
+    @keyframes rotatePhone {
+      0%, 30%   { transform: rotate(0deg); }
+      55%, 85%  { transform: rotate(-90deg); }
+      100%      { transform: rotate(0deg); }
+    }
+
+    /* Show rotate overlay only on mobile-sized devices in portrait */
+    @media (orientation: portrait) and (max-width: 900px) {
+      #rotate-overlay {
+        display: flex;
+      }
+      html,
+      body {
+        overflow: hidden !important;
+      }
+    }
+
     #hud,
     #note-panel,
     #message,
@@ -928,5 +996,78 @@
       .touch-button {
         min-height: 2.45rem;
         padding: 0.52rem 0.3rem;
+      }
+
+      /* Compact panels (boot/pause/ending/howto) so they fit on phone landscape */
+      .panel {
+        padding: 0.9rem 1.1rem;
+        max-height: calc(100dvh - 1.4rem);
+        overflow-y: auto;
+      }
+      .panel h1,
+      .panel h2 {
+        margin: 0 0 0.5rem;
+        font-size: clamp(1.1rem, 2.6vw, 1.5rem);
+      }
+      .panel p {
+        margin: 0 0 0.55rem;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+      .panel .small {
+        font-size: 0.68rem;
+      }
+      .action-row {
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+      .menu-actions button,
+      .action-row button {
+        padding: 0.58rem 0.7rem;
+        font-size: 0.72rem;
+        min-width: 0;
+        letter-spacing: 0.08em;
+      }
+      .menu-top {
+        margin-bottom: 0.2rem;
+      }
+      #boot .panel,
+      #ending .panel,
+      #pause-menu .panel,
+      #howto .panel {
+        width: min(40rem, calc(100vw - 1.4rem));
+      }
+    }
+
+    /* --- LANDSCAPE PHONE: tighter touch rail + HUD --- */
+    @media (orientation: landscape) and (max-height: 500px) {
+      #hud {
+        padding:
+          max(0.5rem, calc(env(safe-area-inset-top, 0px) + 0.4rem))
+          max(0.6rem, calc(env(safe-area-inset-right, 0px) + 0.5rem))
+          max(0.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.35rem))
+          max(0.6rem, calc(env(safe-area-inset-left, 0px) + 0.5rem));
+      }
+      .chip {
+        padding: 0.4rem 0.58rem;
+      }
+      .chip small { font-size: 0.5rem; }
+      .chip strong { font-size: 0.78rem; }
+      #menu-toggle {
+        padding: 0.4rem 0.58rem;
+        font-size: 0.62rem;
+      }
+      #prompt {
+        padding: 0.52rem 0.7rem;
+        font-size: 0.7rem;
+      }
+      #touch-rail {
+        gap: 0.3rem;
+        padding: 0.32rem;
+      }
+      .touch-button {
+        min-height: 2.25rem;
+        padding: 0.42rem 0.26rem;
+        font-size: 0.6rem;
       }
     }
