@@ -182,7 +182,7 @@ export const ANOMALY_TAGS = {
   "double-sweep": ["extra", "visual"],
   "shape-blips": ["shape", "symmetric"],
   "short-sweep": ["visual", "subtle"],
-  "slow-fade": ["visual", "speed", "subtle"],
+  "slow-fade": ["visual", "speed", "subtle", "slow"],
   "fast-sweep": ["speed", "moving", "spinning"],
   "blip-behind": ["visual", "position", "center"],
   "off-center": ["visual", "position", "subtle", "line"],
@@ -301,6 +301,17 @@ export function anomalyNumber(anomaly) {
   if (anomaly.kind === "divzero") return 0;
   if (anomaly.kind === "ch-wrong-num") return 8;
   if (anomaly.kind === "stage-3") return 3;
+  // Newly wired so every "number"-tagged anomaly returns a concrete value,
+  // keeping riddle rules like "press if number is even" consistent.
+  if (anomaly.kind === "loses-2s") return 2;
+  if (anomaly.kind === "total-late") return 14;
+  if (anomaly.kind === "off-one-hour") return 1;
+  if (anomaly.kind === "live-one") return 1;
+  if (anomaly.kind === "total-lowercase-l") return 13;
+  if (anomaly.kind === "rev-time") return 3;
+  if (anomaly.kind === "time-out-of-order") return 1;
+  if (anomaly.kind === "label-typo") return 4;
+  if (anomaly.kind === "timestamp-typo") return 11;
   return null;
 }
 
@@ -741,6 +752,46 @@ export const BOSS_RIDDLES = [
   { lines: { en: ["wait. do nothing. read this three times.", "press if you are completely certain.", "skip if even one doubt exists."], ru: ["подожди. ничего не делай. прочитай это трижды.", "жми, если абсолютно уверен.", "пропусти, если есть хоть одно сомнение."] }, rule: (a) => !!a && !hasTag(a, "subtle") }
 ];
 
+// ---------------------------------------------------------------------------
+// Required boss riddles — pinned into every run by buildStagesForRun so they
+// are guaranteed to appear. Keep them out of the BOSS_RIDDLES pool above so
+// shuffling can't pick duplicates.
+// ---------------------------------------------------------------------------
+const REQUIRED_BOSS_ANOMALY_PARITY = {
+  lines: {
+    en: [
+      "count every anomaly you have seen this shift, this one included.",
+      "press red if the total count is odd.",
+      "skip if it is even."
+    ],
+    ru: [
+      "посчитай все аномалии за эту смену, вместе с этим этапом.",
+      "жми красную, если их нечётное число.",
+      "пропусти, если чётное."
+    ]
+  },
+  rule: (a, _p, c) => {
+    const total = c.anomaliesSeenThisRun + (a ? 1 : 0);
+    return total % 2 === 1;
+  }
+};
+
+const REQUIRED_BOSS_STAGE_SECONDS_PARITY = {
+  lines: {
+    en: [
+      "watch the clock. how many seconds have passed on this stage?",
+      "press red if that number is odd.",
+      "skip if it is even."
+    ],
+    ru: [
+      "смотри на часы. сколько секунд прошло на этом этапе?",
+      "жми красную, если число нечётное.",
+      "пропусти, если чётное."
+    ]
+  },
+  rule: (_a, _p, c) => Math.floor(c.stageClock || 0) % 2 === 1
+};
+
 export function shuffleInPlace(arr) {
   for (let i = arr.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -749,25 +800,52 @@ export function shuffleInPlace(arr) {
   return arr;
 }
 
-export function pickRandomAnomaly() {
+export function pickRandomAnomaly(options = {}) {
   // Pick a random channel, then a random kind from that channel's catalog.
+  // When `mediumHard` is true, bias toward the harder/subtler half of each
+  // channel's catalog (the first 5 entries per channel are the most obvious
+  // "honks" — reverse, frozen, extra, etc. — so we skip those).
   const channelIndex = Math.floor(Math.random() * CHANNELS.length);
   const pool = ANOMALY_CATALOG[channelIndex] || [];
   if (pool.length === 0) return null;
-  const entry = pool[Math.floor(Math.random() * pool.length)];
+  const startIdx = options.mediumHard && pool.length > 6 ? 5 : 0;
+  const slice = pool.slice(startIdx);
+  const entry = slice[Math.floor(Math.random() * slice.length)];
   return { channelIndex, kind: entry.kind };
 }
 
 export function buildStageFromRiddle(riddle, index) {
   // Stage 1 (index 0) is always clean — a tutorial freebie.
-  // From stage 2 onward, anomaly probability ramps from rare (~8%) at
-  // stage 2 up to ~90% at stage 18.
+  // From stage 2 onward, anomaly probability follows a square-root curve
+  // from 22% (stage 2) to 95% (stage 18). Square-root front-loads the
+  // ramp so early stages are meaningfully challenging instead of mostly
+  // clean "coasting" rounds. Past playthroughs showed teams reaching
+  // stage 10-18 with almost no deaths because stages 2-9 were too easy.
+  // After stage 8 we also:
+  //   (a) bias the anomaly pool toward the medium/hard half of each
+  //       channel's catalog — no more trivial "reversed clock" spawns.
+  //   (b) roll a second decoy anomaly ~35% of the time on a *different*
+  //       channel so the player has to actually scan + decide which
+  //       anomaly the riddle cares about.
   let anomaly = null;
+  let decoyAnomaly = null;
+  const mediumHard = index >= 8; // stages 9+ in 1-indexed terms
   if (!riddle.requireNoAnomaly && index > 0) {
     const t = Math.min(1, Math.max(0, (index - 1) / (TOTAL_STAGES - 2)));
-    const probability = 0.08 + (0.90 - 0.08) * t;
+    const probability = 0.22 + (0.95 - 0.22) * Math.sqrt(t);
     if (Math.random() < probability) {
-      anomaly = pickRandomAnomaly();
+      anomaly = pickRandomAnomaly({ mediumHard });
+    }
+    if (mediumHard && anomaly && Math.random() < 0.35) {
+      // Decoy on a different channel — pure visual distractor, does not
+      // affect rule evaluation. Pick until we land on a different channel.
+      for (let tries = 0; tries < 4; tries += 1) {
+        const d = pickRandomAnomaly({ mediumHard });
+        if (d && d.channelIndex !== anomaly.channelIndex) {
+          decoyAnomaly = d;
+          break;
+        }
+      }
     }
   }
   const phone = riddle.phone
@@ -781,6 +859,7 @@ export function buildStageFromRiddle(riddle, index) {
     // Shared by reference is fine — consumers never mutate it.
     lines: riddle.lines,
     anomaly,
+    decoyAnomaly,
     phone,
     rule: riddle.rule,
     _meta: { riddle }
@@ -791,7 +870,12 @@ export function buildStagesForRun() {
   const easy = shuffleInPlace(EASY_RIDDLES.slice()).slice(0, 6);
   const medium = shuffleInPlace(MEDIUM_RIDDLES.slice()).slice(0, 6);
   const hard = shuffleInPlace(HARD_RIDDLES.slice()).slice(0, 2);
-  const boss = shuffleInPlace(BOSS_RIDDLES.slice()).slice(0, 4);
+  // Pin the two required parity boss riddles, then fill remaining 2 boss
+  // slots from the regular BOSS_RIDDLES pool. Shuffle the final 4 so the
+  // required ones don't always appear at the same stage index.
+  const required = [REQUIRED_BOSS_ANOMALY_PARITY, REQUIRED_BOSS_STAGE_SECONDS_PARITY];
+  const otherBoss = shuffleInPlace(BOSS_RIDDLES.slice()).slice(0, 2);
+  const boss = shuffleInPlace([...required, ...otherBoss]);
   const picked = [...easy, ...medium, ...hard, ...boss];
   return picked.map((r, i) => buildStageFromRiddle(r, i));
 }

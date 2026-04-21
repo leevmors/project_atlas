@@ -592,15 +592,19 @@ tutorialButton.addEventListener("click", () => {
 
 const tutorialSkipButton = document.getElementById("tutorial-skip");
 if (tutorialSkipButton) {
-  tutorialSkipButton.addEventListener("click", (ev) => {
+  const handleTutorialSkip = (ev) => {
+    ev.preventDefault();
     ev.stopPropagation();
     markTutorialDone();
     tutorialOverlayEl.classList.remove("visible");
     if (state.tutorial) {
-      // Exit tutorial mode back to the main menu
       returnToMenu();
     }
-  });
+  };
+  // Both events so mobile taps register immediately without the 300ms
+  // click delay and without being swallowed by the canvas touch handler.
+  tutorialSkipButton.addEventListener("click", handleTutorialSkip);
+  tutorialSkipButton.addEventListener("touchend", handleTutorialSkip, { passive: false });
 }
 howtoButton.addEventListener("click", () => {
   howtoEl.classList.add("visible");
@@ -2986,7 +2990,15 @@ function drawMonitor(now) {
       if (!stage) {
         drawIntroFeed(ctx, width, height, now);
       } else {
-        const anomaly = stage.anomaly && stage.anomaly.channelIndex === state.currentChannel ? stage.anomaly : null;
+        // Primary anomaly takes precedence when rendering its own channel.
+        // Decoy anomalies (stages 9+) paint on a different channel so the
+        // player must visually scan to figure out which matters for the rule.
+        let anomaly = null;
+        if (stage.anomaly && stage.anomaly.channelIndex === state.currentChannel) {
+          anomaly = stage.anomaly;
+        } else if (stage.decoyAnomaly && stage.decoyAnomaly.channelIndex === state.currentChannel) {
+          anomaly = stage.decoyAnomaly;
+        }
         switch (state.currentChannel) {
           case 0:
             drawThermalFeed(ctx, width, height, now, anomaly);

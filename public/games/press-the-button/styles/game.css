@@ -826,6 +826,14 @@
     #tutorial-overlay.visible {
       opacity: 1;
       transform: translateY(0);
+      /* MUST be auto — the skip (\u00d7) button inside can't receive taps otherwise */
+      pointer-events: auto;
+    }
+
+    #tutorial-overlay .tutorial-panel,
+    #tutorial-overlay.visible .tutorial-panel,
+    #tutorial-overlay .tutorial-skip {
+      pointer-events: auto;
     }
 
     .tutorial-panel {
