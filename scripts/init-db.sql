@@ -141,6 +141,11 @@ INSERT INTO games (name, answer, bonus_points)
 SELECT 'Dungeon - 12 Doors of Death', 'AVADAKEDAVRAMRASYLBI', 200
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Dungeon - 12 Doors of Death');
 
+-- Seed the eighth game (safe to re-run)
+INSERT INTO games (name, answer, bonus_points)
+SELECT 'PRESS THE BUTTON', 'GETOFFMYLOWN50', 200
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'PRESS THE BUTTON');
+
 -- Migrations (safe to re-run)
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
 ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_cooldown_until timestamptz;

@@ -64,6 +64,10 @@ export const GAME_LEVEL_CONFIG: Record<string, Record<number, LevelConfig>> = {
   'Dungeon - 12 Doors of Death': {
     1: { type: 'text-answer', answer: 'AVADAKEDAVRAMRASYLBI', clue: undefined, cooldownSeconds: 0 },
   },
+
+  'PRESS THE BUTTON': {
+    1: { type: 'text-answer', answer: 'GETOFFMYLOWN50', clue: undefined, cooldownSeconds: 0 },
+  },
 } as const;
 
 /**

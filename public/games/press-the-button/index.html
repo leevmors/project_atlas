@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PRESS THE BUTTON</title>
+  <link rel="stylesheet" href="styles/game.css" />
+</head>
+<body>
+  <div id="hud">
+    <button id="menu-toggle" type="button" data-i18n="hud.menu">Menu</button>
+    <div id="timer-chip" class="chip">
+      <small>Countdown</small>
+      <strong id="timer-value">10:00</strong>
+    </div>
+    <div id="channel-chip" class="chip">
+      <small>Channel</small>
+      <strong id="channel-value">CH 1 - Three Clocks</strong>
+    </div>
+    <div id="controls-chip" class="chip">
+      <small>Shift Discipline</small>
+      <strong>Q / E Cycle | R Press Red | F Skip | I Lift iPad</strong>
+      Wrong judgment ends the shift. The desk does not forgive.
+    </div>
+    <div id="prompt">
+      <strong>Desk</strong>
+      <span id="prompt-text">Click the iPad to read the note, then inspect the seven feeds.</span>
+    </div>
+    <div id="touch-rail">
+      <button type="button" class="touch-button" data-action="prev">Prev</button>
+      <button type="button" class="touch-button" data-action="next">Next</button>
+      <button type="button" class="touch-button" data-action="ipad">Note</button>
+      <button type="button" class="touch-button" data-action="skip">Skip</button>
+      <button type="button" class="touch-button danger" data-action="red">Red</button>
+    </div>
+  </div>
+
+  <div id="note-panel">
+    <div id="note-stage">Stage 1 / 18</div>
+    <h2 id="note-title">The First Blink</h2>
+    <p id="note-body"></p>
+    <div id="note-footer">Click the iPad again to put it back.</div>
+  </div>
+
+  <div id="message" data-tone="warn"></div>
+
+  <div id="pause-menu">
+    <div class="panel">
+      <p class="small" data-i18n="pause.kicker">Paused</p>
+      <h2 data-i18n="pause.title">PRESS THE BUTTON</h2>
+      <p class="pause-body" data-i18n="pause.body">The desk will wait. Take a breath, then jump back in when you're ready.</p>
+      <div class="action-row">
+        <button id="pause-resume" data-i18n="pause.resume">Resume Shift</button>
+        <button id="pause-restart" data-i18n="pause.restart">Restart Shift</button>
+        <button id="pause-main-menu" class="secondary" data-i18n="pause.mainMenu">Main Menu</button>
+        <button id="pause-howto" class="secondary" data-i18n="pause.howto">How It Works</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="boot">
+    <div class="panel menu-panel">
+      <div class="menu-top">
+        <p class="small" data-i18n="menu.kicker">PRESS THE BUTTON</p>
+        <div class="lang-switch" role="group" aria-label="Language">
+          <button type="button" class="lang-chip" data-lang="en">EN</button>
+          <button type="button" class="lang-chip" data-lang="ru">RU</button>
+        </div>
+      </div>
+      <h1 data-i18n="menu.title">PRESS THE BUTTON</h1>
+      <p data-i18n="menu.intro">You're alone at a battered desk, staring into seven feeds on an old CRT. Most of the time nothing happens. Then one tiny thing slips out of place, the tablet tells you what matters, and you have to decide if this is the moment to press the button.</p>
+      <p class="small first-run-note" id="first-run-note" data-i18n="menu.firstRunNote">First time? Play the tutorial first.</p>
+      <p class="small" data-i18n="menu.wakeHint">Audio begins on first interaction.</p>
+      <div class="action-row menu-actions">
+        <button id="start-button" data-i18n="menu.begin">Begin Shift</button>
+        <button id="tutorial-button" class="secondary" data-i18n="menu.tutorial">Tutorial</button>
+        <button id="howto-button" class="secondary" data-i18n="menu.howto">How To Play</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="howto">
+    <div class="panel">
+      <p class="small" data-i18n="howto.kicker">Before You Start</p>
+      <h2 data-i18n="howto.title">How It Works</h2>
+      <div id="howto-body" class="howto-body"></div>
+      <div class="action-row">
+        <button id="howto-close" data-i18n="howto.close">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tutorial-overlay">
+    <div class="tutorial-panel">
+      <div class="tutorial-head">
+        <span class="small" data-i18n="tutorial.kicker">Tutorial</span>
+        <span class="small" id="tutorial-progress"></span>
+      </div>
+      <h3 id="tutorial-title"></h3>
+      <p id="tutorial-body"></p>
+      <p class="small" id="tutorial-hint"></p>
+    </div>
+  </div>
+
+  <div id="ending">
+    <div class="panel">
+      <p class="small" id="ending-kicker">Shift Complete</p>
+      <h2 id="ending-title">You Survived The Desk</h2>
+      <p id="ending-body">
+        The storm is still outside. The chair is still cold. But for one brief moment, the channels obeyed.
+      </p>
+      <div class="action-row">
+        <button id="restart-button" data-i18n="ending.restart">Restart Shift</button>
+        <button id="menu-button" class="secondary" data-i18n="ending.menu">Main Menu</button>
+        <button id="dismiss-button" class="secondary" data-i18n="ending.stay">Stay In Room</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module" src="src/game.js"></script>
+</body>
+</html>
