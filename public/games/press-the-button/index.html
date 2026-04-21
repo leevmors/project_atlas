@@ -45,11 +45,26 @@
       <span id="prompt-text">Click the iPad to read the note, then inspect the seven feeds.</span>
     </div>
     <div id="touch-rail">
-      <button type="button" class="touch-button" data-action="prev">Prev</button>
-      <button type="button" class="touch-button" data-action="next">Next</button>
-      <button type="button" class="touch-button" data-action="ipad">Note</button>
-      <button type="button" class="touch-button" data-action="skip">Skip</button>
-      <button type="button" class="touch-button danger" data-action="red">Red</button>
+      <button type="button" class="touch-button" data-action="prev" aria-label="Previous channel" title="Previous channel">
+        <span class="tb-icon" aria-hidden="true">‹</span>
+        <span class="tb-label">Prev</span>
+      </button>
+      <button type="button" class="touch-button" data-action="next" aria-label="Next channel" title="Next channel">
+        <span class="tb-icon" aria-hidden="true">›</span>
+        <span class="tb-label">Next</span>
+      </button>
+      <button type="button" class="touch-button" data-action="ipad" aria-label="Open note" title="Open note">
+        <span class="tb-icon" aria-hidden="true">📋</span>
+        <span class="tb-label">Note</span>
+      </button>
+      <button type="button" class="touch-button" data-action="skip" aria-label="Skip stage" title="Skip stage">
+        <span class="tb-icon" aria-hidden="true">⏭</span>
+        <span class="tb-label">Skip</span>
+      </button>
+      <button type="button" class="touch-button danger" data-action="red" aria-label="Press red button" title="Press red button">
+        <span class="tb-icon" aria-hidden="true">●</span>
+        <span class="tb-label">Red</span>
+      </button>
     </div>
   </div>
 
