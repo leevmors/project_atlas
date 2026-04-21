@@ -288,11 +288,11 @@ const filmPass = new ShaderPass({
 
     void main() {
       vec2 uv = vUv;
-      vec2 curved = uv * 2.0 - 1.0;
-      curved *= 1.0 + dot(curved, curved) * 0.035;
-      curved = curved * 0.5 + 0.5;
 
-      vec4 color = texture2D(tDiffuse, clamp(curved, 0.0, 1.0));
+      // Sample the scene directly (no barrel curvature — it created a
+      // dark CRT frame around the edges that looked like black bars
+      // on small mobile screens).
+      vec4 color = texture2D(tDiffuse, uv);
       float scan = sin((uv.y + time * 0.6) * 900.0) * 0.004;
       float vignette = smoothstep(1.12, 0.14, distance(uv, vec2(0.5)));
 
@@ -301,10 +301,6 @@ const filmPass = new ShaderPass({
       color.rgb *= mix(0.98, 1.0, vignette);
       color.rgb *= 1.44;
       color.rgb = floor(color.rgb * 28.0) / 28.0;
-
-      if (curved.x < 0.0 || curved.x > 1.0 || curved.y < 0.0 || curved.y > 1.0) {
-        color.rgb *= 0.12;
-      }
 
       gl_FragColor = color;
     }

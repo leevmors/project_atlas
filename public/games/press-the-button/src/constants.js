@@ -19,23 +19,24 @@ export const CAMERA_PROFILES = {
   },
   tablet: {
     internalScale: 1.0,
-    fov: 54,
-    // Closer base camera so feeds are readable by default (was z: 3.68)
-    baseCamera: { x: 0, y: 1.55, z: 2.9 },
-    baseLook: { x: 0, y: 1.35, z: -0.2 },
-    // Closer zoom so iPad text is legible (was z: 1.86)
-    ipadZoomCam: { x: 0.92, y: 1.45, z: 1.15 },
-    ipadZoomLook: { x: 0.92, y: 0.92, z: 0.02 }
+    fov: 60,
+    // Pulled right up to the desk so feeds, iPad, phone, red & skip
+    // buttons are all clearly visible (was z: 2.9 / fov: 54)
+    baseCamera: { x: 0, y: 1.45, z: 2.35 },
+    baseLook: { x: 0, y: 1.28, z: -0.2 },
+    ipadZoomCam: { x: 0.92, y: 1.4, z: 1.05 },
+    ipadZoomLook: { x: 0.92, y: 0.88, z: 0.02 }
   },
   phone: {
     internalScale: 1.0,
-    fov: 56,
-    // Closer base camera so feeds/buttons are reachable (was z: 4.18)
-    baseCamera: { x: 0, y: 1.6, z: 3.05 },
-    baseLook: { x: 0, y: 1.4, z: -0.18 },
-    // Closer zoom + flatter angle so iPad text is legible (was z: 2.06)
-    ipadZoomCam: { x: 0.95, y: 1.4, z: 1.0 },
-    ipadZoomLook: { x: 0.95, y: 0.88, z: 0.0 }
+    fov: 64,
+    // Even closer + wider FOV on phone so the whole desk \u2014 iPad on
+    // the right, phone on the left, red/skip buttons front-and-center
+    // \u2014 fits in the frame without feeling zoomed-out (was z: 3.05 / fov: 56)
+    baseCamera: { x: 0, y: 1.48, z: 2.4 },
+    baseLook: { x: 0, y: 1.32, z: -0.18 },
+    ipadZoomCam: { x: 0.95, y: 1.35, z: 0.92 },
+    ipadZoomLook: { x: 0.95, y: 0.84, z: 0.0 }
   }
 };
 
