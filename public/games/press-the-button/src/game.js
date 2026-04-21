@@ -2017,11 +2017,15 @@ function finishRun(won, reason = won ? "victory" : "timer") {
   notePanelEl.classList.remove("visible");
   endingKickerEl.textContent = won ? "Shift Complete" : reason === "death" ? "Judgment Failed" : "Shift Lost";
   endingTitleEl.textContent = won ? "You Survived The Desk" : reason === "death" ? "You Died." : "The Timer Took The Room";
-  endingBodyEl.textContent = won
-    ? "Eighteen judgments held. The window still rattles, but the channels have gone quiet."
-    : reason === "death"
+  if (won) {
+    endingBodyEl.innerHTML =
+      'Eighteen judgments held. The window still rattles, but the channels have gone quiet.' +
+      '<br><br>Congratulations — the answer is: <strong style="color:#e0aa61;letter-spacing:0.08em;">"GETOFFMYLOWN50"</strong>';
+  } else {
+    endingBodyEl.textContent = reason === "death"
       ? "The desk rejected your choice. The screens went cold before the next stage could load."
       : "The monitor froze, the rain kept falling, and the desk went cold before the work was done.";
+  }
   endingEl.classList.add("visible");
   refreshHud();
   if (won) {
