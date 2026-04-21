@@ -22,16 +22,18 @@ export const CAMERA_PROFILES = {
     fov: 50,
     baseCamera: { x: 0, y: 1.74, z: 3.68 },
     baseLook: { x: 0, y: 1.48, z: -0.22 },
-    ipadZoomCam: { x: 0.9, y: 1.63, z: 1.86 },
-    ipadZoomLook: { x: 0.88, y: 1.04, z: 0.08 }
+    // Closer zoom so iPad text is legible (was z: 1.86)
+    ipadZoomCam: { x: 0.92, y: 1.45, z: 1.15 },
+    ipadZoomLook: { x: 0.92, y: 0.92, z: 0.02 }
   },
   phone: {
     internalScale: 1.0,
     fov: 48,
     baseCamera: { x: 0, y: 1.88, z: 4.18 },
     baseLook: { x: 0, y: 1.58, z: -0.18 },
-    ipadZoomCam: { x: 0.88, y: 1.7, z: 2.06 },
-    ipadZoomLook: { x: 0.84, y: 1.06, z: 0.1 }
+    // Closer zoom + flatter angle so iPad text is legible (was z: 2.06)
+    ipadZoomCam: { x: 0.95, y: 1.4, z: 1.0 },
+    ipadZoomLook: { x: 0.95, y: 0.88, z: 0.0 }
   }
 };
 

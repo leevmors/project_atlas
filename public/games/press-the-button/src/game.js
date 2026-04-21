@@ -1362,6 +1362,10 @@ function onPointerDown(event) {
   }
 
   ensureAudio();
+  // Sync pointerNdc to this pointerdown location so touch taps register.
+  // Without this, raycasting uses stale hover coords from the last
+  // pointermove and taps on the monitor/iPad don't hit anything.
+  onPointerMove(event);
   updateHover();
   if (!hoverAction) {
     return;
