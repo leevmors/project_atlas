@@ -97,14 +97,27 @@ export function DungeonGame({ gameId, isAdmin }: DungeonGameProps) {
     );
   }
 
-  // Game completed by another team
+  // Game completed by another team — still let anyone try it for fun
   if (game?.status === 'completed' && !hasWon) {
     return (
       <div className="text-center py-8">
         <Lock className="w-8 h-8 text-slate-400 mx-auto mb-3" />
         <p className="text-slate-600 font-medium">The dungeon has been conquered!</p>
-        <p className="text-slate-400 text-sm mt-1">
+        <p className="text-slate-400 text-sm mt-1 mb-5">
           Escaped by {game.winnerTeamName ?? 'another team'}
+        </p>
+        <a
+          href="/games/dungeon"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold transition-colors shadow"
+        >
+          <Swords className="w-4 h-4" />
+          Try the dungeon — just for fun
+          <ExternalLink className="w-4 h-4" />
+        </a>
+        <p className="text-slate-400 text-xs mt-3">
+          No points — the game is already won.
         </p>
       </div>
     );
