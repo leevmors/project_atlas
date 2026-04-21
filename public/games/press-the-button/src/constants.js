@@ -18,7 +18,7 @@ export const CAMERA_PROFILES = {
     ipadZoomLook: { x: 0.88, y: 0.95, z: 0.05 }
   },
   tablet: {
-    internalScale: 0.74,
+    internalScale: 1.0,
     fov: 50,
     baseCamera: { x: 0, y: 1.74, z: 3.68 },
     baseLook: { x: 0, y: 1.48, z: -0.22 },
@@ -26,7 +26,7 @@ export const CAMERA_PROFILES = {
     ipadZoomLook: { x: 0.88, y: 1.04, z: 0.08 }
   },
   phone: {
-    internalScale: 0.66,
+    internalScale: 1.0,
     fov: 48,
     baseCamera: { x: 0, y: 1.88, z: 4.18 },
     baseLook: { x: 0, y: 1.58, z: -0.18 },

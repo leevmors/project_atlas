@@ -56,6 +56,13 @@
       touch-action: manipulation;
     }
 
+    /* On mobile (phone/tablet) prefer sharp sampling so feeds/text are readable */
+    body[data-viewport="phone"] #game,
+    body[data-viewport="tablet"] #game {
+      image-rendering: auto;
+      image-rendering: -webkit-optimize-contrast;
+    }
+
     body[data-input="touch"] #game {
       cursor: auto;
     }
@@ -740,10 +747,36 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 0.5rem;
       margin-bottom: 0.35rem;
       color: rgba(224, 170, 97, 0.9);
       letter-spacing: 0.14em;
       text-transform: uppercase;
+    }
+
+    .tutorial-skip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(224, 170, 97, 0.28);
+      color: rgba(240, 212, 163, 0.85);
+      width: 1.8rem;
+      height: 1.8rem;
+      min-width: 0;
+      padding: 0;
+      border-radius: 0.45rem;
+      font-size: 1.15rem;
+      line-height: 1;
+      letter-spacing: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 120ms ease, border-color 120ms ease;
+    }
+
+    .tutorial-skip:hover {
+      background: rgba(224, 170, 97, 0.2);
+      border-color: rgba(224, 170, 97, 0.6);
+      color: #f0d4a3;
     }
 
     #tutorial-title {
@@ -1041,6 +1074,50 @@
 
     /* --- LANDSCAPE PHONE: tighter touch rail + HUD --- */
     @media (orientation: landscape) and (max-height: 500px) {
+      /* Tutorial: compact card anchored to the side, never fills the screen */
+      body[data-viewport="phone"] #tutorial-overlay,
+      body[data-viewport="tablet"] #tutorial-overlay,
+      body[data-input="touch"][data-viewport="phone"] #tutorial-overlay,
+      body[data-input="touch"][data-viewport="tablet"] #tutorial-overlay {
+        left: auto;
+        right: calc(env(safe-area-inset-right, 0px) + 0.6rem);
+        top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
+        bottom: auto;
+        transform: none;
+        width: min(20rem, calc(50vw - 1rem));
+      }
+      body[data-viewport="phone"] #tutorial-overlay.visible,
+      body[data-viewport="tablet"] #tutorial-overlay.visible,
+      body[data-input="touch"][data-viewport="phone"] #tutorial-overlay.visible,
+      body[data-input="touch"][data-viewport="tablet"] #tutorial-overlay.visible {
+        transform: none;
+      }
+      .tutorial-panel {
+        padding: 0.55rem 0.7rem;
+        gap: 0.22rem;
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 5.5rem);
+      }
+      #tutorial-title {
+        font-size: 0.78rem;
+        margin-bottom: 0.15rem;
+      }
+      #tutorial-body {
+        font-size: 0.7rem;
+        line-height: 1.35;
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 10rem);
+      }
+      #tutorial-hint {
+        font-size: 0.58rem;
+      }
+      .tutorial-head .small {
+        font-size: 0.55rem;
+      }
+      .tutorial-skip {
+        width: 1.45rem;
+        height: 1.45rem;
+        font-size: 0.95rem;
+      }
+
       #hud {
         padding:
           max(0.5rem, calc(env(safe-area-inset-top, 0px) + 0.4rem))

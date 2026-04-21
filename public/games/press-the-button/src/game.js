@@ -233,7 +233,7 @@ const renderer = new THREE.WebGLRenderer({
   alpha: false,
   powerPreference: "high-performance"
 });
-renderer.setPixelRatio(1);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setClearColor(0x030405, 1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -577,6 +577,19 @@ tutorialButton.addEventListener("click", () => {
   ensureAudio();
   startTutorial();
 });
+
+const tutorialSkipButton = document.getElementById("tutorial-skip");
+if (tutorialSkipButton) {
+  tutorialSkipButton.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    markTutorialDone();
+    tutorialOverlayEl.classList.remove("visible");
+    if (state.tutorial) {
+      // Exit tutorial mode back to the main menu
+      returnToMenu();
+    }
+  });
+}
 howtoButton.addEventListener("click", () => {
   howtoEl.classList.add("visible");
 });
