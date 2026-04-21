@@ -180,6 +180,22 @@ const noteTitleEl = document.getElementById("note-title");
 const noteBodyEl = document.getElementById("note-body");
 const noteFooterEl = document.getElementById("note-footer");
 const messageEl = document.getElementById("message");
+
+// --- Phone subtitle (accessibility: audio-off play) ---
+const phoneSubtitleEl = document.getElementById("phone-subtitle");
+const phoneSubtitleTextEl = document.getElementById("phone-subtitle-text");
+
+function showPhoneSubtitle(text, mode = "dialogue") {
+  if (!phoneSubtitleEl || !phoneSubtitleTextEl || !text) return;
+  phoneSubtitleTextEl.textContent = text;
+  phoneSubtitleEl.dataset.state = mode;
+  phoneSubtitleEl.classList.add("visible");
+}
+
+function hidePhoneSubtitle() {
+  if (!phoneSubtitleEl) return;
+  phoneSubtitleEl.classList.remove("visible");
+}
 const bootEl = document.getElementById("boot");
 const pauseMenuEl = document.getElementById("pause-menu");
 const endingEl = document.getElementById("ending");
@@ -1509,6 +1525,7 @@ function returnToMenu() {
   phoneState.offHook = false;
   stopDialTone();
   stopPhoneVoice();
+  hidePhoneSubtitle();
   tutorialOverlayEl.classList.remove("visible");
   howtoEl.classList.remove("visible");
   endingEl.classList.remove("visible");
@@ -1795,6 +1812,7 @@ function togglePhone() {
     stopPhoneVoice();
     playPhoneHangup();
     showMessage("You hang up.", "warn", 1.2);
+    hidePhoneSubtitle();
   }
 }
 
@@ -1818,6 +1836,7 @@ function deliverPhoneContent() {
   if (mode === "silence" || !line) {
     playPhoneStatic();
     showMessage("Breathing on the line. Nothing said.", "warn", 2.6);
+    showPhoneSubtitle("… only breathing on the line.", "dialogue");
     return;
   }
 
@@ -1827,6 +1846,7 @@ function deliverPhoneContent() {
     tone = "good";
   }
   showMessage(`Voice: "${line}"`, tone, 3.6);
+  showPhoneSubtitle(`“${line}”`, "dialogue");
   speakPhoneVoice(line);
 }
 
@@ -1965,6 +1985,7 @@ function resetPhoneForStage() {
     stopDialTone();
     stopPhoneVoice();
   }
+  hidePhoneSubtitle();
   phoneState.ringing = false;
   phoneState.offHook = false;
   phoneState.ringClock = 0;
@@ -2026,6 +2047,7 @@ function finishRun(won, reason = won ? "victory" : "timer") {
   phoneState.offHook = false;
   stopDialTone();
   stopPhoneVoice();
+  hidePhoneSubtitle();
   tutorialOverlayEl.classList.remove("visible");
   notePanelEl.classList.remove("visible");
   endingKickerEl.textContent = won ? "Shift Complete" : reason === "death" ? "Judgment Failed" : "Shift Lost";
@@ -2066,7 +2088,8 @@ function resolveStageLines(stage) {
 function refreshStageText() {
   const stage = STAGES[state.stageIndex];
   const totalLabel = state.tutorial ? STAGES.length : TOTAL_STAGES;
-  noteStageEl.textContent = `Stage ${pad(state.stageIndex + 1)} / ${totalLabel}`;
+  const labelPrefix = state.tutorial ? "Tutorial" : "Stage";
+  noteStageEl.textContent = `${labelPrefix} ${pad(state.stageIndex + 1)} / ${totalLabel}`;
   if (stage) {
     noteTitleEl.textContent = stage.title || "";
     noteBodyEl.textContent = resolveStageLines(stage).join("\n\n");
@@ -2259,6 +2282,7 @@ function update(dt, now) {
       state.phoneRingAt = null;
       ensureAudio();
       showMessage("The phone is ringing.", "warn", 2);
+      showPhoneSubtitle("Incoming call — tap the phone to answer.", "ringing");
     }
   }
   if (state.refreshTimer > 0 && !state.menuOpen) {
