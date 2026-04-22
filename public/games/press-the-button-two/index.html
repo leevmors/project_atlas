@@ -205,14 +205,28 @@
             transform: translate(2px, 2px); box-shadow: 2px 2px 0px #0a0a0a;
         }
 
-        #btn-zoom-left, #btn-zoom-right {
-            display: none;
+        #game-actions {
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-start;
         }
 
+        #game-actions-top {
+            display: flex;
+            gap: 10px;
+            pointer-events: none;
+        }
+        #game-actions-top > * { pointer-events: auto; }
+
+        #game-actions-zoom {
+            display: none;
+            gap: 10px;
+            pointer-events: none;
+        }
+        #game-actions-zoom > * { pointer-events: auto; }
+
         @media (hover: none) and (pointer: coarse) {
-            #btn-zoom-left, #btn-zoom-right {
-                display: flex;
-            }
+            #game-actions-zoom { display: flex; }
         }
 
         #fullscreen-toast {
@@ -1093,10 +1107,14 @@
     <div id="canvas-container"></div>
     
     <div id="game-actions" aria-label="Game actions">
-        <button id="btn-open-menu" type="button">MENU</button>
-        <button id="btn-zoom-left" type="button" aria-label="Look at left monitor">◄ L</button>
-        <button id="btn-zoom-right" type="button" aria-label="Look at right monitor">R ►</button>
-        <button id="btn-fullscreen" type="button" aria-label="Fullscreen" title="Fullscreen">FULL</button>
+        <div id="game-actions-top">
+            <button id="btn-open-menu" type="button">MENU</button>
+            <button id="btn-fullscreen" type="button" aria-label="Fullscreen" title="Fullscreen">FULL</button>
+        </div>
+        <div id="game-actions-zoom">
+            <button id="btn-zoom-left" type="button" aria-label="Zoom left monitor">[LEFT]</button>
+            <button id="btn-zoom-right" type="button" aria-label="Zoom right monitor">[RIGHT]</button>
+        </div>
     </div>
     <div id="fullscreen-toast" role="status" aria-live="polite"></div>
     <div id="stage-transition-overlay" aria-hidden="true">
@@ -2557,15 +2575,13 @@
         document.getElementById('btn-zoom-left').addEventListener('click', (e) => {
             e.stopPropagation();
             if (!gameActive) return;
-            targetRotY = 0.38;
-            targetRotX = -0.15;
+            zoomedMonitor = zoomedMonitor === 'left' ? null : 'left';
         });
 
         document.getElementById('btn-zoom-right').addEventListener('click', (e) => {
             e.stopPropagation();
             if (!gameActive) return;
-            targetRotY = -0.44;
-            targetRotX = -0.15;
+            zoomedMonitor = zoomedMonitor === 'right' ? null : 'right';
         });
 
         document.getElementById('btn-tutorial').addEventListener('click', openTutorial);
@@ -5714,8 +5730,11 @@
             currentYawLimit = NORMAL_YAW_LIMIT;
             if (typeof targetRotY !== 'undefined') targetRotY = 0;
             if (typeof targetRotX !== 'undefined') targetRotX = 0;
+            zoomedMonitor = null;
             camera.rotation.y = 0;
             camera.rotation.x = 0;
+            camera.position.x = 0;
+            camera.position.z = 2.2;
             yellowStageGroup.visible = false;
             yellowGlow.intensity = 0;
             lastDisplayTime = -1;
@@ -5827,6 +5846,11 @@
 
         // --- INTERACTIONS ---
         let targetRotX = 0, targetRotY = 0, mouseX = 0, mouseY = 0;
+        let zoomedMonitor = null; // null | 'left' | 'right'
+        const ZOOM_CAM = {
+            left:  { x: -0.3, z: 1.0, rotY:  0.25, rotX: -0.05 },
+            right: { x:  0.4, z: 1.0, rotY: -0.25, rotX: -0.05 }
+        };
 
         function handleInteraction(clickMouse) {
             if (isRunInteractionLocked()) return;
@@ -5857,6 +5881,11 @@
             if (monitorIntersects.length > 0 && globalScreenState === 'NORMAL') {
                 const data = monitorIntersects[0].object.userData;
                 data.screenObj.channel = (data.screenObj.channel + 1) % 5;
+                return;
+            }
+
+            if (zoomedMonitor) {
+                zoomedMonitor = null;
                 return;
             }
 
@@ -5988,8 +6017,13 @@
             const lightningPulse = updateLightning(time);
             updateSignalPanel(time, ambientLightEffect, lightningPulse);
 
-            camera.rotation.y += (clamp(targetRotY, -currentYawLimit, currentYawLimit) - camera.rotation.y) * 0.05;
-            camera.rotation.x += (targetRotX - camera.rotation.x) * 0.05;
+            const _zc = zoomedMonitor ? ZOOM_CAM[zoomedMonitor] : null;
+            const _tRotY = _zc ? _zc.rotY : clamp(targetRotY, -currentYawLimit, currentYawLimit);
+            const _tRotX = _zc ? _zc.rotX : targetRotX;
+            camera.rotation.y += (_tRotY - camera.rotation.y) * 0.07;
+            camera.rotation.x += (_tRotX - camera.rotation.x) * 0.07;
+            camera.position.x += ((_zc ? _zc.x : 0)   - camera.position.x) * 0.07;
+            camera.position.z += ((_zc ? _zc.z : 2.2) - camera.position.z) * 0.07;
             camera.position.y = 1.1 + Math.sin(time * 1.5) * 0.015;
 
             // Handle Tablet Position
