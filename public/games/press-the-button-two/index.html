@@ -173,7 +173,10 @@
             pointer-events: none;
         }
 
-        #btn-open-menu, #btn-fullscreen {
+        #btn-open-menu,
+        #btn-fullscreen,
+        #btn-zoom-left,
+        #btn-zoom-right {
             background: #111;
             color: #d4ceb0;
             border: 2px solid #4a3f2d;
@@ -183,6 +186,7 @@
             padding: 10px 14px;
             cursor: pointer;
             box-shadow: 4px 4px 0px #0a0a0a;
+            display: flex;
             align-items: center;
             justify-content: center;
             font-size: 0.72rem;
@@ -200,9 +204,21 @@
             display: flex;
         }
 
-        #btn-open-menu:hover, #btn-fullscreen:hover {
+        #btn-open-menu:hover,
+        #btn-fullscreen:hover,
+        #btn-zoom-left:hover,
+        #btn-zoom-right:hover {
             background: #d4ceb0; color: #111; border-color: #d4ceb0;
             transform: translate(2px, 2px); box-shadow: 2px 2px 0px #0a0a0a;
+        }
+
+        #btn-zoom-left[aria-pressed="true"],
+        #btn-zoom-right[aria-pressed="true"] {
+            background: #d4ceb0;
+            color: #111;
+            border-color: #d4ceb0;
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #0a0a0a;
         }
 
         #game-actions {
@@ -891,7 +907,10 @@
                 gap: 8px;
             }
 
-            #btn-open-menu, #btn-fullscreen {
+            #btn-open-menu,
+            #btn-fullscreen,
+            #btn-zoom-left,
+            #btn-zoom-right {
                 min-width: 46px;
                 min-height: 46px;
                 padding: 8px 10px;
@@ -1074,6 +1093,8 @@
             .menu-btn:hover,
             #btn-open-menu:hover,
             #btn-fullscreen:hover,
+            #btn-zoom-left:hover,
+            #btn-zoom-right:hover,
             .tutorial-close:hover,
             .tutorial-nav:hover {
                 background: #111;
@@ -1081,6 +1102,15 @@
                 border-color: #4a3f2d;
                 transform: none;
                 box-shadow: 4px 4px 0 #0a0a0a;
+            }
+
+            #btn-zoom-left[aria-pressed="true"],
+            #btn-zoom-right[aria-pressed="true"] {
+                background: #d4ceb0;
+                color: #111;
+                border-color: #d4ceb0;
+                transform: translate(2px, 2px);
+                box-shadow: 2px 2px 0 #0a0a0a;
             }
         }
 
@@ -1112,8 +1142,8 @@
             <button id="btn-fullscreen" type="button" aria-label="Fullscreen" title="Fullscreen">FULL</button>
         </div>
         <div id="game-actions-zoom">
-            <button id="btn-zoom-left" type="button" aria-label="Zoom left monitor">[LEFT]</button>
-            <button id="btn-zoom-right" type="button" aria-label="Zoom right monitor">[RIGHT]</button>
+            <button id="btn-zoom-left" type="button" aria-label="Zoom left monitor" aria-pressed="false">LEFT</button>
+            <button id="btn-zoom-right" type="button" aria-label="Zoom right monitor" aria-pressed="false">RIGHT</button>
         </div>
     </div>
     <div id="fullscreen-toast" role="status" aria-live="polite"></div>
@@ -2573,15 +2603,17 @@
         });
 
         document.getElementById('btn-zoom-left').addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
             if (!gameActive) return;
-            zoomedMonitor = zoomedMonitor === 'left' ? null : 'left';
+            setZoomedMonitor(zoomedMonitor === 'left' ? null : 'left');
         });
 
         document.getElementById('btn-zoom-right').addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
             if (!gameActive) return;
-            zoomedMonitor = zoomedMonitor === 'right' ? null : 'right';
+            setZoomedMonitor(zoomedMonitor === 'right' ? null : 'right');
         });
 
         document.getElementById('btn-tutorial').addEventListener('click', openTutorial);
@@ -5730,7 +5762,7 @@
             currentYawLimit = NORMAL_YAW_LIMIT;
             if (typeof targetRotY !== 'undefined') targetRotY = 0;
             if (typeof targetRotX !== 'undefined') targetRotX = 0;
-            zoomedMonitor = null;
+            setZoomedMonitor(null);
             camera.rotation.y = 0;
             camera.rotation.x = 0;
             camera.position.x = 0;
@@ -5848,9 +5880,29 @@
         let targetRotX = 0, targetRotY = 0, mouseX = 0, mouseY = 0;
         let zoomedMonitor = null; // null | 'left' | 'right'
         const ZOOM_CAM = {
-            left:  { x: -0.3, z: 1.0, rotY:  0.25, rotX: -0.05 },
-            right: { x:  0.4, z: 1.0, rotY: -0.25, rotX: -0.05 }
+            left:  { x: -0.24, z: 1.35, rotY:  0.2, rotX: 0.08 },
+            right: { x:  0.32, z: 1.35, rotY: -0.22, rotX: 0.08 }
         };
+
+        function syncZoomButtons() {
+            const leftButton = document.getElementById('btn-zoom-left');
+            const rightButton = document.getElementById('btn-zoom-right');
+            if (leftButton) leftButton.setAttribute('aria-pressed', zoomedMonitor === 'left' ? 'true' : 'false');
+            if (rightButton) rightButton.setAttribute('aria-pressed', zoomedMonitor === 'right' ? 'true' : 'false');
+        }
+
+        function resetLookTarget() {
+            mouseX = 0;
+            mouseY = 0;
+            targetRotX = 0;
+            targetRotY = 0;
+        }
+
+        function setZoomedMonitor(target) {
+            zoomedMonitor = target;
+            if (!target) resetLookTarget();
+            syncZoomButtons();
+        }
 
         function handleInteraction(clickMouse) {
             if (isRunInteractionLocked()) return;
@@ -5885,7 +5937,7 @@
             }
 
             if (zoomedMonitor) {
-                zoomedMonitor = null;
+                setZoomedMonitor(null);
                 return;
             }
 
