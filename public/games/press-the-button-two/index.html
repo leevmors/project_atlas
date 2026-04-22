@@ -5007,12 +5007,6 @@
                 wrapCanvasText(tabletCtx, riddleText, 410).forEach((line, index) => {
                     tabletCtx.fillText(line, 50, 262 + index * 30);
                 });
-                tabletCtx.fillStyle = '#666655';
-                tabletCtx.font = '11px "Press Start 2P", Courier';
-                const label = activeSpec.usesSignal
-                    ? `#${SIGNAL_RIDDLE_ID} / ${formatSignalSummary(activeSpec.signalSpec, currentLang)}`
-                    : `#${activeSpec.riddleId}`;
-                tabletCtx.fillText(collapseText(label, 42), 50, 642);
             } else {
                 tabletCtx.font = '10px "Press Start 2P", Courier';
                 if (!currentRun.history.length) {
