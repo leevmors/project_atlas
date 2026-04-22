@@ -1253,6 +1253,7 @@
         const BUTTON_RED = 'RED';
         const BUTTON_SKIP = 'SKIP';
         const BUTTON_YELLOW = 'YELLOW';
+        const BUTTON_PURPLE = 'PURPLE';
         const SIGNAL_RIDDLE_ID = 'signal_panel';
         const SIGNAL_START_STAGE = 8;
         const SIGNAL_ADVANCED_STAGE = 10;
@@ -1276,6 +1277,8 @@
         const LEFT_SLOTS = SLOT_KEYS.slice(0, 5);
         const RIGHT_SLOTS = SLOT_KEYS.slice(5);
         const NORMAL_YAW_LIMIT = 0.8;
+        const PURPLE_UNLOCK_STAGE = 11;
+        const PURPLE_YAW_LIMIT = 1.45;
         const REAR_YAW_LIMIT = 3.05;
         const RUN_DURATION_MS = 10 * 60 * 1000;
         const CORRECT_SEQUENCE_MS = 3400;
@@ -1472,6 +1475,18 @@
             monitorNamesLeft: ["ТЕТРИС", "МОРЗЕ", "ПОЛКА", "БИНАР", "СЛОВА"],
             monitorNamesRight: ["ФИГУРЫ", "ЭЛЕМЕНТЫ", "РАДАР", "КУБИК", "МАТЕМ"]
         };
+
+        Object.assign(i18n.en, {
+            buttonPurple: "PURPLE",
+            purpleCheck: "PURPLE CHECK",
+            purpleInstruction: "PURPLE CHECK:\nTablet + rule.\nSignal answer.\nLatest log with this count.\nIf all three match: PURPLE.\nElse: normal answer."
+        });
+
+        Object.assign(i18n.ru, {
+            buttonPurple: "PURPLE",
+            purpleCheck: "PURPLE CHECK",
+            purpleInstruction: "PURPLE CHECK:\nTablet + rule.\nSignal answer.\nLatest log with this count.\nIf all three match: PURPLE.\nElse: normal answer."
+        });
 
         const tutorialSlides = {
             en: [
@@ -1914,6 +1929,7 @@
                 redPresses: resolvedButtons.filter((button) => button === BUTTON_RED).length,
                 skipPresses: resolvedButtons.filter((button) => button === BUTTON_SKIP).length,
                 yellowPresses: resolvedButtons.filter((button) => button === BUTTON_YELLOW).length,
+                purplePresses: resolvedButtons.filter((button) => button === BUTTON_PURPLE).length,
                 lastCount: counts.length ? counts[counts.length - 1] : null,
                 prevCount: counts.length > 1 ? counts[counts.length - 2] : null,
                 lastRawAnswer: rawTabletAnswers.length ? rawTabletAnswers[rawTabletAnswers.length - 1] : null,
@@ -1923,10 +1939,10 @@
 
         function canUseNoteRule(noteRuleId, context, rawTabletAnswer) {
             if ([1, 2, 7].includes(noteRuleId) && !invertRedSkip(rawTabletAnswer)) return false;
-            if (noteRuleId === 3 && (!context.rawTabletAnswers.length || context.lastRawAnswer === BUTTON_YELLOW)) return false;
+            if (noteRuleId === 3 && (!context.rawTabletAnswers.length || !isRedSkip(context.lastRawAnswer))) return false;
             if (noteRuleId === 5 && !context.priorStages.length) return false;
-            if (noteRuleId === 6 && (!context.resolvedButtons.length || context.lastResolvedButton === BUTTON_YELLOW)) return false;
-            if (noteRuleId === 10 && (!context.resolvedButtons.length || context.lastResolvedButton === BUTTON_YELLOW)) return false;
+            if (noteRuleId === 6 && (!context.resolvedButtons.length || !isRedSkip(context.lastResolvedButton))) return false;
+            if (noteRuleId === 10 && (!context.resolvedButtons.length || !isRedSkip(context.lastResolvedButton))) return false;
             return true;
         }
 
@@ -2137,15 +2153,33 @@
             return `If ${conditionText},\ndo what the signal says.\nOtherwise do the opposite\nof the signal.`;
         }
 
-        function getStageTabletText(stageSpec, lang = currentLang) {
-            if (!stageSpec) return '';
-            if (stageSpec.usesSignal && stageSpec.signalSpec) return renderSignalTabletText(stageSpec, lang);
+        function getBaseStageTabletText(stageSpec, lang = currentLang) {
             const riddle = riddleById[stageSpec.riddleId];
             return riddle?.text?.[lang] || riddle?.text?.en || '';
         }
 
+        function renderPurpleTabletText(stageSpec, lang = currentLang) {
+            const t = i18n[lang] || i18n.en;
+            const baseText = getBaseStageTabletText(stageSpec, lang);
+            const signalText = renderSignalTabletText(stageSpec, lang);
+            return `${baseText}\n\n${signalText}\n\n${t.purpleInstruction}`;
+        }
+
+        function getStageTabletText(stageSpec, lang = currentLang) {
+            if (!stageSpec) return '';
+            if (stageSpec.usesPurple && stageSpec.signalSpec) return renderPurpleTabletText(stageSpec, lang);
+            if (stageSpec.usesSignal && stageSpec.signalSpec) return renderSignalTabletText(stageSpec, lang);
+            return getBaseStageTabletText(stageSpec, lang);
+        }
+
         function getStageLogText(stageSpec, lang = currentLang) {
             const text = getStageTabletText(stageSpec, lang);
+            if (stageSpec?.usesPurple) {
+                const t = i18n[lang] || i18n.en;
+                const baseText = getBaseStageTabletText(stageSpec, lang);
+                const matching = stageSpec.matchingLogStage ? ` + S${String(stageSpec.matchingLogStage).padStart(2, '0')}` : '';
+                return `${t.purpleCheck}: ${getButtonLabel(stageSpec.baseExpectedButton)} + ${getButtonLabel(stageSpec.signalExpectedButton)}${matching} / ${baseText}`;
+            }
             if (stageSpec?.usesSignal) {
                 const t = i18n[lang] || i18n.en;
                 return `${t.signal}: ${formatSignalSummary(stageSpec.signalSpec, lang)} / ${text}`;
@@ -2229,6 +2263,7 @@
 
         function buildSpecialStageSpec(stageNumber, riddleId, rng) {
             const metaRiddle = riddleById[riddleId];
+            const expectedButton = metaRiddle.resolve();
             return {
                 stage: stageNumber,
                 visualBand: 'meta',
@@ -2237,10 +2272,15 @@
                 slotAnomaliesBySlot: {},
                 noteRuleId: 0,
                 riddleId: metaRiddle.id,
-                rawTabletAnswer: metaRiddle.resolve(),
-                expectedButton: metaRiddle.resolve(),
+                rawTabletAnswer: expectedButton,
+                baseExpectedButton: expectedButton,
+                signalExpectedButton: null,
+                expectedButton,
                 signalSpec: null,
                 usesSignal: false,
+                usesPurple: false,
+                purpleSpec: null,
+                matchingLogStage: null,
                 specialMode: metaRiddle.specialMode,
                 stageSeed: Math.floor(rng() * 1000000)
             };
@@ -2296,15 +2336,98 @@
                         noteRuleId,
                         riddleId: SIGNAL_RIDDLE_ID,
                         rawTabletAnswer,
+                        baseExpectedButton: expectedButton,
+                        signalExpectedButton: rawTabletAnswer,
                         expectedButton,
                         signalSpec,
                         usesSignal: true,
+                        usesPurple: false,
+                        purpleSpec: null,
+                        matchingLogStage: null,
                         specialMode: null,
                         stageSeed: Math.floor(rng() * 1000000)
                     };
                 }
             }
             throw new Error(`Unable to build signal stage ${stageNumber}`);
+        }
+
+        function findLatestPriorStageWithCount(stages, anomalyCount) {
+            for (let i = stages.length - 1; i >= 0; i--) {
+                if (stages[i].anomalyCount === anomalyCount) return stages[i];
+            }
+            return null;
+        }
+
+        function buildPurpleSpec(context, anomalyCount, baseExpectedButton, signalExpectedButton) {
+            const matchingStage = findLatestPriorStageWithCount(context.priorStages, anomalyCount);
+            const matchingButton = matchingStage?.expectedButton || null;
+            const active = isRedSkip(baseExpectedButton) &&
+                baseExpectedButton === signalExpectedButton &&
+                matchingButton === baseExpectedButton;
+            return {
+                active,
+                matchingLogStage: matchingStage?.stage || null,
+                matchingLogButton: matchingButton,
+                baseExpectedButton,
+                signalExpectedButton
+            };
+        }
+
+        function buildPurpleSignalStageSpec(stageNumber, builtStages, rng, ruleOrder) {
+            const band = getStageBand(stageNumber);
+            const countCandidates = shuffleArray(Array.from({ length: getMaxAnomalies(stageNumber) }, (_, index) => index + 1), rng);
+            const riddlePool = riddleDefinitions.filter((riddle) => riddle.band === band);
+            let fallbackStage = null;
+
+            for (const anomalyCount of countCandidates) {
+                const noteRuleId = ruleOrder?.[anomalyCount] ?? anomalyCount;
+                const context = buildGenerationContext(stageNumber, builtStages, noteRuleId);
+                const candidateRiddles = shuffleArray(riddlePool, rng).filter((riddle) => riddle.requires(context, anomalyCount, noteRuleId));
+                const signalCandidates = buildSignalSpecCandidates(stageNumber, context, anomalyCount, noteRuleId, rng);
+                if (!signalCandidates.length) continue;
+
+                for (const riddle of candidateRiddles) {
+                    const rawTabletAnswer = riddle.resolve(context, anomalyCount, noteRuleId);
+                    if (!isRedSkip(rawTabletAnswer)) continue;
+                    if (!canUseNoteRule(noteRuleId, context, rawTabletAnswer)) continue;
+                    const baseExpectedButton = resolveNoteRule(noteRuleId, context, rawTabletAnswer, anomalyCount);
+                    if (!isRedSkip(baseExpectedButton)) continue;
+
+                    for (const signalSpec of signalCandidates) {
+                        const signalExpectedButton = resolveSignalTabletAnswer(signalSpec, context, anomalyCount, noteRuleId);
+                        if (!isRedSkip(signalExpectedButton)) continue;
+                        const purpleSpec = buildPurpleSpec(context, anomalyCount, baseExpectedButton, signalExpectedButton);
+                        const expectedButton = purpleSpec.active ? BUTTON_PURPLE : baseExpectedButton;
+                        const slotAnomalies = pickSlotAnomalies(band, anomalyCount, rng);
+                        const stageSpec = {
+                            stage: stageNumber,
+                            visualBand: band,
+                            anomalyCount,
+                            slotAnomalies,
+                            slotAnomaliesBySlot: Object.fromEntries(slotAnomalies.map((anomaly) => [anomaly.slot, anomaly])),
+                            noteRuleId,
+                            riddleId: riddle.id,
+                            rawTabletAnswer,
+                            baseExpectedButton,
+                            signalExpectedButton,
+                            expectedButton,
+                            signalSpec,
+                            usesSignal: true,
+                            usesPurple: true,
+                            purpleSpec,
+                            matchingLogStage: purpleSpec.matchingLogStage,
+                            specialMode: null,
+                            stageSeed: Math.floor(rng() * 1000000)
+                        };
+                        if (purpleSpec.active) return stageSpec;
+                        if (!fallbackStage) fallbackStage = stageSpec;
+                    }
+                }
+            }
+
+            if (fallbackStage) return fallbackStage;
+            throw new Error(`Unable to build purple signal stage ${stageNumber}`);
         }
 
         function buildStageSpec(stageNumber, builtStages, midMetaStageNumber, lateMetaStageNumber, rng, ruleOrder, signalSchedule) {
@@ -2321,9 +2444,14 @@
                     noteRuleId: 0,
                     riddleId: introRiddle.id,
                     rawTabletAnswer,
+                    baseExpectedButton: rawTabletAnswer,
+                    signalExpectedButton: null,
                     expectedButton: rawTabletAnswer,
                     signalSpec: null,
                     usesSignal: false,
+                    usesPurple: false,
+                    purpleSpec: null,
+                    matchingLogStage: null,
                     specialMode: null,
                     stageSeed: Math.floor(rng() * 1000000)
                 };
@@ -2331,6 +2459,7 @@
 
             if (stageNumber === midMetaStageNumber) return buildSpecialStageSpec(stageNumber, MID_GAME_META_RIDDLE_ID, rng);
             if (stageNumber === lateMetaStageNumber) return buildSpecialStageSpec(stageNumber, LATE_GAME_META_RIDDLE_ID, rng);
+            if (stageNumber >= PURPLE_UNLOCK_STAGE) return buildPurpleSignalStageSpec(stageNumber, builtStages, rng, ruleOrder);
             if (signalSchedule?.has(stageNumber)) return buildSignalStageSpec(stageNumber, builtStages, rng, ruleOrder);
 
             const band = getStageBand(stageNumber);
@@ -2357,9 +2486,14 @@
                         noteRuleId,
                         riddleId: riddle.id,
                         rawTabletAnswer,
+                        baseExpectedButton: expectedButton,
+                        signalExpectedButton: null,
                         expectedButton,
                         signalSpec: null,
                         usesSignal: false,
+                        usesPurple: false,
+                        purpleSpec: null,
+                        matchingLogStage: null,
                         specialMode: null,
                         stageSeed: Math.floor(rng() * 1000000)
                     };
@@ -2405,7 +2539,7 @@
                 ruleOrder,
                 midMetaStageNumber,
                 metaStageNumber,
-                signalStages: Array.from(signalSchedule),
+                signalStages: stages.filter((stage) => stage.usesSignal).map((stage) => stage.stage),
                 stages,
                 ambientEvents: buildAmbientEvents(rng),
                 history: []
@@ -4763,6 +4897,7 @@
         const matSkipButtonTop = new THREE.MeshStandardMaterial({ map: skipTex, roughness: 0.9 });
         const matSkipButtonSide = new THREE.MeshStandardMaterial({ color: 0x8a806d, roughness: 0.9 });
         const matButtonBase = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.6, metalness: 0.4 });
+        const matPurpleButton = new THREE.MeshStandardMaterial({ color: 0x7e35ff, emissive: 0x351070, emissiveIntensity: 0.55, roughness: 0.34 });
         
         // Emissive materials for the screens (Set Roughness to 1.0 to prevent PointLight glare glitches)
         const matScreen1 = new THREE.MeshStandardMaterial({ 
@@ -4943,6 +5078,7 @@
             if (button === BUTTON_RED) return i18n[currentLang].buttonRed;
             if (button === BUTTON_SKIP) return i18n[currentLang].buttonSkip;
             if (button === BUTTON_YELLOW) return i18n[currentLang].buttonYellow;
+            if (button === BUTTON_PURPLE) return i18n[currentLang].buttonPurple;
             return button || '?';
         }
 
@@ -5200,6 +5336,35 @@
         yellowStageGroup.position.set(0, 0, 3.45);
         yellowStageGroup.visible = false;
         scene.add(yellowStageGroup);
+
+        const purpleStageGroup = new THREE.Group();
+        const purpleShelf = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.36), matWood);
+        purpleShelf.position.y = -0.02;
+        purpleShelf.castShadow = true;
+        purpleShelf.receiveShadow = true;
+        purpleStageGroup.add(purpleShelf);
+
+        const purpleBase = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.024, 32), matButtonBase);
+        purpleBase.position.y = 0.025;
+        purpleBase.castShadow = true;
+        purpleStageGroup.add(purpleBase);
+
+        const purpleBtn = new THREE.Mesh(new THREE.SphereGeometry(0.062, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), matPurpleButton);
+        purpleBtn.scale.y = 0.52;
+        purpleBtn.position.y = 0.054;
+        purpleBtn.castShadow = true;
+        purpleBtn.userData = { isButton: true, buttonType: BUTTON_PURPLE, originalY: 0.054, pressY: 0.03 };
+        purpleStageGroup.add(purpleBtn);
+        interactableButtons.push(purpleBtn);
+
+        const purpleGlow = new THREE.PointLight(0x9b55ff, 0, 2.6);
+        purpleGlow.position.y = 0.22;
+        purpleStageGroup.add(purpleGlow);
+
+        purpleStageGroup.position.set(1.36, 0.765, 0.95);
+        purpleStageGroup.rotation.y = -0.18;
+        purpleStageGroup.visible = false;
+        scene.add(purpleStageGroup);
 
         // Tablet Object
         const tabletGroup = new THREE.Group();
@@ -5591,9 +5756,12 @@
         function updateYellowStageState() {
             const activeSpec = getCurrentStageSpec();
             const yellowActive = Boolean(gameActive && activeSpec && activeSpec.specialMode === 'yellow' && globalScreenState === 'NORMAL');
+            const purpleActive = Boolean(gameActive && activeSpec && activeSpec.stage >= PURPLE_UNLOCK_STAGE && globalScreenState === 'NORMAL');
             yellowStageGroup.visible = yellowActive;
             yellowGlow.intensity = yellowActive ? 1.2 : 0;
-            currentYawLimit = yellowActive ? REAR_YAW_LIMIT : NORMAL_YAW_LIMIT;
+            purpleStageGroup.visible = purpleActive;
+            purpleGlow.intensity = purpleActive ? (activeSpec.expectedButton === BUTTON_PURPLE ? 1.15 : 0.5) : 0;
+            currentYawLimit = yellowActive ? REAR_YAW_LIMIT : (purpleActive ? PURPLE_YAW_LIMIT : NORMAL_YAW_LIMIT);
             if (typeof targetRotY !== 'undefined') targetRotY = clamp(targetRotY, -currentYawLimit, currentYawLimit);
         }
 
@@ -5763,6 +5931,8 @@
             camera.position.z = 2.2;
             yellowStageGroup.visible = false;
             yellowGlow.intensity = 0;
+            purpleStageGroup.visible = false;
+            purpleGlow.intensity = 0;
             lastDisplayTime = -1;
         }
 
@@ -5782,7 +5952,12 @@
                 riddleId: stageSpec.riddleId,
                 pressedButton: pressedType,
                 signalSpec: stageSpec.signalSpec || null,
-                usesSignal: Boolean(stageSpec.usesSignal)
+                usesSignal: Boolean(stageSpec.usesSignal),
+                usesPurple: Boolean(stageSpec.usesPurple),
+                baseExpectedButton: stageSpec.baseExpectedButton || null,
+                signalExpectedButton: stageSpec.signalExpectedButton || null,
+                matchingLogStage: stageSpec.matchingLogStage || null,
+                purpleSpec: stageSpec.purpleSpec || null
             });
         }
 
@@ -5952,6 +6127,7 @@
                 }
                 if (clickedButton.userData.isButton) {
                     if (clickedButton.userData.buttonType === BUTTON_YELLOW && !yellowStageGroup.visible) return;
+                    if (clickedButton.userData.buttonType === BUTTON_PURPLE && !purpleStageGroup.visible) return;
                     clickedButton.position.y = clickedButton.userData.pressY;
                     setTimeout(() => { clickedButton.position.y = clickedButton.userData.originalY; }, 150);
                     checkAnswer(clickedButton.userData.buttonType);
