@@ -205,6 +205,16 @@
             transform: translate(2px, 2px); box-shadow: 2px 2px 0px #0a0a0a;
         }
 
+        #btn-zoom-left, #btn-zoom-right {
+            display: none;
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            #btn-zoom-left, #btn-zoom-right {
+                display: flex;
+            }
+        }
+
         #fullscreen-toast {
             position: fixed;
             left: 50%;
@@ -1084,6 +1094,8 @@
     
     <div id="game-actions" aria-label="Game actions">
         <button id="btn-open-menu" type="button">MENU</button>
+        <button id="btn-zoom-left" type="button" aria-label="Look at left monitor">◄ L</button>
+        <button id="btn-zoom-right" type="button" aria-label="Look at right monitor">R ►</button>
         <button id="btn-fullscreen" type="button" aria-label="Fullscreen" title="Fullscreen">FULL</button>
     </div>
     <div id="fullscreen-toast" role="status" aria-live="polite"></div>
@@ -2540,6 +2552,20 @@
             e.preventDefault();
             e.stopPropagation();
             toggleGameFullscreen();
+        });
+
+        document.getElementById('btn-zoom-left').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!gameActive) return;
+            targetRotY = 0.38;
+            targetRotX = -0.15;
+        });
+
+        document.getElementById('btn-zoom-right').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!gameActive) return;
+            targetRotY = -0.44;
+            targetRotX = -0.15;
         });
 
         document.getElementById('btn-tutorial').addEventListener('click', openTutorial);
