@@ -1439,7 +1439,8 @@
         const NORMAL_YAW_LIMIT = 0.8;
         const PURPLE_UNLOCK_STAGE = 11;
         const PURPLE_YAW_LIMIT = 1.45;
-        const REAR_YAW_LIMIT = 3.05;
+        const REAR_YAW_LIMIT = Math.PI;
+        const REAR_LOOK_ACCELERATION = 1.65;
         const RUN_DURATION_MS = 10 * 60 * 1000;
         const CORRECT_SEQUENCE_MS = 3400;
         const STAGE_TRANSITION_MS = 4300;
@@ -1546,7 +1547,7 @@
             stageBandHard: "HARD",
             stageBandImpossible: "IMPOSSIBLE",
             stageBandMeta: "META",
-            yellowPrompt: "TURN AROUND.\nPRESS THE YELLOW BUTTON.",
+            yellowPrompt: "PRESS THE 4TH BUTTON.",
             asylbiPrompt: "PRESS THE BUTTON MR. ASYLBI PREFERS.",
             monitorNamesLeft: ["TETRIS", "MORSE", "BOOKSHELF", "BINARY", "WORDS"],
             monitorNamesRight: ["SHAPES", "PERIODIC", "RADAR", "RUBIKS", "MATH"]
@@ -1630,7 +1631,7 @@
             stageBandHard: "СЛОЖНЫЙ",
             stageBandImpossible: "НЕВОЗМОЖНЫЙ",
             stageBandMeta: "МЕТА",
-            yellowPrompt: "ПОВЕРНИСЬ.\nНАЖМИ ЖЁЛТУЮ КНОПКУ.",
+            yellowPrompt: "НАЖМИ 4-Ю КНОПКУ.",
             asylbiPrompt: "НАЖМИ КНОПКУ,\nКОТОРУЮ ПРЕДПОЧИТАЕТ Г-Н АСЫЛБИ.",
             monitorNamesLeft: ["ТЕТРИС", "МОРЗЕ", "ПОЛКА", "БИНАР", "СЛОВА"],
             monitorNamesRight: ["ФИГУРЫ", "ЭЛЕМЕНТЫ", "РАДАР", "КУБИК", "МАТЕМ"]
@@ -2402,7 +2403,7 @@
             makeRiddle({ id: 'imp_last_skip', band: 'impossible', text: { en: "If your last choice was SKIP = RED,\notherwise = SKIP.", ru: "Если твой прошлый выбор был ПРОПУСТИТЬ = КРАСНАЯ,\nиначе = ПРОПУСТИТЬ." }, requires: (context) => context.lastResolvedButton === BUTTON_RED || context.lastResolvedButton === BUTTON_SKIP, resolve: (context) => context.lastResolvedButton === BUTTON_SKIP ? BUTTON_RED : BUTTON_SKIP }),
             makeRiddle({ id: 'imp_rule_trust', band: 'impossible', text: { en: "If the anomaly rule says to trust the tablet = RED,\notherwise = SKIP.", ru: "Если правило аномалий говорит доверять планшету = КРАСНАЯ,\nиначе = ПРОПУСТИТЬ." }, resolve: (context, anomalyCount, noteRuleId) => noteRuleId === 0 ? BUTTON_RED : BUTTON_SKIP }),
             makeRiddle({ id: 'imp_rule_distrust', band: 'impossible', text: { en: "If the anomaly rule says not to trust the tablet = SKIP,\notherwise = RED.", ru: "Если правило аномалий говорит не доверять планшету = ПРОПУСТИТЬ,\nиначе = КРАСНАЯ." }, resolve: (context, anomalyCount, noteRuleId) => [1, 2, 7].includes(noteRuleId) ? BUTTON_SKIP : BUTTON_RED }),
-            makeRiddle({ id: 'meta_yellow', band: 'meta', text: { en: "Turn around.\nPress the YELLOW button.", ru: "Повернись.\nНажми ЖЁЛТУЮ кнопку." }, specialMode: 'yellow', resolve: () => BUTTON_YELLOW }),
+            makeRiddle({ id: 'meta_yellow', band: 'meta', text: { en: "Press the 4th button.", ru: "Нажми 4-ю кнопку." }, specialMode: 'yellow', resolve: () => BUTTON_YELLOW }),
             makeRiddle({ id: 'meta_asylbi', band: 'meta', text: { en: "Press the button that Mr. Asylbi prefers.\nHe always prefers RED.", ru: "Нажми кнопку,\nкоторую предпочитает г-н Асылби.\nОн всегда выбирает КРАСНУЮ." }, specialMode: 'meta', resolve: () => BUTTON_RED })
         ];
         riddleDefinitions.splice(
@@ -5929,9 +5930,14 @@
         }
 
         // --- GAME MECHANICS ---
+        function isYellowMetaStageActive() {
+            const activeSpec = getCurrentStageSpec();
+            return Boolean(gameActive && activeSpec && activeSpec.specialMode === 'yellow' && globalScreenState === 'NORMAL');
+        }
+
         function updateYellowStageState() {
             const activeSpec = getCurrentStageSpec();
-            const yellowActive = Boolean(gameActive && activeSpec && activeSpec.specialMode === 'yellow' && globalScreenState === 'NORMAL');
+            const yellowActive = isYellowMetaStageActive();
             const purpleActive = Boolean(gameActive && activeSpec && activeSpec.stage >= PURPLE_UNLOCK_STAGE && globalScreenState === 'NORMAL');
             yellowStageGroup.visible = yellowActive;
             yellowGlow.intensity = yellowActive ? 1.2 : 0;
@@ -6324,7 +6330,10 @@
             const pointer = normalizedPointerFromClient(clientX, clientY);
             mouseX = pointer.x;
             mouseY = pointer.y;
-            targetRotY = clamp(-mouseX * currentYawLimit, -currentYawLimit, currentYawLimit);
+            const yawInput = isYellowMetaStageActive()
+                ? clamp(mouseX * REAR_LOOK_ACCELERATION, -1, 1)
+                : mouseX;
+            targetRotY = clamp(-yawInput * currentYawLimit, -currentYawLimit, currentYawLimit);
             targetRotX = clamp(mouseY * 0.3, -0.35, 0.35);
         }
 
