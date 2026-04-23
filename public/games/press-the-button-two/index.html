@@ -777,6 +777,24 @@
 
         .tut-button.red { left: 38%; background: #aa1111; }
         .tut-button.skip { right: 38%; background: #d4ceb0; }
+        .tut-button.purple { right: 22%; background: #7d42d9; box-shadow: 0 0 18px rgba(157, 91, 255, 0.5), 4px 4px 0 rgba(0,0,0,0.55); }
+        .tutorial-visual.purple .tut-tablet {
+            left: 40%;
+            bottom: 86px;
+            width: 24%;
+            height: 36%;
+            transform: rotate(-5deg);
+        }
+        .tutorial-visual.purple .tut-note {
+            left: 9%;
+            bottom: 90px;
+        }
+        .tutorial-visual.purple .tut-signal-panel {
+            right: 34%;
+            top: 58px;
+        }
+        .tutorial-visual.purple .tut-arrow.one { left: 31%; top: 38%; }
+        .tutorial-visual.purple .tut-arrow.two { right: 28%; top: 43%; }
         .tut-label {
             position: absolute;
             color: #ffe0a3;
@@ -1438,6 +1456,7 @@
         const RIGHT_SLOTS = SLOT_KEYS.slice(5);
         const NORMAL_YAW_LIMIT = 0.8;
         const PURPLE_UNLOCK_STAGE = 11;
+        const PURPLE_MAX_PER_RUN = 2;
         const PURPLE_YAW_LIMIT = 1.45;
         const REAR_YAW_LIMIT = Math.PI;
         const REAR_DRAG_YAW_PER_SCREEN = Math.PI * 1.18;
@@ -1688,8 +1707,17 @@
                     ]
                 },
                 {
+                    visual: 'purple',
+                    title: "5. Watch for the purple threat.",
+                    body: [
+                        "Late stages can place a purple button near the tablet.",
+                        "Only press PURPLE if the tablet plus note answer, the signal answer, and the latest log with the same anomaly count all agree.",
+                        "If those three checks do not match, ignore PURPLE and press the normal final answer."
+                    ]
+                },
+                {
                     visual: 'buttons',
-                    title: "5. Press only after you know the final answer.",
+                    title: "6. Press only after you know the final answer.",
                     body: [
                         "RED and SKIP are the normal answers. Pressing the wrong one ends the run.",
                         "Special stages are shown on the tablet like any other stage. Read the current tablet text before choosing.",
@@ -1698,7 +1726,7 @@
                 },
                 {
                     visual: 'events',
-                    title: "6. Survive interruptions calmly.",
+                    title: "7. Survive interruptions calmly.",
                     body: [
                         "Lights can go out for a few seconds. Visibility returns when the event ends.",
                         "During a flicker lockout, scene clicks are disabled for a few seconds.",
@@ -1744,8 +1772,17 @@
                     ]
                 },
                 {
+                    visual: 'purple',
+                    title: "5. Следи за угрозой PURPLE.",
+                    body: [
+                        "На поздних этапах рядом с планшетом может появиться фиолетовая кнопка.",
+                        "Жми PURPLE только если ответ планшет+записка, ответ сигнала и последний лог с тем же числом аномалий совпадают.",
+                        "Если эти три проверки не совпали, игнорируй PURPLE и жми обычный итоговый ответ."
+                    ]
+                },
+                {
                     visual: 'buttons',
-                    title: "5. Нажимай только после финального ответа.",
+                    title: "6. Нажимай только после финального ответа.",
                     body: [
                         "КРАСНАЯ и ПРОПУСТИТЬ - обычные ответы. Неверная кнопка завершает забег.",
                         "Особые этапы тоже показываются на планшете. Перед выбором прочитай текущий текст планшета.",
@@ -1754,7 +1791,7 @@
                 },
                 {
                     visual: 'events',
-                    title: "6. Спокойно переживай помехи.",
+                    title: "7. Спокойно переживай помехи.",
                     body: [
                         "Свет может погаснуть на несколько секунд. Видимость возвращается после окончания события.",
                         "Во время мерцания клики по сцене отключаются на несколько секунд.",
@@ -1786,7 +1823,9 @@
                     answer: 'ОТВЕТ',
                     buttons: 'КРАСНАЯ / ПРОПУСТИТЬ',
                     wait: 'ПОДОЖДИ',
-                    signal: 'СИГНАЛ'
+                    signal: 'СИГНАЛ',
+                    purple: 'PURPLE',
+                    purpleCheck: '3 ПРОВЕРКИ'
                 }
                 : {
                     monitors: 'MONITORS',
@@ -1797,7 +1836,9 @@
                     answer: 'ANSWER',
                     buttons: 'RED / SKIP',
                     wait: 'WAIT',
-                    signal: 'SIGNAL'
+                    signal: 'SIGNAL',
+                    purple: 'PURPLE',
+                    purpleCheck: '3 CHECKS'
                 };
 
             if (type === 'monitors') {
@@ -1827,6 +1868,22 @@
                     <div class="tut-button red"></div>
                     <div class="tut-button skip"></div>
                     <div class="tut-label bottom">${labels.buttons}</div>
+                `;
+            }
+            if (type === 'purple') {
+                return `
+                    <div class="tut-label top">${labels.purpleCheck}</div>
+                    <div class="tut-tablet"></div>
+                    <div class="tut-note"></div>
+                    <div class="tut-signal-panel">
+                        <div class="tut-signal-lens red"></div>
+                        <div class="tut-signal-lens yellow"></div>
+                        <div class="tut-signal-lens blue"></div>
+                    </div>
+                    <div class="tut-arrow one">+</div>
+                    <div class="tut-arrow two">></div>
+                    <div class="tut-button purple"></div>
+                    <div class="tut-label bottom">${labels.purple}</div>
                 `;
             }
             if (type === 'signals') {
@@ -2607,7 +2664,7 @@
             throw new Error(`Unable to build purple signal stage ${stageNumber}`);
         }
 
-        function buildStageSpec(stageNumber, builtStages, midMetaStageNumber, lateMetaStageNumber, rng, ruleOrder, signalSchedule) {
+        function buildStageSpec(stageNumber, builtStages, midMetaStageNumber, lateMetaStageNumber, rng, ruleOrder, signalSchedule, purpleSchedule) {
             if (stageNumber === 1) {
                 const introRiddle = riddleById.easy_zero;
                 const context = buildGenerationContext(stageNumber, builtStages, 0);
@@ -2636,7 +2693,9 @@
 
             if (stageNumber === midMetaStageNumber) return buildSpecialStageSpec(stageNumber, MID_GAME_META_RIDDLE_ID, rng);
             if (stageNumber === lateMetaStageNumber) return buildSpecialStageSpec(stageNumber, LATE_GAME_META_RIDDLE_ID, rng);
-            if (stageNumber >= PURPLE_UNLOCK_STAGE) return buildPurpleSignalStageSpec(stageNumber, builtStages, rng, ruleOrder);
+            if (stageNumber >= PURPLE_UNLOCK_STAGE && purpleSchedule?.has(stageNumber)) {
+                return buildPurpleSignalStageSpec(stageNumber, builtStages, rng, ruleOrder);
+            }
             if (signalSchedule?.has(stageNumber)) return buildSignalStageSpec(stageNumber, builtStages, rng, ruleOrder);
 
             const band = getStageBand(stageNumber);
@@ -2701,21 +2760,41 @@
             ].sort((a, b) => a.startMs - b.startMs);
         }
 
+        function buildPurpleSchedule(rng, midMetaStageNumber, lateMetaStageNumber) {
+            const metaStages = new Set([midMetaStageNumber, lateMetaStageNumber]);
+            const candidates = [];
+            for (let stageNumber = PURPLE_UNLOCK_STAGE; stageNumber <= totalStages; stageNumber++) {
+                if (!metaStages.has(stageNumber)) candidates.push(stageNumber);
+            }
+
+            const selected = [];
+            for (const stageNumber of shuffleArray(candidates, rng)) {
+                if (selected.some((picked) => Math.abs(picked - stageNumber) <= 1)) continue;
+                selected.push(stageNumber);
+                if (selected.length >= PURPLE_MAX_PER_RUN) break;
+            }
+
+            return new Set(selected.sort((a, b) => a - b));
+        }
+
         function buildRunPlan(seedString) {
             const rng = mulberry32(hashString(seedString));
             const ruleOrder = buildRuleOrder(rng);
             const midMetaStageNumber = 8 + Math.floor(rng() * 6);
             const metaStageNumber = 14 + Math.floor(rng() * 3);
             const signalSchedule = buildSignalSchedule(rng, midMetaStageNumber, metaStageNumber);
+            const purpleSchedule = buildPurpleSchedule(rng, midMetaStageNumber, metaStageNumber);
             const stages = [];
             for (let stageNumber = 1; stageNumber <= totalStages; stageNumber++) {
-                stages.push(buildStageSpec(stageNumber, stages, midMetaStageNumber, metaStageNumber, rng, ruleOrder, signalSchedule));
+                stages.push(buildStageSpec(stageNumber, stages, midMetaStageNumber, metaStageNumber, rng, ruleOrder, signalSchedule, purpleSchedule));
             }
             return {
                 seed: seedString,
                 ruleOrder,
                 midMetaStageNumber,
                 metaStageNumber,
+                purpleStages: Array.from(purpleSchedule),
+                purpleSchedule: Array.from(purpleSchedule),
                 signalStages: stages.filter((stage) => stage.usesSignal).map((stage) => stage.stage),
                 stages,
                 ambientEvents: buildAmbientEvents(rng),
@@ -5538,7 +5617,7 @@
         yellowGlow.position.y = 1.2;
         yellowStageGroup.add(yellowGlow);
 
-        yellowStageGroup.position.set(0, 0, 3.45);
+        yellowStageGroup.position.set(0, 0, 2.95);
         yellowStageGroup.visible = false;
         scene.add(yellowStageGroup);
 
@@ -5566,8 +5645,8 @@
         purpleGlow.position.y = 0.22;
         purpleStageGroup.add(purpleGlow);
 
-        purpleStageGroup.position.set(1.36, 0.765, 0.95);
-        purpleStageGroup.rotation.y = -0.18;
+        purpleStageGroup.position.set(0.86, 0.765, 0.88);
+        purpleStageGroup.rotation.y = -0.12;
         purpleStageGroup.visible = false;
         scene.add(purpleStageGroup);
 
@@ -5966,7 +6045,7 @@
         function updateYellowStageState() {
             const activeSpec = getCurrentStageSpec();
             const yellowActive = isYellowMetaStageActive();
-            const purpleActive = Boolean(gameActive && activeSpec && activeSpec.stage >= PURPLE_UNLOCK_STAGE && globalScreenState === 'NORMAL');
+            const purpleActive = Boolean(gameActive && activeSpec?.usesPurple && globalScreenState === 'NORMAL');
             yellowStageGroup.visible = yellowActive;
             yellowGlow.intensity = yellowActive ? 1.2 : 0;
             purpleStageGroup.visible = purpleActive;
@@ -6360,9 +6439,8 @@
             const pointer = normalizedPointerFromClient(clientX, clientY);
             mouseX = pointer.x;
             mouseY = pointer.y;
-            if (!isYellowMetaStageActive()) {
-                targetRotY = clamp(-mouseX * currentYawLimit, -currentYawLimit, currentYawLimit);
-            }
+            const yawLimit = isYellowMetaStageActive() ? REAR_YAW_LIMIT : currentYawLimit;
+            targetRotY = clamp(-mouseX * yawLimit, -yawLimit, yawLimit);
             targetRotX = clamp(mouseY * 0.3, -0.35, 0.35);
         }
 
@@ -6377,9 +6455,6 @@
 
         document.addEventListener('mousemove', (e) => {
             if (!gameActive || isGameUiEventTarget(e.target)) return; 
-            if (isYellowMetaStageActive() && yellowLookDragging) {
-                updateYellowDragLook(e.clientX);
-            }
             updateLookTargetFromClient(e.clientX, e.clientY);
         });
 
@@ -6407,9 +6482,6 @@
             
             const touch = e.touches[0];
             if (!touch) return;
-            if (isYellowMetaStageActive()) {
-                updateYellowDragLook(touch.clientX);
-            }
             updateLookTargetFromClient(touch.clientX, touch.clientY);
         }, { passive: false });
 
@@ -6487,8 +6559,9 @@
             const _zc = zoomedMonitor ? ZOOM_CAM[zoomedMonitor] : null;
             const _tRotY = _zc ? _zc.rotY : clamp(targetRotY, -currentYawLimit, currentYawLimit);
             const _tRotX = _zc ? _zc.rotX : targetRotX;
-            camera.rotation.y += (_tRotY - camera.rotation.y) * 0.07;
-            camera.rotation.x += (_tRotX - camera.rotation.x) * 0.07;
+            const cameraTurnEase = isYellowMetaStageActive() ? 0.14 : 0.07;
+            camera.rotation.y += (_tRotY - camera.rotation.y) * cameraTurnEase;
+            camera.rotation.x += (_tRotX - camera.rotation.x) * cameraTurnEase;
             camera.position.x += ((_zc ? _zc.x : 0)   - camera.position.x) * 0.07;
             camera.position.z += ((_zc ? _zc.z : 2.2) - camera.position.z) * 0.07;
             camera.position.y = 1.1 + Math.sin(time * 1.5) * 0.015;
@@ -6746,7 +6819,8 @@
                 const active = currentRun.stages[idx] || null;
                 if (active) {
                     const rows = [
-                        `<span class="key">Stage:</span> ${active.stage}/18  <span class="key">Band:</span> ${active.visualBand}`,
+                        `<span class="key">Stage:</span> ${active.stage}/${totalStages}  <span class="key">Band:</span> ${active.visualBand}`,
+                        `<span class="key">Purple schedule:</span> ${(currentRun.purpleStages || []).map((stage) => `S${String(stage).padStart(2, '0')}`).join(', ') || '—'}`,
                         `<span class="key">Anomaly count:</span> ${active.anomalyCount}`,
                         `<span class="key">Anomalies (where / what):</span><br>${formatSlotAnomalies(active)}`,
                         `<span class="key">Note rule:</span> ${active.noteRuleId}`,
