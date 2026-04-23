@@ -1440,7 +1440,7 @@
         const PURPLE_UNLOCK_STAGE = 11;
         const PURPLE_YAW_LIMIT = 1.45;
         const REAR_YAW_LIMIT = Math.PI;
-        const REAR_LOOK_ACCELERATION = 1.65;
+        const REAR_DRAG_YAW_PER_SCREEN = Math.PI * 1.18;
         const RUN_DURATION_MS = 10 * 60 * 1000;
         const CORRECT_SEQUENCE_MS = 3400;
         const STAGE_TRANSITION_MS = 4300;
@@ -1640,13 +1640,13 @@
         Object.assign(i18n.en, {
             buttonPurple: "PURPLE",
             purpleCheck: "PURPLE CHECK",
-            purpleInstruction: "PURPLE CHECK:\nTablet + rule.\nSignal answer.\nLatest log with this count.\nIf all three match: PURPLE.\nIf no log with this count exists,\nor answers disagree: normal answer."
+            purpleInstruction: "PURPLE CHECK:\nTablet + rule.\nSignal answer.\nLast log same count.\nAll 3 match = PURPLE.\nElse = normal answer."
         });
 
         Object.assign(i18n.ru, {
             buttonPurple: "PURPLE",
             purpleCheck: "PURPLE CHECK",
-            purpleInstruction: "ПРОВЕРКА PURPLE:\nПланшет + правило.\nОтвет сигнала.\nПоследний лог с этим числом.\nЕсли все три совпали: PURPLE.\nЕсли лога с этим числом нет\nили ответы расходятся: обычный ответ."
+            purpleInstruction: "ПРОВЕРКА PURPLE:\nПланшет + правило.\nСигнал.\nПоследний лог с этим числом.\nВсе 3 совпали = PURPLE.\nИначе = обычный ответ."
         });
 
         const tutorialSlides = {
@@ -5251,6 +5251,38 @@
             return single.length > maxLength ? `${single.slice(0, maxLength - 1)}…` : single;
         }
 
+        function drawCurrentTabletText(stageSpec) {
+            const text = getStageTabletText(stageSpec, currentLang);
+            const styles = stageSpec?.usesPurple
+                ? [
+                    { fontSize: 10, lineHeight: 20, maxWidth: 430, startY: 226 },
+                    { fontSize: 9, lineHeight: 18, maxWidth: 430, startY: 224 },
+                    { fontSize: 8, lineHeight: 16, maxWidth: 430, startY: 222 }
+                ]
+                : [
+                    { fontSize: 14, lineHeight: 30, maxWidth: 410, startY: 262 },
+                    { fontSize: 12, lineHeight: 26, maxWidth: 420, startY: 246 },
+                    { fontSize: 10, lineHeight: 22, maxWidth: 430, startY: 236 }
+                ];
+            const bottomY = 682;
+            let selected = null;
+            let selectedLines = [];
+
+            for (const style of styles) {
+                tabletCtx.font = `${style.fontSize}px "Press Start 2P", Courier`;
+                const lines = wrapCanvasText(tabletCtx, text, style.maxWidth);
+                const finalY = style.startY + Math.max(0, lines.length - 1) * style.lineHeight;
+                selected = style;
+                selectedLines = lines;
+                if (finalY <= bottomY) break;
+            }
+
+            tabletCtx.font = `${selected.fontSize}px "Press Start 2P", Courier`;
+            selectedLines.forEach((line, index) => {
+                tabletCtx.fillText(line, 50, selected.startY + index * selected.lineHeight);
+            });
+        }
+
         function getButtonLabel(button) {
             if (button === BUTTON_RED) return i18n[currentLang].buttonRed;
             if (button === BUTTON_SKIP) return i18n[currentLang].buttonSkip;
@@ -5315,11 +5347,7 @@
                     tabletCtx.fillText(line, 58, 360 + index * 32);
                 });
             } else if (tabletPageMode === 'CURRENT') {
-                tabletCtx.font = '14px "Press Start 2P", Courier';
-                const riddleText = getStageTabletText(activeSpec, currentLang);
-                wrapCanvasText(tabletCtx, riddleText, 410).forEach((line, index) => {
-                    tabletCtx.fillText(line, 50, 262 + index * 30);
-                });
+                drawCurrentTabletText(activeSpec);
             } else {
                 tabletCtx.font = '10px "Press Start 2P", Courier';
                 if (!currentRun.history.length) {
@@ -6229,6 +6257,8 @@
 
         // --- INTERACTIONS ---
         let targetRotX = 0, targetRotY = 0, mouseX = 0, mouseY = 0;
+        let yellowLookDragging = false;
+        let lastYellowLookClientX = 0;
         let zoomedMonitor = null; // null | 'left' | 'right'
         const ZOOM_CAM = {
             left:  { x: -0.24, z: 1.35, rotY:  0.2, rotX: 0.08 },
@@ -6330,24 +6360,43 @@
             const pointer = normalizedPointerFromClient(clientX, clientY);
             mouseX = pointer.x;
             mouseY = pointer.y;
-            const yawInput = isYellowMetaStageActive()
-                ? clamp(mouseX * REAR_LOOK_ACCELERATION, -1, 1)
-                : mouseX;
-            targetRotY = clamp(-yawInput * currentYawLimit, -currentYawLimit, currentYawLimit);
+            if (!isYellowMetaStageActive()) {
+                targetRotY = clamp(-mouseX * currentYawLimit, -currentYawLimit, currentYawLimit);
+            }
             targetRotX = clamp(mouseY * 0.3, -0.35, 0.35);
+        }
+
+        function updateYellowDragLook(clientX) {
+            const size = getGameViewportSize();
+            const deltaX = clientX - lastYellowLookClientX;
+            lastYellowLookClientX = clientX;
+            if (!deltaX) return;
+            const deltaYaw = (deltaX / size.width) * REAR_DRAG_YAW_PER_SCREEN;
+            targetRotY = clamp(targetRotY - deltaYaw, -currentYawLimit, currentYawLimit);
         }
 
         document.addEventListener('mousemove', (e) => {
             if (!gameActive || isGameUiEventTarget(e.target)) return; 
+            if (isYellowMetaStageActive() && yellowLookDragging) {
+                updateYellowDragLook(e.clientX);
+            }
             updateLookTargetFromClient(e.clientX, e.clientY);
         });
 
         document.addEventListener('mousedown', (e) => {
             if (!gameActive || isGameUiEventTarget(e.target)) return; 
             if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (isYellowMetaStageActive()) {
+                yellowLookDragging = true;
+                lastYellowLookClientX = e.clientX;
+            }
 
             const clickMouse = normalizedPointerFromClient(e.clientX, e.clientY);
             handleInteraction(clickMouse);
+        });
+
+        document.addEventListener('mouseup', () => {
+            yellowLookDragging = false;
         });
 
         // Mobile Touch Support
@@ -6358,6 +6407,9 @@
             
             const touch = e.touches[0];
             if (!touch) return;
+            if (isYellowMetaStageActive()) {
+                updateYellowDragLook(touch.clientX);
+            }
             updateLookTargetFromClient(touch.clientX, touch.clientY);
         }, { passive: false });
 
@@ -6368,9 +6420,17 @@
 
             const touch = e.touches[0];
             if (!touch) return;
+            if (isYellowMetaStageActive()) {
+                yellowLookDragging = true;
+                lastYellowLookClientX = touch.clientX;
+            }
             const clickMouse = normalizedPointerFromClient(touch.clientX, touch.clientY);
             handleInteraction(clickMouse);
         }, { passive: false });
+
+        document.addEventListener('touchend', () => {
+            yellowLookDragging = false;
+        });
 
         let viewportResizeFrame = 0;
         function queueResizeGameViewport() {
