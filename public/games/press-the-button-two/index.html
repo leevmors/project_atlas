@@ -6651,6 +6651,22 @@
                 }
             }
 
+            function formatSlotAnomalies(spec) {
+                if (!spec?.slotAnomalies?.length) return '—';
+                return spec.slotAnomalies.map((a) => {
+                    const bandTag = a.band ? `<span style="color:#888">(${a.band})</span>` : '';
+                    return `<div style="padding:2px 0 2px 8px; border-left:2px solid #ffcc66; margin:2px 0;">`
+                        + `<span style="color:#ffcc66;font-weight:700;">${a.slot}</span> ${bandTag}<br>`
+                        + `<span style="color:#b0e0b0;">${a.id}</span>`
+                        + `</div>`;
+                }).join('');
+            }
+
+            function slotAnomaliesInline(spec) {
+                if (!spec?.slotAnomalies?.length) return '';
+                return spec.slotAnomalies.map((a) => `${a.slot}:${a.id}`).join(', ');
+            }
+
             function renderAdmin() {
                 if (!authed || !currentRun) {
                     currentEl.innerHTML = '<em style="color:#888">No run yet. Press PLAY to start.</em>';
@@ -6662,7 +6678,8 @@
                 if (active) {
                     const rows = [
                         `<span class="key">Stage:</span> ${active.stage}/18  <span class="key">Band:</span> ${active.visualBand}`,
-                        `<span class="key">Anomalies:</span> ${active.anomalyCount}`,
+                        `<span class="key">Anomaly count:</span> ${active.anomalyCount}`,
+                        `<span class="key">Anomalies (where / what):</span><br>${formatSlotAnomalies(active)}`,
                         `<span class="key">Note rule:</span> ${active.noteRuleId}`,
                         `<span class="key">Riddle:</span> ${riddleTextOf(active).replace(/\n/g, ' / ')}`,
                         `<span class="key">Raw tablet:</span> ${btnSpan(active.rawTabletAnswer)}`,
@@ -6680,9 +6697,18 @@
                 const all = currentRun.stages.map((s, i) => {
                     const activeCls = i === idx ? 'active' : '';
                     const label = s.specialMode ? `[${s.specialMode}]` : (s.usesPurple ? '[purple]' : (s.usesSignal ? '[signal]' : ''));
-                    return `<div class="row ${activeCls}"><span class="sn">S${String(s.stage).padStart(2,'0')}</span>` +
-                           `<span style="color:#888">${label}</span>` +
-                           `<span>n=${s.anomalyCount} &nbsp; ${btnSpan(s.expectedButton)}</span></div>`;
+                    const inline = slotAnomaliesInline(s);
+                    const anomalyLine = inline
+                        ? `<div style="color:#7a9e7a; font-size:9px; padding:2px 0 4px; word-break:break-word;">${inline}</div>`
+                        : '';
+                    return `<div class="row ${activeCls}" style="flex-direction:column; align-items:stretch;">`
+                        + `<div style="display:flex; justify-content:space-between;">`
+                        + `<span class="sn">S${String(s.stage).padStart(2,'0')}</span>`
+                        + `<span style="color:#888">${label}</span>`
+                        + `<span>n=${s.anomalyCount} &nbsp; ${btnSpan(s.expectedButton)}</span>`
+                        + `</div>`
+                        + anomalyLine
+                        + `</div>`;
                 }).join('');
                 runEl.innerHTML = all;
             }
