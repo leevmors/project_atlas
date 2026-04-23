@@ -1126,6 +1126,145 @@
         #vignette {
             animation: subtle-flicker 4s infinite;
         }
+
+        /* PTB2 Admin Debug Overlay */
+        #ptb2-admin-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 20000;
+            background: rgba(0, 0, 0, 0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "Cascadia Code", "Consolas", monospace;
+        }
+        .ptb2-admin-gate-inner {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 22px 26px;
+            text-align: center;
+            width: 300px;
+            max-width: calc(100vw - 2rem);
+        }
+        .ptb2-admin-gate-title {
+            color: #ffcc66;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            font-size: 13px;
+            margin-bottom: 14px;
+        }
+        #ptb2-admin-password {
+            width: 100%;
+            padding: 10px 12px;
+            background: #000;
+            border: 1px solid #444;
+            color: #a0f0a0;
+            font-family: inherit;
+            border-radius: 6px;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        #ptb2-admin-password:focus {
+            outline: none;
+            border-color: #ffcc66;
+        }
+        #ptb2-admin-login-btn {
+            width: 100%;
+            padding: 10px;
+            background: #222;
+            color: #a0f0a0;
+            border: 1px solid #444;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 12px;
+            letter-spacing: 0.12em;
+            cursor: pointer;
+        }
+        #ptb2-admin-login-btn:hover { background: #333; }
+        #ptb2-admin-error {
+            color: #ff6666;
+            font-size: 11px;
+            margin-top: 8px;
+            display: none;
+        }
+        #ptb2-admin-error.visible { display: block; }
+
+        #ptb2-admin-overlay {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 19000;
+            width: 300px;
+            max-width: calc(100vw - 20px);
+            max-height: calc(100vh - 20px);
+            background: rgba(0, 0, 0, 0.88);
+            border: 1px solid #333;
+            border-radius: 10px;
+            color: #c0ffc0;
+            font-family: "Cascadia Code", "Consolas", monospace;
+            font-size: 11px;
+            line-height: 1.45;
+            pointer-events: auto;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        }
+        #ptb2-admin-overlay.collapsed #ptb2-admin-body { display: none; }
+        .ptb2-admin-header {
+            background: rgba(255, 204, 102, 0.12);
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #ffcc66;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            font-size: 11px;
+            border-bottom: 1px solid #222;
+        }
+        #ptb2-admin-toggle {
+            background: transparent;
+            border: 1px solid #444;
+            color: #ffcc66;
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            line-height: 1;
+        }
+        #ptb2-admin-body {
+            padding: 10px 12px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+        #ptb2-admin-current {
+            color: #e8fbe8;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        #ptb2-admin-current .key { color: #ffcc66; }
+        #ptb2-admin-current .btn-red { color: #ff6a5a; font-weight: 700; }
+        #ptb2-admin-current .btn-skip { color: #9fd9ff; font-weight: 700; }
+        #ptb2-admin-current .btn-yellow { color: #ffe066; font-weight: 700; }
+        #ptb2-admin-current .btn-purple { color: #c78bff; font-weight: 700; }
+        #ptb2-admin-divider {
+            margin: 10px 0 6px;
+            border-top: 1px dashed rgba(255, 204, 102, 0.25);
+        }
+        #ptb2-admin-run {
+            color: #c0d0e0;
+            font-size: 10px;
+        }
+        #ptb2-admin-run .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        #ptb2-admin-run .row.active { background: rgba(255, 204, 102, 0.12); }
+        #ptb2-admin-run .row .sn { color: #888; }
     </style>
     <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1159,6 +1298,27 @@
             <div class="rotate-phone-device" aria-hidden="true"></div>
             <h2 id="rotate-phone-title">ROTATE PHONE</h2>
             <p id="rotate-phone-body">Turn your phone sideways to play.</p>
+        </div>
+    </div>
+
+    <!-- PTB2 ADMIN: password gate + debug overlay (activated via ?admin) -->
+    <div id="ptb2-admin-gate" style="display:none;">
+        <div class="ptb2-admin-gate-inner">
+            <div class="ptb2-admin-gate-title">PTB2 ADMIN</div>
+            <input id="ptb2-admin-password" type="password" placeholder="password" autocomplete="off" />
+            <button id="ptb2-admin-login-btn" type="button">ENTER</button>
+            <div id="ptb2-admin-error">Wrong password</div>
+        </div>
+    </div>
+    <div id="ptb2-admin-overlay" style="display:none;">
+        <div class="ptb2-admin-header">
+            <span>ADMIN DEBUG</span>
+            <button id="ptb2-admin-toggle" type="button" title="Collapse">–</button>
+        </div>
+        <div id="ptb2-admin-body">
+            <div id="ptb2-admin-current"></div>
+            <div id="ptb2-admin-divider"></div>
+            <div id="ptb2-admin-run"></div>
         </div>
     </div>
 
@@ -1479,13 +1639,13 @@
         Object.assign(i18n.en, {
             buttonPurple: "PURPLE",
             purpleCheck: "PURPLE CHECK",
-            purpleInstruction: "PURPLE CHECK:\nTablet + rule.\nSignal answer.\nLatest log with this count.\nIf all three match: PURPLE.\nElse: normal answer."
+            purpleInstruction: "PURPLE CHECK:\nTablet + rule.\nSignal answer.\nLatest log with this count.\nIf all three match: PURPLE.\nIf no log with this count exists,\nor answers disagree: normal answer."
         });
 
         Object.assign(i18n.ru, {
             buttonPurple: "PURPLE",
             purpleCheck: "PURPLE CHECK",
-            purpleInstruction: "PURPLE CHECK:\nTablet + rule.\nSignal answer.\nLatest log with this count.\nIf all three match: PURPLE.\nElse: normal answer."
+            purpleInstruction: "ПРОВЕРКА PURPLE:\nПланшет + правило.\nОтвет сигнала.\nПоследний лог с этим числом.\nЕсли все три совпали: PURPLE.\nЕсли лога с этим числом нет\nили ответы расходятся: обычный ответ."
         });
 
         const tutorialSlides = {
@@ -2376,7 +2536,23 @@
 
         function buildPurpleSignalStageSpec(stageNumber, builtStages, rng, ruleOrder) {
             const band = getStageBand(stageNumber);
-            const countCandidates = shuffleArray(Array.from({ length: getMaxAnomalies(stageNumber) }, (_, index) => index + 1), rng);
+            // Patch A: only pick anomaly counts that ALREADY have a prior RED/SKIP
+            // log entry. Without this, the tablet instruction "Latest log with
+            // this count" could silently refer to a non-existent log.
+            const priorRedSkipCounts = new Set(
+                builtStages
+                    .filter((s) => s.expectedButton === BUTTON_RED || s.expectedButton === BUTTON_SKIP)
+                    .map((s) => s.anomalyCount)
+            );
+            const allCounts = Array.from({ length: getMaxAnomalies(stageNumber) }, (_, index) => index + 1);
+            const eligibleCounts = allCounts.filter((c) => priorRedSkipCounts.has(c));
+            // If no eligible count exists yet (very early-run edge case),
+            // fall back to a plain signal stage so the player never sees a
+            // purple instruction that cannot be satisfied.
+            if (eligibleCounts.length === 0) {
+                return buildSignalStageSpec(stageNumber, builtStages, rng, ruleOrder);
+            }
+            const countCandidates = shuffleArray(eligibleCounts, rng);
             const riddlePool = riddleDefinitions.filter((riddle) => riddle.band === band);
             let fallbackStage = null;
 
@@ -6404,6 +6580,115 @@
         }
 
         window.onload = animate;
+
+        // ===============================================================
+        // PTB2 ADMIN DEBUG — activated via ?admin, password "mrasylbirules"
+        // Shows the expected button + per-stage breakdown so the run can be
+        // verified end-to-end without playing it.
+        // ===============================================================
+        (function ptb2AdminInit() {
+            const url = new URL(window.location.href);
+            if (!url.searchParams.has('admin')) return;
+            const PASSWORD = 'mrasylbirules';
+
+            const gate = document.getElementById('ptb2-admin-gate');
+            const overlay = document.getElementById('ptb2-admin-overlay');
+            const input = document.getElementById('ptb2-admin-password');
+            const btn = document.getElementById('ptb2-admin-login-btn');
+            const errEl = document.getElementById('ptb2-admin-error');
+            const toggleBtn = document.getElementById('ptb2-admin-toggle');
+            const currentEl = document.getElementById('ptb2-admin-current');
+            const runEl = document.getElementById('ptb2-admin-run');
+            if (!gate || !overlay) return;
+
+            gate.style.display = 'flex';
+            setTimeout(() => input && input.focus(), 100);
+
+            let authed = false;
+            function attemptLogin() {
+                if ((input.value || '') === PASSWORD) {
+                    authed = true;
+                    gate.style.display = 'none';
+                    overlay.style.display = 'block';
+                    renderAdmin();
+                } else {
+                    errEl.classList.add('visible');
+                    input.value = '';
+                    input.focus();
+                }
+            }
+            btn.addEventListener('click', attemptLogin);
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptLogin(); });
+
+            toggleBtn.addEventListener('click', () => {
+                overlay.classList.toggle('collapsed');
+                toggleBtn.textContent = overlay.classList.contains('collapsed') ? '+' : '–';
+            });
+
+            function btnClass(button) {
+                if (button === 'RED') return 'btn-red';
+                if (button === 'SKIP') return 'btn-skip';
+                if (button === 'YELLOW') return 'btn-yellow';
+                if (button === 'PURPLE') return 'btn-purple';
+                return '';
+            }
+            function btnSpan(button) {
+                if (!button) return '<span>—</span>';
+                return `<span class="${btnClass(button)}">${button}</span>`;
+            }
+            function riddleTextOf(spec) {
+                if (!spec) return '';
+                const rid = spec.riddleId;
+                const r = (typeof riddleById !== 'undefined') ? riddleById[rid] : null;
+                return r?.text?.en || rid || '';
+            }
+            function signalSummaryOf(spec) {
+                if (!spec?.signalSpec) return '—';
+                try {
+                    return formatSignalSummary(spec.signalSpec, 'en');
+                } catch (e) {
+                    return JSON.stringify(spec.signalSpec);
+                }
+            }
+
+            function renderAdmin() {
+                if (!authed || !currentRun) {
+                    currentEl.innerHTML = '<em style="color:#888">No run yet. Press PLAY to start.</em>';
+                    runEl.innerHTML = '';
+                    return;
+                }
+                const idx = (typeof currentStage === 'number' ? currentStage : 1) - 1;
+                const active = currentRun.stages[idx] || null;
+                if (active) {
+                    const rows = [
+                        `<span class="key">Stage:</span> ${active.stage}/18  <span class="key">Band:</span> ${active.visualBand}`,
+                        `<span class="key">Anomalies:</span> ${active.anomalyCount}`,
+                        `<span class="key">Note rule:</span> ${active.noteRuleId}`,
+                        `<span class="key">Riddle:</span> ${riddleTextOf(active).replace(/\n/g, ' / ')}`,
+                        `<span class="key">Raw tablet:</span> ${btnSpan(active.rawTabletAnswer)}`,
+                        `<span class="key">Base expected:</span> ${btnSpan(active.baseExpectedButton)}`,
+                        `<span class="key">Signal:</span> ${active.signalSpec ? signalSummaryOf(active) : '—'}`,
+                        `<span class="key">Signal expected:</span> ${btnSpan(active.signalExpectedButton)}`,
+                        `<span class="key">Purple active:</span> ${active.purpleSpec?.active ? 'YES' : 'no'}`,
+                        active.purpleSpec?.matchingLogStage ? `<span class="key">Matching log stage:</span> S${String(active.purpleSpec.matchingLogStage).padStart(2,'0')}` : '',
+                        `<span class="key">Special:</span> ${active.specialMode || '—'}`,
+                        `<hr style="border:none;border-top:1px solid rgba(255,204,102,0.35);margin:6px 0;">`,
+                        `<span class="key" style="font-size:12px;">CORRECT BUTTON:</span> <span style="font-size:14px;">${btnSpan(active.expectedButton)}</span>`
+                    ].filter(Boolean);
+                    currentEl.innerHTML = rows.join('<br>');
+                }
+                const all = currentRun.stages.map((s, i) => {
+                    const activeCls = i === idx ? 'active' : '';
+                    const label = s.specialMode ? `[${s.specialMode}]` : (s.usesPurple ? '[purple]' : (s.usesSignal ? '[signal]' : ''));
+                    return `<div class="row ${activeCls}"><span class="sn">S${String(s.stage).padStart(2,'0')}</span>` +
+                           `<span style="color:#888">${label}</span>` +
+                           `<span>n=${s.anomalyCount} &nbsp; ${btnSpan(s.expectedButton)}</span></div>`;
+                }).join('');
+                runEl.innerHTML = all;
+            }
+
+            setInterval(renderAdmin, 500);
+        })();
 
     </script>
 </body>
