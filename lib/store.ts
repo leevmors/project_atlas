@@ -90,6 +90,17 @@ export async function updateTeam(
   return data.team;
 }
 
+export async function changeTeamPassword(
+  id: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  await apiFetch(`/api/teams/${id}/change-password`, {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 // Task Scores
 export async function saveTaskScore(
   score: Omit<TaskScore, 'id' | 'scoredAt'>

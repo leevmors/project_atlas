@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { AppShell } from '@/components/app-shell';
-import { getAllTeamsWithScores, getTeamWithScores, updateTeam } from '@/lib/store';
+import { getAllTeamsWithScores, getTeamWithScores, updateTeam, changeTeamPassword } from '@/lib/store';
 import type { TeamWithScores, TeamMember } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,8 @@ import {
   X,
   Plus,
   Hash,
+  Lock,
+  KeyRound,
 } from 'lucide-react';
 
 function TeamContent() {
@@ -43,6 +45,15 @@ function TeamContent() {
   const [editMembers, setEditMembers] = useState<TeamMember[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  // Password change state
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
 
   useEffect(() => {
     if (!authLoading && (!session || session.type !== 'team')) {
@@ -120,6 +131,55 @@ function TeamContent() {
       setSaveError(err instanceof Error ? err.message : 'Failed to save changes.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const closePasswordSection = () => {
+    setIsChangingPassword(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPwError('');
+    setPwSuccess('');
+  };
+
+  const handleChangePassword = async () => {
+    if (pwSaving) return;
+    setPwError('');
+    setPwSuccess('');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPwError('All fields are required.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwError('New password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError('New password and confirmation do not match.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setPwError('New password must be different from current password.');
+      return;
+    }
+
+    setPwSaving(true);
+    try {
+      await changeTeamPassword(team!.id, currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPwSuccess('Password updated. Other sessions have been signed out.');
+      setTimeout(() => {
+        setIsChangingPassword(false);
+        setPwSuccess('');
+      }, 2500);
+    } catch (err) {
+      setPwError(err instanceof Error ? err.message : 'Failed to change password.');
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -435,6 +495,130 @@ function TeamContent() {
             </div>
           </div>
         )}
+
+        {/* Security — Change Password */}
+        <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <Lock className="h-5 w-5 text-slate-700" />
+                Security
+              </CardTitle>
+              {isChangingPassword ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={closePasswordSection}
+                  disabled={pwSaving}
+                  className="text-muted-foreground hover:text-slate-700"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsChangingPassword(true);
+                    setPwError('');
+                    setPwSuccess('');
+                  }}
+                  className="text-muted-foreground hover:text-slate-700"
+                >
+                  <KeyRound className="h-4 w-4 mr-1" />
+                  Change Password
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!isChangingPassword ? (
+              <p className="text-sm text-slate-500">
+                Rotate your team password whenever you need to. You&apos;ll need the current
+                password to make this change.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword" className="text-slate-700">Current Password</Label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    disabled={pwSaving}
+                    placeholder="Enter your current password"
+                    className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword" className="text-slate-700">New Password</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={pwSaving}
+                    placeholder="At least 6 characters"
+                    className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                  />
+                  <p className="text-xs text-slate-500">At least 6 characters.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword" className="text-slate-700">Confirm New Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={pwSaving}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleChangePassword();
+                    }}
+                    placeholder="Re-enter new password"
+                    className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                  />
+                </div>
+
+                {pwError && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                    {pwError}
+                  </div>
+                )}
+
+                {pwSuccess && (
+                  <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+                    {pwSuccess}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button
+                    variant="ghost"
+                    onClick={closePasswordSection}
+                    disabled={pwSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleChangePassword}
+                    disabled={pwSaving || !currentPassword || !newPassword || !confirmPassword}
+                    className="bg-slate-800 text-white hover:bg-slate-700"
+                  >
+                    <KeyRound className="h-4 w-4 mr-2" />
+                    {pwSaving ? 'Updating...' : 'Update Password'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Task scores */}
         <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
