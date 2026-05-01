@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combination Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Press Start 2P', monospace;
+            color: #fff;
+        }
+
+        #game-canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Scanlines overlay for extra retro vibe */
+        #scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            text-shadow: 2px 2px 0px #000;
+            z-index: 20;
+        }
+
+        .controls-hint {
+            font-size: 10px;
+            color: #fff;
+            text-shadow: 1px 1px 0px #000;
+        }
+
+        .input-area {
+            padding: 30px;
+            text-align: center;
+            z-index: 20;
+            pointer-events: auto;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+        }
+
+        input[type="text"] {
+            font-family: 'Press Start 2P', monospace;
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid #0ff;
+            color: #0ff;
+            padding: 15px;
+            font-size: 16px;
+            width: 300px;
+            text-align: center;
+            outline: none;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+            text-transform: uppercase;
+        }
+
+        input[type="text"]:focus {
+            border-color: #ffeb3b;
+            color: #ffeb3b;
+            box-shadow: 0 0 20px rgba(255, 235, 59, 0.8);
+        }
+
+        #overlay-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            text-align: center;
+            line-height: 1.5;
+            text-shadow: 3px 3px 0px #000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 30;
+            background: rgba(0,0,0,0.7);
+            padding: 30px;
+            border: 4px solid #fff;
+        }
+
+        .correct { color: #0f0; border-color: #0f0 !important; }
+        .wrong { color: #f00; border-color: #f00 !important; }
+        .neutral { color: #fff; border-color: #fff !important; }
+        .stage-title { color: #ffeb3b; border-color: #ffeb3b !important; font-size: 32px !important; }
+
+        /* History Tracker Styles */
+        #history-tracker {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 20px 0 0 0;
+            z-index: 20;
+            pointer-events: auto;
+        }
+
+        .hist-slot {
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid #555;
+            padding: 8px 15px;
+            color: #555;
+            font-size: 14px;
+            min-width: 60px;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .hist-slot.filled {
+            border-color: #0ff;
+            color: #0ff;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        /* Final Reveal Animation Styles */
+        #final-reveal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 5, 10, 0.95);
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        #final-reveal h2 {
+            color: #ffeb3b;
+            margin-bottom: 40px;
+            font-size: 24px;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        #reveal-slots {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .reveal-item {
+            font-size: 20px;
+            color: #0ff;
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid #0ff;
+            padding: 15px 30px;
+            opacity: 0;
+            transform: translateY(20px) scale(0.9);
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+            box-shadow: 4px 4px 0 #000;
+        }
+
+        .reveal-item.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        #reveal-result {
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #reveal-result.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Play Again Button Styles */
+        #play-again-btn {
+            font-family: 'Press Start 2P', monospace;
+            background: #ffeb3b; color: #000; border: 4px solid #000;
+            padding: 15px 30px; font-size: 16px; cursor: pointer;
+            margin-top: 40px; transition: transform 0.1s;
+            box-shadow: 4px 4px 0 #000;
+            opacity: 0; pointer-events: none;
+            transform: scale(0.8); transition: opacity 0.6s, transform 0.6s;
+        }
+        #play-again-btn.show { opacity: 1; transform: scale(1); pointer-events: auto; }
+        #play-again-btn:active { transform: translate(4px, 4px) scale(1); box-shadow: 0 0 0 #000; }
+        #play-again-btn:hover { background: #fff; }
+
+        /* History Menu & Button Styles */
+        #history-btn {
+            position: relative; z-index: 2;
+            font-family: 'Press Start 2P', monospace;
+            background: #000; color: #0ff; border: 4px solid #0ff;
+            padding: 12px 24px; font-size: 14px; cursor: pointer;
+            margin-top: 15px; transition: transform 0.1s;
+            box-shadow: 4px 4px 0 #000;
+        }
+        #history-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 #000; }
+        #history-btn:hover { background: #0ff; color: #000; }
+
+        #history-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 10, 20, 0.95); z-index: 300; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        #history-content {
+            background: #000; border: 4px solid #0ff; width: 80%; max-width: 600px;
+            max-height: 60%; overflow-y: auto; padding: 20px; text-align: left;
+        }
+        .hist-entry { border-bottom: 2px dashed #555; padding: 15px 0; }
+        .hist-entry:last-child { border-bottom: none; }
+        .hist-date { color: #aaa; font-size: 10px; margin-bottom: 8px; }
+        .hist-guesses { color: #0ff; font-size: 12px; line-height: 1.5; }
+        .hist-win { color: #0f0; }
+        .hist-loss { color: #f00; }
+
+        #close-history {
+            font-family: 'Press Start 2P', monospace; background: #f00; color: #fff;
+            border: 4px solid #fff; padding: 10px 20px; margin-top: 20px; cursor: pointer;
+            box-shadow: 4px 4px 0 #000;
+        }
+        #close-history:active { transform: translate(4px, 4px); box-shadow: 0 0 0 #000; }
+
+        /* Tutorial Menu Styles */
+        #tutorial-menu {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #5baef5; /* Bright blue sky */
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        #pixel-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+        }
+
+        .pixel-cloud {
+            width: 8px; height: 8px; background: #fff;
+            position: absolute;
+            box-shadow:
+                8px 0 0 #fff, 16px 0 0 #fff, 24px 0 0 #fff, 32px 0 0 #fff, 40px 0 0 #fff, 48px 0 0 #fff, 56px 0 0 #fff,
+                8px -8px 0 #fff, 16px -8px 0 #fff, 24px -8px 0 #fff, 32px -8px 0 #fff, 40px -8px 0 #fff, 48px -8px 0 #fff,
+                16px -16px 0 #fff, 24px -16px 0 #fff, 32px -16px 0 #fff, 40px -16px 0 #fff,
+                24px -24px 0 #fff, 32px -24px 0 #fff;
+            opacity: 0.9;
+        }
+        .cloud1 { top: 15%; left: -20%; animation: cloudMove 25s linear infinite; transform: scale(2); }
+        .cloud2 { top: 40%; left: -30%; animation: cloudMove 35s linear infinite 10s; transform: scale(1.5); opacity: 0.7; }
+        .cloud3 { top: 65%; left: -10%; animation: cloudMove 45s linear infinite 5s; transform: scale(2.5); opacity: 0.5; }
+
+        .pixel-bird {
+            width: 4px; height: 4px; background: #000;
+            position: absolute; top: 30%; left: -10%;
+            animation: fly 12s linear infinite, flap 0.4s steps(2) infinite alternate;
+        }
+
+        @keyframes flap {
+            0% {
+                box-shadow:
+                    4px 0 0 #000, 8px 0 0 #000, 12px 0 0 #000, 16px 0 0 #000,
+                    20px 4px 0 #000, 24px 4px 0 #000,
+                    8px -4px 0 #000, 4px -8px 0 #000;
+            }
+            100% {
+                box-shadow:
+                    4px 0 0 #000, 8px 0 0 #000, 12px 0 0 #000, 16px 0 0 #000,
+                    20px 4px 0 #000, 24px 4px 0 #000,
+                    8px 4px 0 #000, 4px 8px 0 #000;
+            }
+        }
+
+        @keyframes fly {
+            0% { left: -10%; transform: translateY(0) scale(1.5); }
+            50% { transform: translateY(20px) scale(1.5); }
+            100% { left: 110%; transform: translateY(0) scale(1.5); }
+        }
+
+        @keyframes cloudMove {
+            0% { left: -20%; }
+            100% { left: 110%; }
+        }
+
+        #tutorial-menu h1 {
+            position: relative; z-index: 2; color: #fff; font-size: 40px; margin-bottom: 20px;
+            text-shadow: 4px 4px 0 #000;
+        }
+
+        #start-btn {
+            position: relative; z-index: 2;
+            font-family: 'Press Start 2P', monospace;
+            background: #ffeb3b; color: #000; border: 4px solid #000;
+            padding: 15px 30px; font-size: 20px; cursor: pointer;
+            margin-top: 30px; transition: transform 0.1s;
+            box-shadow: 4px 4px 0 #000;
+        }
+
+        #start-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 #000; }
+        #start-btn:hover { background: #fff; }
+
+        .tut-desc { position: relative; z-index: 2; line-height: 1.8; color: #fff; font-size: 16px; max-width: 600px; text-shadow: 2px 2px 0 #000; }
+
+        /* Mobile Controls */
+        #mobile-controls {
+            display: none;
+            position: absolute; bottom: 20px; right: 20px;
+            z-index: 50; flex-direction: column; gap: 10px;
+        }
+        #mobile-controls button {
+            width: 60px; height: 60px; font-size: 20px;
+            font-family: 'Press Start 2P', monospace;
+            background: rgba(0, 0, 0, 0.6); color: #fff;
+            border: 3px solid #ffeb3b; border-radius: 8px;
+            cursor: pointer; user-select: none;
+        }
+        #mobile-controls button:active { background: #ffeb3b; color: #000; }
+
+        @media (max-width: 768px) {
+            #mobile-controls { display: flex; }
+            .controls-hint { display: none; }
+            .header { flex-direction: column; align-items: center; text-align: center; gap: 10px; padding-top: 10px; }
+            input[type="text"] { width: 90%; max-width: 300px; padding: 10px; font-size: 14px; }
+            .input-area { padding: 15px; }
+            #tutorial-menu h1 { font-size: 26px; }
+            .tut-desc { font-size: 12px; }
+            .hist-slot { font-size: 10px; padding: 5px 8px; min-width: 40px; }
+            .reveal-item { font-size: 14px; padding: 10px 20px; }
+            #history-content { width: 95%; padding: 10px; }
+            #history-btn { font-size: 12px; padding: 10px 15px; }
+            #play-again-btn { font-size: 12px; padding: 10px 20px; }
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Three.js Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- History Overlay -->
+    <div id="history-modal">
+        <h2 style="color:#0ff; text-shadow: 2px 2px 0 #000; margin-bottom:20px; font-size:24px;">GAME HISTORY</h2>
+        <div id="history-content"></div>
+        <button id="close-history">CLOSE</button>
+    </div>
+
+    <!-- Final Reveal Overlay -->
+    <div id="final-reveal">
+        <h2>VERIFYING COMBINATION...</h2>
+        <div id="reveal-slots"></div>
+        <div id="reveal-result"></div>
+        <button id="play-again-btn">PLAY AGAIN?</button>
+    </div>
+
+    <!-- Tutorial Menu Overlay -->
+    <div id="tutorial-menu">
+        <div id="pixel-bg">
+            <div class="pixel-cloud cloud1"></div>
+            <div class="pixel-cloud cloud2"></div>
+            <div class="pixel-cloud cloud3"></div>
+            <div class="pixel-bird"></div>
+        </div>
+        <h1>COMBINATION GAME</h1>
+        <p class="tut-desc">choose the right combination and you will win.</p>
+        <button id="start-btn">START GAME</button>
+        <button id="history-btn">VIEW HISTORY</button>
+    </div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer" style="display: none;">
+        <div id="history-tracker">
+            <span class="hist-slot" id="hist-0">???</span>
+            <span class="hist-slot" id="hist-1">???</span>
+            <span class="hist-slot" id="hist-2">???</span>
+            <span class="hist-slot" id="hist-3">???</span>
+        </div>
+
+        <div class="header">
+            <div>
+                <div id="stage-text">STAGE 1/4</div>
+            </div>
+            <div class="controls-hint">
+                [UP]/[DOWN] ARROWS TO WALK<br><br>
+                TYPE ANSWER & PRESS [ENTER]
+            </div>
+        </div>
+
+        <div class="input-area">
+            <input type="text" id="answer-input" placeholder="TYPE HERE..." autocomplete="off">
+        </div>
+
+        <div id="mobile-controls">
+            <button id="btn-up">▲</button>
+            <button id="btn-down">▼</button>
+        </div>
+    </div>
+
+    <!-- Central Messages (Correct/Wrong/Stage Transitions) -->
+    <div id="overlay-message"></div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // --- GAME DATA (4 Stages, Specific Targets) ---
+        const gameData = [
+            // Stage 1
+            [
+                { a: "BIRD", c: ["CAT", "DOG", "BIRD", "FISH"] }
+            ],
+            // Stage 2
+            [
+                { a: "MOON", c: ["SUN", "MOON", "STAR", "SKY"] }
+            ],
+            // Stage 3
+            [
+                { a: "BOOK", c: ["BOOK", "PEN", "BAG", "DESK"] }
+            ],
+            // Stage 4
+            [
+                { a: "BREAD", c: ["APPLE", "BANANA", "MILK", "BREAD"] }
+            ]
+        ];
+
+        // --- GAME STATE ---
+        let currentStage = 0;
+        let currentInstance = 0;
+        let isTransitioning = false;
+        let playerResults = [];
+        let audioCtx;
+        let isAnimating = false;
+
+        // --- THREE.JS SETUP ---
+        const canvas = document.getElementById('game-canvas');
+
+        // High resolution for clear visuals (removed PIXEL_SCALE)
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Blue sky
+        scene.fog = new THREE.Fog(0x87CEEB, 10, 100);
+
+        const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setSize(width, height, false);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 50, 20);
+        scene.add(dirLight);
+
+        // --- WORLD GENERATION (OUTDOOR STYLE) ---
+
+        // 1. Grass Floor
+        const floorCanvas = document.createElement('canvas');
+        floorCanvas.width = 256;
+        floorCanvas.height = 256;
+        const ctxFloor = floorCanvas.getContext('2d');
+        ctxFloor.fillStyle = '#4caf50'; // Base green
+        ctxFloor.fillRect(0, 0, 256, 256);
+        ctxFloor.fillStyle = '#388e3c'; // Darker green details
+        for(let i=0; i<500; i++) {
+            ctxFloor.fillRect(Math.random()*256, Math.random()*256, 4, 8);
+        }
+
+        const floorTexture = new THREE.CanvasTexture(floorCanvas);
+        floorTexture.wrapS = THREE.RepeatWrapping;
+        floorTexture.wrapT = THREE.RepeatWrapping;
+        floorTexture.repeat.set(20, 80);
+
+        const floorGeo = new THREE.PlaneGeometry(200, 500);
+        const floorMat = new THREE.MeshLambertMaterial({ map: floorTexture });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -2;
+        scene.add(floor);
+
+        // 2. Fences
+        const fenceGeo = new THREE.BoxGeometry(0.5, 2, 0.5);
+        const railGeo = new THREE.BoxGeometry(0.2, 0.4, 200);
+        const woodMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
+
+        for(let side of [-1, 1]) {
+            const rail = new THREE.Mesh(railGeo, woodMat);
+            rail.position.set(12 * side, -1, -50);
+            scene.add(rail);
+
+            for(let z = 10; z > -150; z -= 5) {
+                const post = new THREE.Mesh(fenceGeo, woodMat);
+                post.position.set(12 * side, -1, z);
+                scene.add(post);
+            }
+        }
+
+        // 3. Clouds
+        const cloudGeo = new THREE.SphereGeometry(1, 7, 7);
+        const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
+        for(let i=0; i<30; i++) {
+            const cloud = new THREE.Group();
+            const numPuffs = 3 + Math.random() * 4;
+            for(let j=0; j<numPuffs; j++) {
+                const puff = new THREE.Mesh(cloudGeo, cloudMat);
+                puff.position.set(
+                    (Math.random()-0.5)*3,
+                    (Math.random()-0.5)*1.5,
+                    (Math.random()-0.5)*3
+                );
+                const scale = 2 + Math.random() * 3;
+                puff.scale.set(scale, scale, scale);
+                cloud.add(puff);
+            }
+            cloud.position.set(
+                (Math.random() - 0.5) * 150,
+                20 + Math.random() * 20,
+                -Math.random() * 150
+            );
+            scene.add(cloud);
+        }
+
+        // 4. The Sign (Wooden Board)
+        const signZ = -80;
+        const signWidth = 14;
+        const signHeight = 7;
+
+        const signGeo = new THREE.PlaneGeometry(signWidth, signHeight);
+
+        // High-res Dynamic Canvas for crisp text
+        const signCanvas = document.createElement('canvas');
+        signCanvas.width = 1024;
+        signCanvas.height = 512;
+        const signCtx = signCanvas.getContext('2d');
+
+        const signTexture = new THREE.CanvasTexture(signCanvas);
+        signTexture.minFilter = THREE.LinearFilter;
+        signTexture.magFilter = THREE.LinearFilter;
+
+        const signMat = new THREE.MeshBasicMaterial({ map: signTexture, transparent: true });
+        const signMesh = new THREE.Mesh(signGeo, signMat);
+        signMesh.position.set(0, 1, signZ);
+        scene.add(signMesh);
+
+        // Pillars holding the sign
+        const pillarGeo = new THREE.BoxGeometry(1, 10, 1);
+        const p1 = new THREE.Mesh(pillarGeo, woodMat);
+        p1.position.set(-signWidth/2 + 1, -2, signZ - 0.1);
+        const p2 = new THREE.Mesh(pillarGeo, woodMat);
+        p2.position.set(signWidth/2 - 1, -2, signZ - 0.1);
+        scene.add(p1);
+        scene.add(p2);
+
+
+        // --- LOGIC & INTERACTION ---
+        const inputField = document.getElementById('answer-input');
+        const overlayMsg = document.getElementById('overlay-message');
+        const stageText = document.getElementById('stage-text');
+
+        let currentWordData = null;
+        let lastStep = -1;
+
+        // Keeps input conditionally focused so mobile keyboards don't pop up wildly
+        document.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+                inputField.focus();
+            }
+        });
+
+        const keys = { up: false, down: false };
+
+        window.addEventListener('keydown', (e) => {
+            // Removed 'w' and 's' so typing works perfectly in the input field
+            if(e.key === 'ArrowUp') { e.preventDefault(); keys.up = true; }
+            if(e.key === 'ArrowDown') { e.preventDefault(); keys.down = true; }
+            if(e.key === 'Enter' && !isTransitioning) checkAnswer();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if(e.key === 'ArrowUp') keys.up = false;
+            if(e.key === 'ArrowDown') keys.down = false;
+        });
+
+        // Mobile touch controls setup
+        const btnUp = document.getElementById('btn-up');
+        const btnDown = document.getElementById('btn-down');
+
+        const pressUp = (e) => { e.preventDefault(); keys.up = true; };
+        const releaseUp = (e) => { e.preventDefault(); keys.up = false; };
+        const pressDown = (e) => { e.preventDefault(); keys.down = true; };
+        const releaseDown = (e) => { e.preventDefault(); keys.down = false; };
+
+        btnUp.addEventListener('touchstart', pressUp, {passive: false});
+        btnUp.addEventListener('touchend', releaseUp);
+        btnUp.addEventListener('mousedown', pressUp);
+        btnUp.addEventListener('mouseup', releaseUp);
+        btnUp.addEventListener('mouseleave', releaseUp);
+
+        btnDown.addEventListener('touchstart', pressDown, {passive: false});
+        btnDown.addEventListener('touchend', releaseDown);
+        btnDown.addEventListener('mousedown', pressDown);
+        btnDown.addEventListener('mouseup', releaseDown);
+        btnDown.addEventListener('mouseleave', releaseDown);
+
+        // --- AUDIO SYSTEM (Web Audio API) ---
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            gain.connect(audioCtx.destination);
+            osc.connect(gain);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'reveal') {
+                // Short retro beep
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(600, now);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'win') {
+                // Triumphant arpeggio
+                osc.type = 'square';
+                gain.gain.setValueAtTime(0.05, now);
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.setValueAtTime(500, now + 0.1);
+                osc.frequency.setValueAtTime(600, now + 0.2);
+                osc.frequency.setValueAtTime(800, now + 0.3);
+                gain.gain.linearRampToValueAtTime(0.05, now + 0.5);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+                osc.start(now);
+                osc.stop(now + 1.2);
+            } else if (type === 'lose') {
+                // Error buzzer
+                osc.type = 'sawtooth';
+                gain.gain.setValueAtTime(0.05, now);
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.5);
+                gain.gain.linearRampToValueAtTime(0.05, now + 0.3);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            }
+        }
+
+        function updateSignText(text) {
+            signCtx.clearRect(0, 0, signCanvas.width, signCanvas.height);
+
+            // Wooden Board Background
+            signCtx.fillStyle = '#d7ccc8'; // Light wood/parchment
+            signCtx.fillRect(0, 0, signCanvas.width, signCanvas.height);
+
+            // Border
+            signCtx.strokeStyle = '#5d4037';
+            signCtx.lineWidth = 15;
+            signCtx.strokeRect(7, 7, signCanvas.width-14, signCanvas.height-14);
+
+            // Crisp Text
+            signCtx.font = "bold 80px 'Courier New', monospace";
+            signCtx.textAlign = "center";
+            signCtx.textBaseline = "middle";
+
+            signCtx.fillStyle = "#3e2723";
+            signCtx.fillText(text, signCanvas.width/2, signCanvas.height/2);
+
+            signTexture.needsUpdate = true;
+        }
+
+        async function startFinalReveal() {
+            document.getElementById('ui-layer').style.display = 'none';
+            const revealScreen = document.getElementById('final-reveal');
+            const slotsContainer = document.getElementById('reveal-slots');
+            const resultDiv = document.getElementById('reveal-result');
+
+            revealScreen.style.display = 'flex';
+
+            // Utility for delays
+            const sleep = ms => new Promise(r => setTimeout(r, ms));
+            await sleep(1000);
+
+            // Block-by-block animated reveal
+            for (let i = 0; i < playerResults.length; i++) {
+                const r = playerResults[i];
+                const div = document.createElement('div');
+                div.className = 'reveal-item';
+                div.innerText = `STAGE ${i+1}: [ ${r.guessed} ]`;
+                slotsContainer.appendChild(div);
+
+                // Trigger reflow
+                void div.offsetWidth;
+
+                div.classList.add('show');
+                playSound('reveal');
+                await sleep(800);
+            }
+
+            await sleep(1000);
+
+            const score = playerResults.filter(r => r.isCorrect).length;
+            const total = playerResults.length;
+
+            if (score === total) {
+                resultDiv.innerHTML = `<div style="color: #0f0; font-size: 40px; text-shadow: 2px 2px 0 #000; letter-spacing: 2px;">flamingobird100</div>`;
+                playSound('win');
+            } else {
+                resultDiv.innerHTML = `<div style="color: #f00; font-size: 40px; text-shadow: 2px 2px 0 #000; letter-spacing: 2px;">NOT CORRECT</div>`;
+                playSound('lose');
+            }
+
+            resultDiv.classList.add('show');
+
+            // Save to History LocalStorage
+            const record = {
+                date: new Date().toLocaleString(),
+                guesses: playerResults.map(r => r.guessed).join(' - '),
+                won: score === total
+            };
+            let history = JSON.parse(localStorage.getItem('comboGameHistory') || '[]');
+            history.unshift(record); // Add to top
+            if (history.length > 20) history.pop(); // Keep only last 20 records
+            localStorage.setItem('comboGameHistory', JSON.stringify(history));
+
+            // Show play again button slightly after the reveal
+            setTimeout(() => {
+                document.getElementById('play-again-btn').classList.add('show');
+            }, 1000);
+        }
+
+        function loadInstance() {
+            if (currentStage >= gameData.length) {
+                isTransitioning = true;
+                startFinalReveal();
+                return;
+            }
+
+            // Always pick the 1 specific word assigned to this stage
+            currentInstance = 0;
+            currentWordData = gameData[currentStage][currentInstance];
+
+            camera.position.set(0, 0, 0);
+            lastStep = -1;
+            inputField.value = '';
+
+            stageText.innerText = `STAGE ${currentStage + 1}/4`;
+
+            updateDistanceLogic();
+        }
+
+        function checkAnswer() {
+            const playerAnswer = inputField.value.trim().toUpperCase();
+            if(!playerAnswer) return;
+
+            // Only allow the player to submit if the word is part of the current stage's clues
+            if (!currentWordData.c.includes(playerAnswer)) {
+                inputField.value = '';
+                showOverlay("WORD NOT RECOGNIZED", "wrong", 1000);
+                return;
+            }
+
+            isTransitioning = true;
+            inputField.value = '';
+            keys.up = false;
+            keys.down = false;
+
+            // Update the top history tracker
+            const histSlot = document.getElementById(`hist-${currentStage}`);
+            histSlot.innerText = playerAnswer;
+            histSlot.classList.add('filled');
+
+            // Record the result silently
+            playerResults.push({
+                expected: currentWordData.a,
+                guessed: playerAnswer,
+                isCorrect: playerAnswer === currentWordData.a
+            });
+
+            // Show a neutral acknowledgement rather than Right/Wrong
+            showOverlay("RECORDED...", "neutral", 800);
+
+            setTimeout(() => {
+                // Instantly go to the next stage after writing down ONE word
+                currentStage++;
+
+                if(currentStage < 4) {
+                    showOverlay(`STAGE ${currentStage + 1}`, "stage-title", 1500);
+                    setTimeout(() => {
+                        isTransitioning = false;
+                        loadInstance();
+                    }, 1500);
+                } else {
+                    isTransitioning = false;
+                    loadInstance(); // Will trigger final result
+                }
+            }, 800);
+        }
+
+        function showOverlay(html, className, duration) {
+            overlayMsg.innerHTML = html;
+            overlayMsg.className = className;
+            overlayMsg.style.opacity = 1;
+            if(duration < 10000) setTimeout(() => overlayMsg.style.opacity = 0, duration);
+        }
+
+        function updateDistanceLogic() {
+            if(isTransitioning || !currentWordData) return;
+
+            const dist = Math.abs(camera.position.z - signZ);
+            const currentStep = Math.floor(dist * 1.5); // Multiplier affects rotation speed
+
+            if(currentStep !== lastStep) {
+                lastStep = currentStep;
+
+                // Always use all 4 clues and randomize them so it never gets stuck on just 2
+                const activePool = currentWordData.c;
+                const displayWord = activePool[Math.floor(Math.random() * activePool.length)];
+
+                updateSignText(displayWord);
+            }
+        }
+
+        // --- RENDER LOOP ---
+        const clock = new THREE.Clock();
+        const speed = 20;
+        let walkTime = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            if (!isTransitioning) {
+                let isWalking = false;
+
+                if (keys.up) { camera.position.z -= speed * delta; isWalking = true; }
+                if (keys.down) { camera.position.z += speed * delta; isWalking = true; }
+
+                if (camera.position.z > 5) camera.position.z = 5;
+                if (camera.position.z < signZ + 5) camera.position.z = signZ + 5;
+
+                // Active walking animation instead of constant breathing
+                if (isWalking) {
+                    walkTime += delta * 15; // Speed of the steps
+                    camera.position.y = Math.sin(walkTime) * 0.3; // Bob height
+                } else {
+                    // Smoothly return camera to standing height when stopping
+                    camera.position.y += (0 - camera.position.y) * 10 * delta;
+                }
+
+                updateDistanceLogic();
+            }
+
+            // Move floor texture for speed illusion
+            floorTexture.offset.y = (camera.position.z * -0.05) % 1;
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+
+        // Start Game via Menu
+        document.getElementById('start-btn').addEventListener('click', () => {
+            initAudio(); // Initialize audio context on player gesture
+
+            document.getElementById('tutorial-menu').style.display = 'none';
+            document.getElementById('ui-layer').style.display = 'flex';
+            document.querySelector('.input-area').style.display = 'block'; // Ensure input is visible
+
+            // Only auto focus on desktop to avoid aggressive mobile keyboard popup
+            if(window.innerWidth > 768) {
+                inputField.focus();
+            }
+
+            loadInstance();
+            if(!isAnimating) {
+                isAnimating = true;
+                animate();
+            }
+        });
+
+        // --- NEW: Play Again & History Modal Logic ---
+        document.getElementById('play-again-btn').addEventListener('click', () => {
+            // Reset state
+            currentStage = 0;
+            playerResults = [];
+            isTransitioning = false;
+
+            // Clear history tracker UI
+            for(let i = 0; i < 4; i++) {
+                const slot = document.getElementById(`hist-${i}`);
+                slot.innerText = '???';
+                slot.classList.remove('filled');
+            }
+
+            // Hide and Reset Final Reveal Screen
+            const revealScreen = document.getElementById('final-reveal');
+            revealScreen.style.display = 'none';
+            document.getElementById('reveal-slots').innerHTML = '';
+            document.getElementById('reveal-result').innerHTML = '';
+            document.getElementById('reveal-result').classList.remove('show');
+            document.getElementById('play-again-btn').classList.remove('show');
+
+            // Return to main menu
+            document.getElementById('tutorial-menu').style.display = 'flex';
+        });
+
+        document.getElementById('history-btn').addEventListener('click', () => {
+            const content = document.getElementById('history-content');
+            const history = JSON.parse(localStorage.getItem('comboGameHistory') || '[]');
+
+            if (history.length === 0) {
+                content.innerHTML = '<div style="color:#aaa; text-align:center; font-size:12px;">NO PLAY HISTORY YET.</div>';
+            } else {
+                content.innerHTML = history.map(h => `
+                    <div class="hist-entry">
+                        <div class="hist-date">${h.date}</div>
+                        <div class="hist-guesses">GUESSES: [ ${h.guesses} ]</div>
+                        <div style="margin-top:8px; font-size:12px;">RESULT: <span class="${h.won ? 'hist-win' : 'hist-loss'}">${h.won ? 'WIN' : 'LOSS'}</span></div>
+                    </div>
+                `).join('');
+            }
+            document.getElementById('history-modal').style.display = 'flex';
+        });
+
+        document.getElementById('close-history').addEventListener('click', () => {
+            document.getElementById('history-modal').style.display = 'none';
+        });
+
+    </script>
+</body>
+</html>

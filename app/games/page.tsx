@@ -14,6 +14,7 @@ import { FinalBossGame } from '@/components/games/final-boss-game';
 import { DungeonGame } from '@/components/games/dungeon-game';
 import { PressTheButtonGame } from '@/components/games/press-the-button-game';
 import { PressTheButtonTwoGame } from '@/components/games/press-the-button-two-game';
+import { CombinationGame } from '@/components/games/combination-game';
 import { Gamepad2, Trophy, Lock, Crown, Users } from 'lucide-react';
 import Link from 'next/link';
 
@@ -249,7 +250,12 @@ function GamesContent() {
                   {/* Game component */}
                   {isActive && (
                     <div className="border-t border-slate-200/50 p-4 sm:p-6">
-                      {game.name === 'PRESS THE BUTTON 2' ? (
+                      {game.name === 'COMBINATION GAME' ? (
+                        <CombinationGame
+                          gameId={game.id}
+                          isAdmin={isAdmin ?? false}
+                        />
+                      ) : game.name === 'PRESS THE BUTTON 2' ? (
                         <PressTheButtonTwoGame
                           gameId={game.id}
                           isAdmin={isAdmin ?? false}
