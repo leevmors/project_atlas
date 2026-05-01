@@ -353,11 +353,27 @@
         #mobile-controls button:active { background: #ffeb3b; color: #000; }
 
         @media (max-width: 768px) {
-            #mobile-controls { display: flex; }
+            #mobile-controls { display: flex; bottom: 110px; right: 10px; }
+            #mobile-controls button { width: 50px; height: 50px; font-size: 16px; }
             .controls-hint { display: none; }
-            .header { flex-direction: column; align-items: center; text-align: center; gap: 10px; padding-top: 10px; }
-            input[type="text"] { width: 90%; max-width: 300px; padding: 10px; font-size: 14px; }
-            .input-area { padding: 15px; }
+            #ui-layer { justify-content: flex-start; }
+            #history-tracker { padding: 10px 0 0 0; gap: 6px; }
+            .header {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 10px;
+                padding: 6px 10px 0;
+            }
+            #stage-text {
+                background: rgba(0, 0, 0, 0.55);
+                padding: 4px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                display: inline-block;
+            }
+            .input-area { padding: 12px; margin-top: auto; padding-right: 80px; }
+            input[type="text"] { width: 100%; max-width: 260px; padding: 10px; font-size: 14px; }
             #tutorial-menu h1 { font-size: 26px; }
             .tut-desc { font-size: 12px; }
             .hist-slot { font-size: 10px; padding: 5px 8px; min-width: 40px; }
