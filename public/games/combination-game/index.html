@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Combination Game</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -374,7 +374,8 @@
                 display: inline-block;
             }
             .input-area { padding: 12px; margin-top: auto; padding-right: 80px; }
-            input[type="text"] { width: 100%; max-width: 260px; padding: 10px; font-size: 14px; }
+            #answer-form { display: flex; justify-content: center; }
+            input[type="text"] { width: 100%; max-width: 260px; padding: 10px; font-size: 16px; }
             #tutorial-menu h1 { font-size: 26px; }
             .tut-desc { font-size: 12px; }
             .hist-slot { font-size: 10px; padding: 5px 8px; min-width: 40px; }
@@ -439,7 +440,9 @@
         </div>
 
         <div class="input-area">
-            <input type="text" id="answer-input" placeholder="TYPE HERE..." autocomplete="off">
+            <form id="answer-form" autocomplete="off">
+                <input type="text" id="answer-input" placeholder="TYPE HERE..." autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go">
+            </form>
         </div>
 
         <div id="mobile-controls">
@@ -627,6 +630,14 @@
             if(e.key === 'ArrowUp') { e.preventDefault(); keys.up = true; }
             if(e.key === 'ArrowDown') { e.preventDefault(); keys.down = true; }
             if(e.key === 'Enter' && !isTransitioning) checkAnswer();
+        });
+
+        // Form submit fires reliably on mobile soft-keyboard Go/Done/Enter,
+        // unlike window keydown which often comes back as Unidentified (229)
+        // during IME composition on Android.
+        document.getElementById('answer-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!isTransitioning) checkAnswer();
         });
 
         window.addEventListener('keyup', (e) => {
