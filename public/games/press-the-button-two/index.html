@@ -1383,7 +1383,7 @@
         let currentLang = 'en';
         
         let currentStage = 1;
-        const totalStages = 16;
+        const totalStages = 14;
         let isProcessingAction = false;
         let globalScreenState = 'NORMAL'; // 'NORMAL', 'TRANSITION', 'EXPLODED', 'VICTORY'
         let correctStateStartTime = 0; // Tracks timing for the beautiful reboot animation
@@ -1455,12 +1455,12 @@
         const LEFT_SLOTS = SLOT_KEYS.slice(0, 5);
         const RIGHT_SLOTS = SLOT_KEYS.slice(5);
         const NORMAL_YAW_LIMIT = 0.8;
-        const PURPLE_UNLOCK_STAGE = 11;
-        const PURPLE_MAX_PER_RUN = 2;
+        const PURPLE_UNLOCK_STAGE = 999;
+        const PURPLE_MAX_PER_RUN = 0;
         const PURPLE_YAW_LIMIT = 1.45;
         const REAR_YAW_LIMIT = Math.PI;
         const REAR_DRAG_YAW_PER_SCREEN = Math.PI * 1.18;
-        const RUN_DURATION_MS = 10 * 60 * 1000;
+        const RUN_DURATION_MS = 15 * 60 * 1000;
         const CORRECT_SEQUENCE_MS = 3400;
         const STAGE_TRANSITION_MS = 4300;
         const STAGE_TRANSITION_SWAP_MS = 2350;
@@ -2780,8 +2780,8 @@
         function buildRunPlan(seedString) {
             const rng = mulberry32(hashString(seedString));
             const ruleOrder = buildRuleOrder(rng);
-            const midMetaStageNumber = 8 + Math.floor(rng() * 6);
-            const metaStageNumber = 14 + Math.floor(rng() * 3);
+            const midMetaStageNumber = 8 + Math.floor(rng() * 4);
+            const metaStageNumber = 12 + Math.floor(rng() * 3);
             const signalSchedule = buildSignalSchedule(rng, midMetaStageNumber, metaStageNumber);
             const purpleSchedule = buildPurpleSchedule(rng, midMetaStageNumber, metaStageNumber);
             const stages = [];
