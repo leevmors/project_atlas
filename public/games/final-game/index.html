@@ -1146,11 +1146,23 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
             else if (state === "NEXT_Q") { questionsAsked++; setupNextTargetQuestion(); enableInput(); }
             else if (state === "PHASE2") {
                 currentPhase = 2; questionsAsked = 0; setupNextTargetQuestion();
-                tableSpotLight.color.setHex(0xffaa55); tableSpotLight.intensity = 2.5; ambientLight.color.setHex(0x1a1510); 
+                // Clear any leftover cards/traps (admin can skip to PHASE2 repeatedly).
+                activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
+                if (trapInterval) { clearInterval(trapInterval); trapInterval = null; }
+                inTrap = false;
+                playerInput.dataset.card = '';
+                tableSpotLight.color.setHex(0xffaa55); tableSpotLight.intensity = 2.5; ambientLight.color.setHex(0x1a1510);
                 showPhase2Cards(); enableInput();
             }
             else if (state === "PHASE3") {
                 currentPhase = 3;
+                // Clean up Phase 2 leftovers — cards must not be visible on the
+                // table when the tablet is the only valid input.
+                activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
+                if (trapInterval) { clearInterval(trapInterval); trapInterval = null; }
+                inTrap = false;
+                inputContainer.style.display = 'none';
+                playerInput.dataset.card = '';
                 tabletScreen.material.color.setHex(0x334455); // Screen turns on
                 document.getElementById('dialogue-text').innerHTML = "Click the tablet. Win 3 games, or die.";
             }
@@ -1177,14 +1189,23 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                 endScreen.style.display = 'flex'; endScreen.style.backgroundColor = "#fff"; endText.style.color = "#000"; endText.innerText = "YOU SURVIVED.\nTHE ROPES LOOSEN.";
                 restartBtn.className = 'restart-win'; restartBtn.style.display = 'block'; setTimeout(() => { endScreen.style.opacity = 1; setTimeout(() => { restartBtn.style.opacity = 1; }, 2000); }, 100);
             } else if (type === "SHOT") {
-                eyesList[0].pullingGun = true; if(trapInterval) clearInterval(trapInterval);
+                if(trapInterval) clearInterval(trapInterval);
+
+                // If we're zoomed into the tablet (or top-down), look back at
+                // the kidnapper FIRST so the gun rises into view naturally
+                // instead of phasing through the tablet/screen geometry.
+                const cameraNeedsReset = cameraMode !== 'normal';
+                cameraMode = 'normal';
+                const gunDelay = cameraNeedsReset ? 900 : 0;
+
+                setTimeout(() => { eyesList[0].pullingGun = true; }, gunDelay);
                 setTimeout(() => {
-                    playGunshot(); flash.style.opacity = 1; 
+                    playGunshot(); flash.style.opacity = 1;
                     setTimeout(() => {
                         flash.style.opacity = 0; endScreen.style.display = 'flex'; endScreen.style.backgroundColor = "#050000"; endText.style.color = "#ff0000"; endText.innerText = "YOU FAILED.\nTHE SHADOWS CONSUME YOU.";
                         restartBtn.className = 'restart-lose'; restartBtn.style.display = 'block'; endScreen.style.opacity = 1; setTimeout(() => { restartBtn.style.opacity = 1; }, 2000);
                     }, 100);
-                }, 2000); 
+                }, gunDelay + 2000);
             }
         }
 
