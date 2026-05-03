@@ -472,11 +472,10 @@
     // 9. Tap the Number
     M.tap_number = {
         title: 'TAP THE NUMBER',
-        desc: 'Tap numbers 1 to 20 in order, as fast as you can.',
+        desc: 'Tap numbers 1 to 20 in order. Out-of-order tap RESETS your streak.',
         run(ctx) {
             const N = 20;
             const positions = [];
-            // Place non-overlapping
             for (let i = 1; i <= N; i++) {
                 let p, ok = false, tries = 0;
                 while (!ok && tries < 200) {
@@ -489,6 +488,11 @@
             let next = 1;
             ctx.setScore(`NEXT ${next}`);
             const btns = [];
+            function resetStreak() {
+                next = 1;
+                btns.forEach(b => { b.disabled = false; b.style.background = '#1a1a1a'; b.style.borderColor = '#555'; });
+                ctx.setScore(`NEXT 1 (RESET!)`);
+            }
             for (let i = 0; i < N; i++) {
                 const n = i + 1;
                 const b = ctx.el('button', { style: { position: 'absolute', left: (positions[i].x - 28) + 'px', top: (positions[i].y - 28) + 'px', width: '56px', height: '56px', background: '#1a1a1a', border: '3px solid #555', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '28px', cursor: 'pointer' }, text: String(n), onclick: () => {
@@ -497,8 +501,10 @@
                         next++; ctx.setScore(next > N ? 'DONE' : `NEXT ${next}`);
                         if (next > N) ctx.win();
                     } else {
-                        sfx.bad(); b.style.background = '#5a1010';
-                        ctx.timeout(() => { b.style.background = '#1a1a1a'; }, 200);
+                        sfx.bad();
+                        // Out-of-order tap: flash all green cells red, then reset progress.
+                        btns.forEach(x => { if (x.disabled) { x.style.background = '#e23a3a'; x.style.borderColor = '#e23a3a'; } });
+                        ctx.timeout(resetStreak, 350);
                     }
                 } });
                 btns.push(b); ctx.stage.appendChild(b);
@@ -1564,28 +1570,41 @@
     // 33. Spot the Imposter — 20 icons grid, find odd one
     M.spot_imposter = {
         title: 'SPOT THE IMPOSTER',
-        desc: 'One icon differs from the other 19. Find it. 5 rounds.',
+        desc: 'One icon differs from the other 19. 5 rounds, 10 seconds each.',
         run(ctx) {
-            let round = 0; const total = 5;
-            const grid = ctx.el('div', { style: { position: 'absolute', inset: '40px 80px', display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gridTemplateRows: 'repeat(4,1fr)', gap: '8px' } });
+            let round = 0; const total = 5; const PER_ROUND = 10;
+            const grid = ctx.el('div', { style: { position: 'absolute', inset: '60px 80px 40px', display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gridTemplateRows: 'repeat(4,1fr)', gap: '8px' } });
             ctx.stage.appendChild(grid);
             ctx.setScore(`ROUND 0/${total}`);
+            let roundCd = null;
             function start() {
                 grid.innerHTML = '';
                 const baseColor = pick(['#e23a3a','#3a72e2','#3ae26a','#e2c83a','#cc3aee']);
-                const altColor = baseColor === '#e23a3a' ? '#cc2828' : '#e23a3a'; // close shade for easy difficulty
+                const altColor = baseColor === '#e23a3a' ? '#cc2828' : '#e23a3a';
                 const oddIdx = randInt(0, 19);
+                let answered = false;
                 for (let i = 0; i < 20; i++) {
                     const isOdd = i === oddIdx;
                     const c = ctx.el('button', { style: { background: isOdd ? altColor : baseColor, border: '3px solid #1a1a1a', cursor: 'pointer' }, onclick: () => {
-                        if (isOdd) { sfx.win(); round++; ctx.setScore(`ROUND ${round}/${total}`); if (round >= total) { ctx.timeout(() => ctx.win(), 400); return; } ctx.timeout(start, 400); }
-                        else { sfx.lose(); ctx.timeout(() => ctx.lose(), 400); }
+                        if (answered) return; answered = true;
+                        if (roundCd) { roundCd.stop(); roundCd = null; }
+                        if (isOdd) {
+                            sfx.win(); round++; ctx.setScore(`ROUND ${round}/${total}`);
+                            if (round >= total) { ctx.timeout(() => ctx.win(), 400); return; }
+                            ctx.timeout(start, 400);
+                        } else {
+                            sfx.lose(); ctx.timeout(() => ctx.lose(), 400);
+                        }
                     } });
                     grid.appendChild(c);
                 }
+                // Per-round 10s timer; timeout = lose this round = lose game.
+                roundCd = countdown(ctx, PER_ROUND, `R${round+1} TIME`, () => {
+                    if (answered) return; answered = true;
+                    sfx.lose(); ctx.timeout(() => ctx.lose(), 300);
+                });
             }
             start();
-            countdown(ctx, 60, 'TIME', () => round >= total ? ctx.win() : ctx.lose());
         }
     };
 
@@ -1763,14 +1782,39 @@
                 const x = (e.clientX - r.left) * (c.width / r.width); const y = (e.clientY - r.top) * (c.height / r.height);
                 drawing.points.push({ x, y }); draw();
             });
+            // Segment-vs-segment intersection (proper, excludes shared endpoints).
+            function segIntersect(a, b, c2, d) {
+                function ccw(p, q, r) { return (r.y - p.y) * (q.x - p.x) > (q.y - p.y) * (r.x - p.x); }
+                return ccw(a, c2, d) !== ccw(b, c2, d) && ccw(a, b, c2) !== ccw(a, b, d);
+            }
+            function pathCrosses(newPts, otherPaths) {
+                for (let i = 0; i < newPts.length - 1; i++) {
+                    const a = newPts[i], b = newPts[i+1];
+                    for (const op of otherPaths) {
+                        if (!op) continue;
+                        for (let j = 0; j < op.length - 1; j++) {
+                            if (segIntersect(a, b, op[j], op[j+1])) return true;
+                        }
+                    }
+                }
+                return false;
+            }
             ctx.on(c, 'pointerup', (e) => {
                 if (!drawing) return;
                 const r = c.getBoundingClientRect();
                 const x = (e.clientX - r.left) * (c.width / r.width); const y = (e.clientY - r.top) * (c.height / r.height);
-                // find target dot of same group, not the start dot
                 const targetIdx = pairs.findIndex((d, k) => k !== drawing.startDot && d.group === drawing.idx && Math.abs(x - d.x) < 30 && Math.abs(y - d.y) < 30);
-                if (targetIdx >= 0) { drawing.points.push({ x: pairs[targetIdx].x, y: pairs[targetIdx].y }); paths[drawing.idx] = drawing.points; sfx.hit(); }
-                else { sfx.bad(); }
+                if (targetIdx >= 0) {
+                    const candidate = drawing.points.concat([{ x: pairs[targetIdx].x, y: pairs[targetIdx].y }]);
+                    // Reject if it crosses any other already-drawn path.
+                    const others = paths.filter((_, k) => k !== drawing.idx);
+                    if (pathCrosses(candidate, others)) {
+                        sfx.bad();
+                        ctx.banner('LINES MUST NOT CROSS', 'bad', 900);
+                    } else {
+                        paths[drawing.idx] = candidate; sfx.hit();
+                    }
+                } else { sfx.bad(); }
                 drawing = null; draw();
                 if (paths.every(p => p && p.length >= 2)) {
                     sfx.win(); round++; ctx.setScore(`PUZZLE ${round}/${total}`);
@@ -1878,11 +1922,13 @@
     // 40. Password Crack — Mastermind
     M.password_crack = {
         title: 'PASSWORD CRACK',
-        desc: 'Guess the 4-digit code in 6 tries. ● = right digit + spot, ○ = right digit, wrong spot.',
+        desc: 'Guess the 4-digit code in 3 tries. Feedback: HOT (very close) / WARM / COLD.',
         run(ctx) {
-            const code = []; while (code.length < 4) { const d = randInt(0, 9); if (!code.includes(d)) code.push(d); }
+            const MAX_TRIES = 3;
+            // 4-digit code, digits 0-9, may repeat (true 4-digit deduction).
+            const code = []; for (let i = 0; i < 4; i++) code.push(randInt(0, 9));
             const guesses = [];
-            const board = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '20px', right: '20px', display: 'flex', flexDirection: 'column', gap: '6px', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '28px' } });
+            const board = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '20px', right: '20px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '32px' } });
             ctx.stage.appendChild(board);
             const guessEl = ctx.el('div', { style: { position: 'absolute', bottom: '120px', width: '100%', textAlign: 'center', color: '#3ae26a', fontFamily: 'VT323, monospace', fontSize: '60px', letterSpacing: '14px', minHeight: '70px' } });
             const pad = ctx.el('div', { style: { position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '600px' } });
@@ -1894,23 +1940,33 @@
             }
             const back = pxBtn('←', () => { cur = cur.slice(0, -1); guessEl.textContent = cur; });
             back.style.fontSize = '24px'; pad.appendChild(back);
+            // Hot/cold feedback: how close (sum of absolute digit differences) the guess is to the code.
+            // 0 = exact (win); 1-4 = HOT; 5-12 = WARM; 13+ = COLD.
+            function feedback(distance) {
+                if (distance === 0) return { label: 'CORRECT', color: '#3ae26a' };
+                if (distance <= 4) return { label: 'HOT', color: '#e25a3a' };
+                if (distance <= 12) return { label: 'WARM', color: '#e2c83a' };
+                return { label: 'COLD', color: '#3a72e2' };
+            }
             const submit = pxBtn('GUESS', () => {
                 if (cur.length !== 4) return;
                 const digs = cur.split('').map(Number);
-                let exact = 0, partial = 0;
-                for (let i = 0; i < 4; i++) if (digs[i] === code[i]) exact++;
-                for (const d of new Set(digs)) if (code.includes(d)) partial++;
-                partial -= exact;
-                guesses.push({ guess: cur, exact, partial });
+                let dist = 0; for (let i = 0; i < 4; i++) dist += Math.abs(digs[i] - code[i]);
+                const fb = feedback(dist);
+                guesses.push({ guess: cur, label: fb.label, color: fb.color });
                 board.innerHTML = '';
-                for (const g of guesses) board.appendChild(ctx.el('div', { html: `${g.guess.split('').join(' ')} &nbsp;&nbsp; <span style="color:#3ae26a">${'●'.repeat(g.exact)}</span><span style="color:#e2c83a">${'○'.repeat(g.partial)}</span>` }));
-                if (exact === 4) { sfx.win(); ctx.timeout(() => ctx.win(), 400); return; }
-                if (guesses.length >= 6) { sfx.lose(); ctx.timeout(() => ctx.lose(), 400); return; }
+                for (const g of guesses) board.appendChild(ctx.el('div', { html: `${g.guess.split('').join(' ')} &nbsp;&nbsp; <span style="color:${g.color}">${g.label}</span>` }));
+                if (dist === 0) { sfx.win(); ctx.timeout(() => ctx.win(), 500); return; }
+                if (guesses.length >= MAX_TRIES) {
+                    sfx.lose();
+                    board.appendChild(ctx.el('div', { html: `&nbsp;<br><span style="color:#e23a3a">CODE WAS ${code.join(' ')}</span>` }));
+                    ctx.timeout(() => ctx.lose(), 1200); return;
+                }
                 cur = ''; guessEl.textContent = '';
-                ctx.setScore(`TRIES ${6 - guesses.length}`);
+                ctx.setScore(`TRIES ${MAX_TRIES - guesses.length}`);
             });
             submit.style.fontSize = '24px'; pad.appendChild(submit);
-            ctx.setScore(`TRIES 6`);
+            ctx.setScore(`TRIES ${MAX_TRIES}`);
         }
     };
 

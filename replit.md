@@ -86,7 +86,7 @@ Says are listed within the new Pattern and Memory categories).
   - `launchGame(id, game, isAdminTest)` runs a game; `completeGame()`
     advances the run (or bounces back to the menu in admin test mode).
   - Unknown game ids fail safely as a lost round (never auto-win).
-- `minigames.js` defines `window.MINIGAMES`, a registry of 43 games:
+- `minigames.js` defines `window.MINIGAMES`, a registry of 41 games:
   - **Reflex (10)**: flappy_bird, piano_tiles, whack_color, fruit_ninja,
     mole_rush, falling_blocks, bug_smash, balloon_pop, tap_number, red_green
   - **Aim/Power (10)**: basketball, archery, angry_birds, paper_toss,
