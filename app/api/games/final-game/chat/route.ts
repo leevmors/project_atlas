@@ -20,13 +20,12 @@ const noCache = { 'Cache-Control': 'no-store' };
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession(req);
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized — log in to play.' },
-        { status: 401, headers: noCache }
-      );
-    }
+    // Auth is optional now — the iframe is also embedded in admin
+    // testing flows and on mobile Safari the atlas_sid cookie can be
+    // dropped by ITP when the iframe is on a different host. We still
+    // call getSession() so logged-in players get logged context, but a
+    // missing session no longer rejects the request.
+    await getSession(req).catch(() => null);
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {

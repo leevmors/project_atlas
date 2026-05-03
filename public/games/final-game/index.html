@@ -572,8 +572,16 @@
             #start-screen .click-to-wake { font-size: 22px !important; }
             #name-input-container { gap: 10px; margin-bottom: 16px; }
 
-            /* Dialogue + input */
-            #ui-layer { width: 96%; bottom: 3%; gap: 8px; max-width: none; }
+            /* Dialogue + input — leave horizontal gutters so the
+               bottom-corner HUD buttons (VIEW / GIVE UP) don't sit on
+               top of the input field. ~120px on each side is enough
+               for the longest button label ("[ VIEW: TOP-DOWN ]"). */
+            #ui-layer {
+                width: calc(100% - 240px);
+                max-width: 720px;
+                bottom: 3%;
+                gap: 6px;
+            }
             #dialogue-box { padding: 10px 12px; font-size: 18px; min-height: 60px; line-height: 1.25; }
             #kidnapper-label { font-size: 14px; padding: 0 8px; top: -12px; }
             #input-container { padding: 8px 10px; }
@@ -1435,9 +1443,34 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
         // covers both mouse and touch (Chrome/Safari fire it on tap),
         // and we also update mouseNDC defensively from clientX/Y on
         // pointerdown so a brand-new tap still hits the right object.
+        // Touch dragging also drives the camera look-around (mouseX/Y),
+        // so swiping the 3D scene pans the view just like mouse hover
+        // does on desktop.
+        function isOnUiOverlay(t) {
+            return !!(t && t.closest && (
+                t.closest('#tablet-overlay') ||
+                t.closest('#admin-panel') ||
+                t.closest('#admin-gate') ||
+                t.closest('#sure-overlay') ||
+                t.closest('#ui-layer') ||
+                t.closest('#live-players-container') ||
+                t.closest('.hud-btn') ||
+                t.closest('#start-screen') ||
+                t.closest('#end-screen') ||
+                t.closest('#rotate-overlay')
+            ));
+        }
+        let __touchLooking = false;
         document.addEventListener('pointermove', (event) => {
             mouseNDC.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouseNDC.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            // While a touch is dragging on the 3D scene (not on a UI
+            // overlay), feed the look-around vector from the touch so
+            // the camera pans like it does for mouse hover.
+            if (event.pointerType === 'touch' && __touchLooking) {
+                mouseX = event.clientX - windowHalfX;
+                mouseY = event.clientY - windowHalfY;
+            }
         }, { passive: true });
         document.addEventListener('pointerdown', (event) => {
             mouseNDC.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -1451,7 +1484,19 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                 const ints = raycaster.intersectObjects(objs);
                 hoveredObj = ints.length > 0 ? ints[0].object : null;
             } catch(e) {}
+            // Begin touch look-around if the finger landed on the 3D
+            // scene proper, not on an interactive overlay.
+            if (event.pointerType === 'touch' && !isOnUiOverlay(event.target)) {
+                __touchLooking = true;
+                mouseX = event.clientX - windowHalfX;
+                mouseY = event.clientY - windowHalfY;
+            }
         }, { passive: true });
+        const __endTouchLook = (event) => {
+            if (event.pointerType === 'touch') __touchLooking = false;
+        };
+        document.addEventListener('pointerup', __endTouchLook, { passive: true });
+        document.addEventListener('pointercancel', __endTouchLook, { passive: true });
 
         function animateCamera() {
             if (cameraMode === 'topdown') {
@@ -1563,10 +1608,26 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             const payload = { systemInstruction: { parts: [{ text: getSystemPrompt() }] }, contents: chatHistory };
             const fetchWithRetry = async (url, options, retries = 5) => {
                 const delays = [1000, 2000, 4000, 8000, 16000];
+                let lastErr;
                 for (let i = 0; i < retries; i++) {
-                    try { const response = await fetch(url, options); if (!response.ok) throw new Error(); return await response.json(); } 
-                    catch (e) { if (i === retries - 1) throw e; await new Promise(r => setTimeout(r, delays[i])); }
+                    try {
+                        const response = await fetch(url, options);
+                        if (!response.ok) {
+                            // Surface the actual upstream error so the player (and
+                            // the dev console) can see whether it's a 401, a 502
+                            // from Gemini, or a server crash.
+                            const txt = await response.text().catch(() => '');
+                            const detail = txt.length > 0 && txt.length < 200 ? ` — ${txt}` : '';
+                            throw new Error(`HTTP ${response.status}${detail}`);
+                        }
+                        return await response.json();
+                    } catch (e) {
+                        lastErr = e;
+                        if (i === retries - 1) throw e;
+                        await new Promise(r => setTimeout(r, delays[i]));
+                    }
                 }
+                throw lastErr;
             };
             try {
                 document.getElementById('dialogue-text').innerHTML = '<span style="animation: blink 1s infinite">...</span>';
