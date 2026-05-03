@@ -1182,6 +1182,9 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
             document.getElementById('ui-layer').style.display = 'none';
             document.getElementById('tablet-overlay').style.display = 'none';
             activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
+            // Stop any in-flight Phase 3 minigame tick so it can't keep
+            // updating hidden DOM after the player is dead/freed.
+            clearPhase3Interval();
             if (db && userId) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)).catch(e=>{});
 
             const endScreen = document.getElementById('end-screen'); const endText = document.getElementById('end-text'); const flash = document.getElementById('flash-overlay'); const restartBtn = document.getElementById('restart-btn');
@@ -1236,16 +1239,60 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
         let gamesWon = 0;
         let currentGameIndex = 0;
         let selectedGames = [];
+        // Tracks the active per-minigame setInterval so death/SHOT/abort
+        // paths can stop it without each minigame having to wire its own
+        // teardown. Each minigame assigns its interval id here.
+        let phase3ActiveInterval = null;
+        function clearPhase3Interval() {
+            if (phase3ActiveInterval !== null) {
+                clearInterval(phase3ActiveInterval);
+                phase3ActiveInterval = null;
+            }
+        }
         
         function initPhase3() {
             cameraMode = 'tablet';
             setTimeout(() => { document.getElementById('tablet-overlay').style.display = 'flex'; }, 1000);
-            
-            // Randomly select 3 games out of our pool
+
+            // Reset run state — admin can re-enter Phase 3, and counters from
+            // a prior run would otherwise drop the player straight into WIN.
+            clearPhase3Interval();
+            gamesWon = 0;
+            currentGameIndex = 0;
+
+            // Fisher-Yates shuffle (sort with random comparator is biased
+            // and produced repeating orders across runs).
             const pool = ['reflex', 'math', 'simon'];
-            selectedGames = pool.sort(() => 0.5 - Math.random()).slice(0, 3);
-            
-            document.getElementById('mg-start').onclick = () => { startNextGame(); };
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+            selectedGames = pool.slice(0, 3);
+
+            // Restore the intro card to its default state. completeGame(true)
+            // overwrites these to "SUCCESS / GAMES WON: x/3 / NEXT", so on
+            // re-entry they would otherwise stay stuck.
+            const title = document.getElementById('mg-title');
+            const desc = document.getElementById('mg-desc');
+            const startBtn = document.getElementById('mg-start');
+            title.innerText = "PHASE 3";
+            desc.innerText = "Win 3 games to survive.";
+            startBtn.innerText = "BEGIN";
+            title.style.display = 'block';
+            desc.style.display = 'block';
+            startBtn.style.display = 'block';
+
+            // Hide every per-minigame container + counters.
+            document.getElementById('reflex-area').classList.add('mg-hidden');
+            document.getElementById('math-area').classList.add('mg-hidden');
+            document.getElementById('simon-area').classList.add('mg-hidden');
+            document.getElementById('mg-time').classList.add('mg-hidden');
+            document.getElementById('mg-score').classList.add('mg-hidden');
+
+            // Clear any DOM that prior runs left behind.
+            document.getElementById('reflex-area').innerHTML = '';
+
+            startBtn.onclick = () => { startNextGame(); };
         }
 
         function startNextGame() {
@@ -1267,14 +1314,17 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
         }
 
         function completeGame(success) {
-            document.querySelectorAll('.mg-hidden').forEach(el => {
-                if(el.id !== 'mg-time' && el.id !== 'mg-score') el.classList.add('mg-hidden');
-            });
+            // Stop any minigame interval that's still ticking (defensive —
+            // win paths usually clear before calling here).
+            clearPhase3Interval();
+
             document.getElementById('reflex-area').classList.add('mg-hidden');
             document.getElementById('math-area').classList.add('mg-hidden');
             document.getElementById('simon-area').classList.add('mg-hidden');
             document.getElementById('mg-time').classList.add('mg-hidden');
             document.getElementById('mg-score').classList.add('mg-hidden');
+            // Wipe any leftover DOM (moles) from the reflex round.
+            document.getElementById('reflex-area').innerHTML = '';
 
             if (success) {
                 gamesWon++;
@@ -1299,10 +1349,16 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
             let score = 0; let time = 10;
             document.getElementById('mg-score').innerText = `SCORE: 0/10`;
             document.getElementById('mg-time').innerText = `TIME: ${time}`;
-            
-            let gameInt = setInterval(() => {
-                time--; document.getElementById('mg-time').innerText = `TIME: ${time}`;
-                if (time <= 0) { clearInterval(gameInt); document.getElementById('reflex-area').innerHTML = ''; completeGame(score >= 10); }
+
+            clearPhase3Interval();
+            phase3ActiveInterval = setInterval(() => {
+                time--;
+                document.getElementById('mg-time').innerText = `TIME: ${Math.max(0, time)}`;
+                if (time <= 0) {
+                    clearPhase3Interval();
+                    document.getElementById('reflex-area').innerHTML = '';
+                    completeGame(score >= 10);
+                }
             }, 1000);
 
             function spawnTarget() {
@@ -1326,26 +1382,40 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
             let score = 0; let time = 15;
             document.getElementById('mg-score').innerText = `SCORE: 0/5`;
             document.getElementById('mg-time').innerText = `TIME: ${time}`;
-            
-            let gameInt = setInterval(() => {
-                time--; document.getElementById('mg-time').innerText = `TIME: ${time}`;
-                if (time <= 0) { clearInterval(gameInt); completeGame(score >= 5); }
+
+            clearPhase3Interval();
+            phase3ActiveInterval = setInterval(() => {
+                time--;
+                document.getElementById('mg-time').innerText = `TIME: ${Math.max(0, time)}`;
+                if (time <= 0) {
+                    clearPhase3Interval();
+                    completeGame(score >= 5);
+                }
             }, 1000);
 
             function nextProblem() {
-                if(score >= 5) { clearInterval(gameInt); completeGame(true); return; }
+                if (score >= 5) { clearPhase3Interval(); completeGame(true); return; }
                 let a = Math.floor(Math.random()*20); let b = Math.floor(Math.random()*20);
                 let ans = a + b;
                 document.getElementById('math-problem').innerText = `${a} + ${b} = ?`;
                 let btns = [0,1,2].map(i => document.getElementById(`math-${i}`));
                 let correctBtn = Math.floor(Math.random()*3);
+                // Generate two distinct wrong answers (avoid showing the
+                // correct answer twice when delta=0).
+                const wrongs = new Set();
+                while (wrongs.size < 2) {
+                    const delta = Math.floor(Math.random() * 10) - 5;
+                    if (delta === 0) continue;
+                    wrongs.add(ans + delta);
+                }
+                const wrongList = Array.from(wrongs);
+                let w = 0;
                 btns[correctBtn].innerText = ans;
                 btns[correctBtn].onclick = () => { score++; document.getElementById('mg-score').innerText = `SCORE: ${score}/5`; nextProblem(); };
-                
-                for(let i=0; i<3; i++) {
-                    if(i !== correctBtn) {
-                        btns[i].innerText = ans + Math.floor(Math.random()*10) - 5;
-                        btns[i].onclick = () => { clearInterval(gameInt); completeGame(false); }; // instant fail on wrong
+                for (let i = 0; i < 3; i++) {
+                    if (i !== correctBtn) {
+                        btns[i].innerText = wrongList[w++];
+                        btns[i].onclick = () => { clearPhase3Interval(); completeGame(false); };
                     }
                 }
             }
@@ -1364,13 +1434,14 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                 playerStep = 0;
                 sequence.push(Math.floor(Math.random() * 4));
                 let i = 0;
-                let intv = setInterval(() => {
-                    if(i > 0) btns[sequence[i-1]].classList.remove('active');
-                    if(i < sequence.length) {
+                clearPhase3Interval();
+                phase3ActiveInterval = setInterval(() => {
+                    if (i > 0) btns[sequence[i-1]].classList.remove('active');
+                    if (i < sequence.length) {
                         btns[sequence[i]].classList.add('active');
                         i++;
                     } else {
-                        clearInterval(intv);
+                        clearPhase3Interval();
                         msg.innerText = "REPEAT";
                     }
                 }, 800);
@@ -1553,7 +1624,11 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                 if (action === 'phase2') {
                     handleGameState("PHASE2");
                 } else if (action === 'phase3') {
+                    // The normal flow is "bot says go → player clicks 3D
+                    // tablet → initPhase3()". For the admin tester we want
+                    // the overlay immediately, so do both steps.
                     handleGameState("PHASE3");
+                    initPhase3();
                 } else if (action === 'next-q') {
                     handleGameState("NEXT_Q");
                 } else if (action === 'win') {
