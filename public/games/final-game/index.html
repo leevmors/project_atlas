@@ -447,6 +447,60 @@
         }
         .mg-hidden { display: none !important; }
 
+        /* ARE-YOU-SURE confirmation modal — fires when the player touches a
+           Phase-2 trap card. Sits ABOVE the 3D scene but below admin overlays. */
+        #sure-overlay {
+            position: absolute; inset: 0; z-index: 90;
+            background: radial-gradient(circle at center, rgba(60,0,0,0.85) 0%, rgba(0,0,0,0.95) 75%);
+            display: none;
+            justify-content: center; align-items: center;
+            opacity: 0;
+            transition: opacity 0.35s ease-out;
+            font-family: 'VT323', monospace;
+            backdrop-filter: blur(2px);
+        }
+        #sure-overlay.show { opacity: 1; }
+        #sure-card {
+            background: #1a0606;
+            border: 4px solid #ff3333;
+            box-shadow: 0 0 60px rgba(255,0,0,0.6), inset 0 0 40px rgba(255,0,0,0.2);
+            padding: 36px 48px;
+            text-align: center;
+            transform: scale(0.7);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-width: 520px;
+        }
+        #sure-overlay.show #sure-card { transform: scale(1); }
+        #sure-question {
+            font-size: 38px; color: #ff3333; letter-spacing: 5px;
+            text-shadow: 0 0 12px rgba(255,0,0,0.8), 2px 3px 0 #000;
+            margin-bottom: 8px; animation: sure-pulse 1.6s infinite ease-in-out;
+        }
+        #sure-sub {
+            font-size: 22px; color: #aa6666; letter-spacing: 1px;
+            margin-bottom: 28px;
+        }
+        #sure-chosen {
+            font-size: 28px; color: #fff; letter-spacing: 3px;
+            border: 2px dashed #ff3333; padding: 10px 24px;
+            display: inline-block; margin-bottom: 28px;
+        }
+        #sure-buttons { display: flex; gap: 18px; justify-content: center; }
+        .sure-btn {
+            font-family: 'VT323', monospace; font-size: 24px;
+            background: transparent; border: 3px solid; padding: 10px 28px;
+            cursor: pointer; transition: all 0.15s; letter-spacing: 2px;
+            min-width: 160px;
+        }
+        .sure-btn.yes { color: #ff3333; border-color: #ff3333; }
+        .sure-btn.yes:hover { background: #ff3333; color: #000; box-shadow: 0 0 20px #ff3333; }
+        .sure-btn.no { color: #aaa; border-color: #aaa; }
+        .sure-btn.no:hover { background: #aaa; color: #000; }
+        @keyframes sure-pulse {
+            0%, 100% { text-shadow: 0 0 12px rgba(255,0,0,0.8), 2px 3px 0 #000; }
+            50% { text-shadow: 0 0 28px rgba(255,80,80,1), 2px 3px 0 #000; }
+        }
+
         /* Admin tester — TEST MINIGAME button + dropdown */
         #adm-mg-row { display: flex; gap: 4px; align-items: stretch; }
         #adm-mg-select {
@@ -546,6 +600,19 @@
     </style>
 
     <div id="flash-overlay"></div>
+
+    <!-- ARE-YOU-SURE confirmation modal — fires when player touches a Phase-2 trap card. -->
+    <div id="sure-overlay">
+        <div id="sure-card">
+            <div id="sure-question">ARE YOU SURE?</div>
+            <div id="sure-sub">Once the card is played, it cannot be undone.</div>
+            <div id="sure-chosen">YOU PICKED: <span id="sure-label">—</span></div>
+            <div id="sure-buttons">
+                <button id="sure-yes" class="sure-btn yes">[ YES, PLAY IT ]</button>
+                <button id="sure-no" class="sure-btn no">[ NO, PUT IT BACK ]</button>
+            </div>
+        </div>
+    </div>
 
     <div id="ui-layer" style="display: none;">
         <div id="dialogue-box">
@@ -699,28 +766,48 @@
                     targetQuestionPrompt = `YOUR NEXT ACTION: Phase 1 is over. Say exactly this: "Good. I know enough to begin. The real game starts now." Do not ask any more questions. Output [PHASE2].`;
                 }
             } else if (currentPhase === 2) {
+                // Per spec: exactly 8 questions = 3 personalized + 3 standard
+                // riddles + 1 memory + 1 trap. Trap is ALWAYS Q8 (last) so the
+                // player has spent the whole phase relaxing into the rhythm
+                // before the cards drop. Memory mid-phase tests if they're
+                // present.
+                //   Q1: personalized (identity)   Q5: standard
+                //   Q2: standard                  Q6: personalized (history|promises)
+                //   Q3: personalized (val|rel)    Q7: standard
+                //   Q4: memory                    Q8: TRAP
+                const persPools = [P2_PERS_IDENTITY, P2_PERS_VALUES.concat(P2_PERS_RELATIONS), P2_PERS_HISTORY.concat(P2_PERS_PROMISES, P2_PERS_SELFAWARENESS)];
+                const pickFrom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
                 if (questionsAsked === 0) {
-                     let q = P2_PERS_IDENTITY[Math.floor(Math.random() * P2_PERS_IDENTITY.length)];
-                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask a PERSONALIZED challenge using this template (fill in the blanks based on their Phase 1 answers): "${q}"`;
-                } else if (questionsAsked === 1 || questionsAsked === 5) {
-                     let q = P2_STANDARD[Math.floor(Math.random() * P2_STANDARD.length)];
-                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask this standard puzzle: "${q}" (Do not reveal the answer in parentheses unless they guess it).`;
-                } else if (questionsAsked === 2 || questionsAsked === 6) {
-                     let t = P2_TRAPS[Math.floor(Math.random() * P2_TRAPS.length)];
-                     targetQuestionPrompt = `YOUR NEXT ACTION: Spring a TRAP. Present this scenario: "${t.t}". Then output EXACTLY THIS TAG at the end: [TRAP] ${t.c1} | ${t.c2} | 10 seconds left. | Just pick one. | You're letting them die.`;
+                    targetQuestionPrompt = `YOUR NEXT ACTION: Ask a PERSONALIZED challenge using this template (fill in the blanks based on their Phase 1 answers): "${pickFrom(persPools[0])}"`;
+                } else if (questionsAsked === 1 || questionsAsked === 4 || questionsAsked === 6) {
+                    targetQuestionPrompt = `YOUR NEXT ACTION: Ask this standard puzzle: "${pickFrom(P2_STANDARD)}" (Do not reveal the answer in parentheses unless they guess it).`;
+                } else if (questionsAsked === 2) {
+                    targetQuestionPrompt = `YOUR NEXT ACTION: Ask a PERSONALIZED challenge using this template (fill in the blanks based on their Phase 1 answers): "${pickFrom(persPools[1])}"`;
                 } else if (questionsAsked === 3) {
-                     let q = P2_MEMORY[Math.floor(Math.random() * P2_MEMORY.length)];
-                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask this memory question to test their attention: "${q}"`;
-                } else if (questionsAsked === 4) {
-                     let pool = Math.random() > 0.5 ? P2_PERS_VALUES : P2_PERS_RELATIONS;
-                     let q = pool[Math.floor(Math.random() * pool.length)];
-                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask a PERSONALIZED challenge using this template (fill in the blanks based on their Phase 1 answers): "${q}"`;
+                    targetQuestionPrompt = `YOUR NEXT ACTION: Ask this memory question to test their attention: "${pickFrom(P2_MEMORY)}"`;
+                } else if (questionsAsked === 5) {
+                    targetQuestionPrompt = `YOUR NEXT ACTION: Ask a PERSONALIZED challenge using this template (fill in the blanks based on their Phase 1 answers): "${pickFrom(persPools[2])}"`;
                 } else if (questionsAsked === 7) {
-                     let pool = Math.random() > 0.5 ? P2_PERS_HISTORY : P2_PERS_PROMISES;
-                     let q = pool[Math.floor(Math.random() * pool.length)];
-                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask a PERSONALIZED challenge using this template (fill in the blanks based on their Phase 1 answers): "${q}"`;
+                    // THE TRAP. The signature mechanic. Cards appear ONCE in
+                    // the entire game, here. The AI must:
+                    //  1. SHIFT TONE — quieter, more personal, almost caring.
+                    //  2. Ask a question that SOUNDS like a Phase 1 emotional
+                    //     check-in (NOT a riddle, NOT obviously a test).
+                    //  3. Pick TWO important people from the player's Phase 1
+                    //     answers. If unsure, default to MOM and DAD.
+                    //  4. Output the [TRAP] tag with ONLY the two card labels
+                    //     — the system handles the silence and timer.
+                    targetQuestionPrompt = `YOUR NEXT ACTION: SPRING THE TRAP — Phase 2's signature moment.
+- TONE: shift to quiet, personal, almost caring. Make the player relax.
+- QUESTION: ask something that sounds like a real, human emotional question, NOT a riddle. Examples (adapt based on Phase 1 data):
+   * "Before we continue — your mother has been worried about you lately. Your father hasn't heard from you in weeks. When you leave this room tonight, who are you going to call first?"
+   * "You said your sister means the world to you. You said your best friend has been there since you were kids. If only one of them remembers your name tomorrow, who do you choose?"
+- IDENTIFY two important people the player mentioned in Phase 1 (mother/father, brother/sister, friend/lover, etc.). If they didn't mention any, default to MOM / DAD.
+- After the question, output EXACTLY THIS TAG: [TRAP] LABEL1 | LABEL2
+   where LABEL1 and LABEL2 are the two short card labels (1-2 words each, uppercase). NO countdown taunts, NO time threats — silence does the work.`;
                 } else {
-                     targetQuestionPrompt = `YOUR NEXT ACTION: End Phase 2. Say "You survived the proving ground. Now, the final test. Win 3 games on the tablet, or die." Output [PHASE3].`;
+                    targetQuestionPrompt = `YOUR NEXT ACTION: Phase 2 is complete. Say one cold sentence acknowledging they survived (e.g. "You survived. Most don't."). Output [PHASE3].`;
                 }
             }
         }
@@ -779,11 +866,12 @@ ${targetQuestionPrompt}
    - If they are correct/passed: Acknowledge coldly, then proceed to YOUR NEXT ACTION.
    - If they gave an INCORRECT answer to a real question: Output [LOSE] to execute them immediately. No second chances. No warnings.
    - If behavioral rules broken (cocky, disrespect): Output [IRRITATE].
-2. STRICT LIMIT: NEVER exceed 2 sentences per response. Break up your thoughts. Combine evaluation and the next question quickly. NEVER ASK TWO QUESTIONS OR RIDDLES AT ONCE.
-3. EXACTLY ONE QUESTION per response unless issuing a trap.
-4. If the user message starts with [SYSTEM: ...], follow those instructions perfectly! They correspond to the player using special Survival Cards (Skip, Mirror, Doubt).
+2. STRICT LIMIT: NEVER exceed 2 sentences per response (the trap question can be slightly longer — 3-4 sentences max). Combine evaluation and the next question quickly. NEVER ASK TWO QUESTIONS OR RIDDLES AT ONCE.
+3. EXACTLY ONE QUESTION per response unless issuing the trap.
+4. If the user message starts with [SYSTEM: ...], follow those instructions perfectly.
+5. THE TRAP (Q8) is sacred. NEVER trigger it before Q8. NEVER use [TRAP] outside Q8. When you DO trigger it, the cards must be the ONLY "tools" the player has seen — there are no SKIP/MIRROR/DOUBT cards in this game anymore.
 CURRENT IRRITATION LEVEL: ${irritationLevel}/3.
-End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [CONTINUE] for minor chat, [PHASE3] if moving to Phase 3, or [LOSE]/[IRRITATE].`;
+End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you issued the trap (Q8 only), [CONTINUE] for minor chat, [PHASE3] if moving to Phase 3, or [LOSE]/[IRRITATE].`;
             }
 
             return prompt;
@@ -1204,7 +1292,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                     document.getElementById('dialogue-box').style.borderColor = "#555";
 
                     await new Promise(res => typeWriterEffect(aiText, res));
-                    if (gameState === "TRAP") startTrap(trapData); else handleGameState(gameState);
+                    if (gameState === "TRAP") startWaitTrap(trapData); else handleGameState(gameState);
                 } else throw new Error();
             } catch (error) { await new Promise(res => typeWriterEffect("The shadows twist... (Connection Error).", res)); enableInput(); }
         }
@@ -1218,13 +1306,16 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                 activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
                 if (trapInterval) { clearInterval(trapInterval); trapInterval = null; }
                 inTrap = false;
+                trapDecisionPending = false;
                 playerInput.dataset.card = '';
                 // Restore dialogue box if Phase 3 hid it (admin can skip backward).
                 const dialogueBox = document.getElementById('dialogue-box');
                 dialogueBox.style.display = 'block';
                 dialogueBox.style.opacity = '1';
                 tableSpotLight.color.setHex(0xffaa55); tableSpotLight.intensity = 2.5; ambientLight.color.setHex(0x1a1510);
-                showPhase2Cards(); enableInput();
+                // No ambient SKIP/MIRROR/DOUBT cards anymore — per design, cards
+                // appear EXACTLY ONCE in the entire game, during the trap (Q8).
+                enableInput();
             }
             else if (state === "PHASE3") {
                 currentPhase = 3;
@@ -1302,26 +1393,164 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
 
         function enableInput() { inputContainer.style.display = 'flex'; playerInput.disabled = false; playerInput.value = ''; playerInput.focus(); }
 
-        // --- CARDS ---
-        function showPhase2Cards() { spawn3DCard("SKIP", "SKIP", 0, 3); spawn3DCard("MIRROR", "MIRROR", 1, 3); spawn3DCard("DOUBT", "DOUBT", 2, 3); }
-        window.useCard = function(type, cardData) {
-            scene.remove(cardData.mesh); activeCards = activeCards.filter(c => c !== cardData); inputContainer.style.display = 'none';
-            if (type === 'SKIP') callGemini("[SYSTEM: Player used SKIP card. Pass question, give no penalty, ask NEXT question via [NEXT_Q].]");
-            else if (type === 'MIRROR') callGemini("[SYSTEM: Player used MIRROR card. Force AI to answer! If trap, admit 'There is no correct answer.' If real, give answer. Then move to NEXT question via [NEXT_Q].]");
-            else if (type === 'DOUBT') { inputContainer.style.display = 'flex'; playerInput.disabled = false; playerInput.placeholder = "[DOUBT] Ask Yes/No question..."; playerInput.dataset.card = "DOUBT"; playerInput.focus(); }
-        };
+        // --- THE TRAP — Phase 2's signature mechanic ---
+        // Cards appear EXACTLY ONCE in the entire game, here, on Q8 of Phase 2.
+        // The AI generates the two card labels dynamically from Phase-1 data
+        // (e.g. "MOM" / "DAD" if the player talked about parents, but it could
+        // be "BROTHER" / "BEST FRIEND" or anything else the AI inferred).
+        //
+        // Player wins by waiting 5 minutes touching nothing.
+        // Touching a card triggers a beautiful play-forward animation, then
+        // an "ARE YOU SURE?" confirmation. YES = death. NO = card slides back,
+        // timer keeps running, the bot stays silent.
+        let trapDecisionPending = false; // true while ARE-YOU-SURE modal is up
+        let playedCard = null; // the card currently animated forward
 
-        function startTrap(trapData) {
-            inTrap = true; let opt1 = trapData[0] || "Save Yourself"; let opt2 = trapData[1] || "Save Them"; let taunts = trapData.slice(2);
-            if (taunts.length < 3) taunts = ["10 seconds left.", "Pick one.", "You're letting them die."];
-            inputContainer.style.display = 'none'; activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
-            spawn3DCard(opt1, 'TRAP', 0, 2); spawn3DCard(opt2, 'TRAP', 1, 2);
-            let elapsed = 0; trapInterval = setInterval(() => {
-                elapsed += 1000; if (elapsed === 60000) typeWriterEffect(taunts[0]); if (elapsed === 120000) typeWriterEffect(taunts[1]); if (elapsed === 170000) typeWriterEffect(taunts[2]);
-                if (elapsed >= 180000) { clearInterval(trapInterval); endTrap(); }
+        function startWaitTrap(trapData) {
+            // trapData is the parsed [TRAP] tag payload — first two entries
+            // are the AI-supplied card labels. Anything after is ignored
+            // (the spec's trap has no countdown taunts).
+            inTrap = true;
+            trapDecisionPending = false;
+            playedCard = null;
+
+            const label1 = (trapData[0] || "MOM").toString().slice(0, 24).toUpperCase();
+            const label2 = (trapData[1] || "DAD").toString().slice(0, 24).toUpperCase();
+
+            inputContainer.style.display = 'none';
+            activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
+            spawn3DCard(label1, 'TRAP', 0, 2);
+            spawn3DCard(label2, 'TRAP', 1, 2);
+
+            // 5-minute silent timer. At ~2 minutes the bot says ONE line,
+            // softly: "Take your time." Otherwise complete silence — the
+            // pressure is the silence itself, not fake urgency.
+            const TRAP_DURATION_MS = 5 * 60 * 1000;
+            const TAKE_YOUR_TIME_MS = 2 * 60 * 1000;
+            let elapsed = 0;
+            let saidTakeYourTime = false;
+            trapInterval = setInterval(() => {
+                if (!inTrap) { clearInterval(trapInterval); return; }
+                elapsed += 1000;
+                if (!saidTakeYourTime && elapsed >= TAKE_YOUR_TIME_MS && !trapDecisionPending) {
+                    saidTakeYourTime = true;
+                    // Soft, no urgency, no question. The dialogue label was
+                    // already MR. ASYLBI from the trap question itself.
+                    typeWriterEffect("Take your time.");
+                }
+                if (elapsed >= TRAP_DURATION_MS) {
+                    clearInterval(trapInterval); trapInterval = null;
+                    endWaitTrapSurvived();
+                }
             }, 1000);
         }
-        function endTrap() { inTrap = false; activeCards.forEach(c => scene.remove(c.mesh)); activeCards = []; inputContainer.style.display = 'flex'; questionsAsked++; setupNextTargetQuestion(); callGemini("[SYSTEM: Player ignored choices, waited 3 minutes. Survived trap. Acknowledge coldly, move to next via [NEXT_Q].]"); }
+
+        function endWaitTrapSurvived() {
+            // Player waited the full 5 minutes touching nothing. Survival.
+            inTrap = false;
+            trapDecisionPending = false;
+            activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
+            inputContainer.style.display = 'flex';
+            questionsAsked++; // advance past the trap (Q8 done)
+            setupNextTargetQuestion();
+            // Cold acknowledgement, then [PHASE3].
+            callGemini("[SYSTEM: Player survived the trap by waiting 5 minutes touching nothing. They saw through it. Acknowledge coldly in ONE sentence — something like 'You learn fast.' or 'Most don't survive that.' — then immediately advance to the next phase. Output [PHASE3].]");
+        }
+
+        // The card-touch animation. Lifts the touched card up toward the
+        // camera with a glow effect, dims the other card. Then opens the
+        // ARE-YOU-SURE modal once the lift finishes.
+        function playCardForward(cardData) {
+            if (trapDecisionPending) return; // already deciding
+            trapDecisionPending = true;
+            playedCard = cardData;
+
+            // Lift the chosen card dramatically toward the camera.
+            cardData.targetY = cardData.baseY + 1.0;
+            cardData.targetZ = cardData.baseZ + 1.4;
+            cardData.targetRotX = -Math.PI / 5;
+            // Glow effect — switch the material to emit red light.
+            try {
+                cardData.mesh.material.emissive = new THREE.Color(0xff2222);
+                cardData.mesh.material.emissiveIntensity = 0.0;
+                // Ramp up emissive over the lift animation.
+                let glow = 0;
+                const glowInt = setInterval(() => {
+                    glow = Math.min(0.9, glow + 0.06);
+                    cardData.mesh.material.emissiveIntensity = glow;
+                    if (glow >= 0.9) clearInterval(glowInt);
+                }, 30);
+            } catch (e) { /* material doesn't support emissive — ignore */ }
+
+            // Dim the other card.
+            activeCards.forEach(c => {
+                if (c !== cardData && c.mesh.material) {
+                    c.mesh.material.opacity = 0.45;
+                    c.mesh.material.transparent = true;
+                }
+                c.active = (c === cardData); // prevent click on the dimmed one
+            });
+
+            // After the lift settles, show the ARE-YOU-SURE modal.
+            setTimeout(() => showAreYouSure(cardData.text), 700);
+        }
+
+        function playCardBack(cardData) {
+            if (!cardData) return;
+            cardData.targetY = cardData.baseY;
+            cardData.targetZ = cardData.baseZ;
+            cardData.targetRotX = cardData.baseRotX;
+            try {
+                let glow = cardData.mesh.material.emissiveIntensity || 0;
+                const fadeInt = setInterval(() => {
+                    glow = Math.max(0, glow - 0.08);
+                    cardData.mesh.material.emissiveIntensity = glow;
+                    if (glow <= 0) clearInterval(fadeInt);
+                }, 30);
+            } catch (e) {}
+            activeCards.forEach(c => {
+                if (c.mesh.material) {
+                    c.mesh.material.opacity = 1;
+                    c.mesh.material.transparent = false;
+                }
+                c.active = true;
+            });
+            playedCard = null;
+            trapDecisionPending = false;
+        }
+
+        function showAreYouSure(label) {
+            const overlay = document.getElementById('sure-overlay');
+            document.getElementById('sure-label').innerText = label;
+            overlay.style.display = 'flex';
+            // Force reflow so the .show transition fires.
+            void overlay.offsetWidth;
+            overlay.classList.add('show');
+        }
+
+        function hideAreYouSure() {
+            const overlay = document.getElementById('sure-overlay');
+            overlay.classList.remove('show');
+            setTimeout(() => { overlay.style.display = 'none'; }, 350);
+        }
+
+        document.getElementById('sure-yes').addEventListener('click', () => {
+            // Player committed to a wrong choice. Death.
+            hideAreYouSure();
+            // Stop the trap timer — the trap is resolved.
+            if (trapInterval) { clearInterval(trapInterval); trapInterval = null; }
+            inTrap = false;
+            trapDecisionPending = false;
+            // Brief death line, then SHOT.
+            typeWriterEffect("Pathetic.", () => triggerEnding('SHOT'));
+        });
+        document.getElementById('sure-no').addEventListener('click', () => {
+            // Player put the card back. Trap resumes — silence and timer
+            // continue. Spec: the trap is unforgiving; the player has to
+            // ride out the rest of the timer touching nothing.
+            hideAreYouSure();
+            playCardBack(playedCard);
+        });
 
         // --- PHASE 3 MINIGAMES (registry-driven) ---
         // Mini-games are defined in window.MINIGAMES (see minigames.js).
@@ -1624,8 +1853,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                 document.getElementById('dialogue-text').innerHTML = `<i>${userText}</i>`;
                 
                 setTimeout(() => {
-                    if (playerInput.dataset.card === "DOUBT") { playerInput.dataset.card = ""; playerInput.placeholder = "Speak..."; callGemini(`[SYSTEM: Player used DOUBT card. Their Yes/No question is: "${userText}". If current question WAS a trap: skip safely, admit they caught you, answer truthfully. If NOT a trap: punish them (issue [LOSE] immediately or [IRRITATE]). Then [NEXT_Q].]`); } 
-                    else { callGemini(userText); }
+                    callGemini(userText);
                 }, 1500);
             }
         });
@@ -1644,9 +1872,14 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
 
             if (hoveredObj && hoveredObj.userData.active) {
                 const card = hoveredObj.userData;
-                if (card.type === 'TRAP') { triggerEnding('SHOT'); return; }
-                if (inputContainer.style.display === 'none') return;
-                window.useCard(card.type, card);
+                if (card.type === 'TRAP') {
+                    // The trap card. Don't kill instantly — play the card
+                    // forward with a flourish, then ask "ARE YOU SURE?".
+                    if (!trapDecisionPending) playCardForward(card);
+                    return;
+                }
+                // No other clickable cards exist anymore — the SKIP/MIRROR/DOUBT
+                // ambient cards were stripped in this same refactor.
                 return;
             }
 
