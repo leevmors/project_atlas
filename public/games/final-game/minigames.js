@@ -689,14 +689,15 @@
                 // move pipes
                 for (const p of pipes) p.x -= 200 * dt;
                 while (pipes.length && pipes[0].x + pipes[0].w < 0) { pipes.shift(); score++; ctx.setScore(`SCORE ${score}`); sfx.hit(); }
-                // collide
-                if (by < 0 || by > ctx.H - 20) { sfx.lose(); finish(); }
+                // collide — bird is now drawn at scale 4 (sprite 16×16 → 64×64),
+                // so the collision half-extents grow accordingly.
+                const BR = 28; // half-size of the bird hitbox
+                if (by < BR || by > ctx.H - BR) { sfx.lose(); finish(); }
                 for (const p of pipes) {
-                    if (180 + 20 > p.x && 180 < p.x + p.w && (by < p.top || by + 20 > p.top + 180)) { sfx.lose(); finish(); break; }
+                    if (190 + BR > p.x && 190 - BR < p.x + p.w && (by - BR < p.top || by + BR > p.top + 180)) { sfx.lose(); finish(); break; }
                 }
                 // draw
                 drawBg(g, 'sky', ctx.W, ctx.H);
-                // pipes (chunky pixel with shadow + cap)
                 for (const p of pipes) {
                     g.fillStyle = '#1a4a1a'; g.fillRect(p.x - 2, 0, p.w + 4, p.top);
                     g.fillRect(p.x - 2, p.top + 180, p.w + 4, ctx.H - p.top - 180);
@@ -706,8 +707,8 @@
                     g.fillStyle = '#2a7a36'; g.fillRect(p.x - 4, p.top - 18, p.w + 8, 18); g.fillRect(p.x - 4, p.top + 180, p.w + 8, 18);
                     g.fillStyle = '#1a4a1a'; g.fillRect(p.x - 4, p.top - 4, p.w + 8, 4); g.fillRect(p.x - 4, p.top + 180 + 14, p.w + 8, 4);
                 }
-                // bird sprite (tilt with velocity)
-                drawSpr(g, 'bird', 190, by + 10, 2, { rot: clamp(vy / 600, -0.5, 0.8) });
+                // bird sprite (now scale 4 — much more visible)
+                drawSpr(g, 'bird', 190, by, 4, { rot: clamp(vy / 600, -0.5, 0.8) });
             });
         }
     };
@@ -907,160 +908,13 @@
         }
     };
 
-    // 6. Falling Blocks — survive 45s, blocks must not stack to ceiling
-    // Difficulty: 8 cols, blocks spawn 600ms, 45s = ~75 blocks total.
-    // Stack capacity per col ~15 blocks (540/36), 8 cols = 120 capacity. With even
-    // distribution this is easily survivable; worst-case clustering is the failure mode.
-    M.falling_blocks = {
-        title: 'FALLING BLOCKS',
-        desc: 'Tap blocks before they stack to the top. Survive 60 seconds.',
-        run(ctx) {
-            const { c, g } = mkCanvas(ctx);
-            const cols = 8; const colW = ctx.W / cols; const ceil = 30;
-            const stacks = new Array(cols).fill(0); // pixel height stacked per col
-            const falling = []; // {col, y, h}
-            let dead = false; let speed = 90;
-            ctx.setScore(`STACK 0`);
-            ctx.on(c, 'pointerdown', (e) => {
-                if (dead) return;
-                const r = c.getBoundingClientRect();
-                const x = (e.clientX - r.left) * (c.width / r.width);
-                const y = (e.clientY - r.top) * (c.height / r.height);
-                for (let i = falling.length - 1; i >= 0; i--) {
-                    const b = falling[i];
-                    if (x >= b.col * colW && x <= (b.col + 1) * colW && y >= b.y && y <= b.y + b.h) {
-                        falling.splice(i, 1); sfx.hit(); return;
-                    }
-                }
-            });
-            countdown(ctx, 60, 'TIME', () => { if (!dead) ctx.win(); });
-            ctx.interval(() => { if (!dead) falling.push({ col: randInt(0, cols-1), y: -40, h: 36 }); }, 420);
-            ctx.loop((dt) => {
-                if (dead) return;
-                speed += dt * 8;
-                for (const b of falling) b.y += speed * dt;
-                // landing
-                for (let i = falling.length - 1; i >= 0; i--) {
-                    const b = falling[i];
-                    const top = ctx.H - stacks[b.col];
-                    if (b.y + b.h >= top) { stacks[b.col] += b.h; falling.splice(i, 1); }
-                }
-                const max = Math.max(...stacks);
-                ctx.setScore(`STACK ${max}`);
-                if (max >= ctx.H - ceil) { dead = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 400); return; }
-                // draw
-                drawBg(g, 'cell', ctx.W, ctx.H);
-                g.fillStyle = '#5a1010'; g.fillRect(0, ceil - 4, ctx.W, 4);
-                g.fillStyle = '#ff3a3a'; g.fillRect(0, ceil, ctx.W, 2);
-                for (let i = 0; i < cols; i++) {
-                    const sH = stacks[i];
-                    for (let yy = 0; yy < sH; yy += 16) {
-                        drawSpr(g, 'brick', i * colW + colW / 2, ctx.H - yy - 8, Math.max(1, Math.floor((colW - 8) / 16)));
-                    }
-                }
-                for (const b of falling) {
-                    g.fillStyle = '#000'; g.fillRect(b.col * colW + 8, b.y + 3, colW - 12, b.h);
-                    drawSpr(g, 'woodblock', b.col * colW + colW / 2, b.y + b.h / 2, Math.max(1, Math.floor((colW - 12) / 16)));
-                }
-            });
-        }
-    };
+    // (M.falling_blocks removed.)
 
-    // 7. Bug Smash — 20 bugs cross L→R, smash before any escape
-    // Difficulty: 20 bugs, spawn 700ms, speed rand(50-110). Slowest bug crosses 800px in
-    // ~16s; spawn period totals 14s. Player has buffer to catch them. ANY escape = lose.
-    M.bug_smash = {
-        title: 'BUG SMASH',
-        desc: 'Smash all 20 bugs before any reach the right side.',
-        run(ctx) {
-            const { c, g } = mkCanvas(ctx);
-            const bugs = []; let spawned = 0; let killed = 0; const total = 20; let dead = false;
-            ctx.setScore(`SMASHED 0/${total}`);
-            ctx.on(c, 'pointerdown', (e) => {
-                if (dead) return;
-                const r = c.getBoundingClientRect();
-                const x = (e.clientX - r.left) * (c.width / r.width);
-                const y = (e.clientY - r.top) * (c.height / r.height);
-                for (let i = bugs.length - 1; i >= 0; i--) {
-                    const b = bugs[i];
-                    if (Math.abs(x - b.x) < 22 && Math.abs(y - b.y) < 22) {
-                        bugs.splice(i, 1); killed++; sfx.hit(); ctx.setScore(`SMASHED ${killed}/${total}`);
-                        if (killed >= total) { dead = true; ctx.timeout(() => ctx.win(), 200); }
-                        return;
-                    }
-                }
-            });
-            const sp = ctx.interval(() => {
-                if (spawned >= total) { ctx.clearInterval(sp); return; }
-                bugs.push({ x: -30, y: rand(40, ctx.H - 40), v: rand(80, 160), wig: 0 });
-                spawned++;
-            }, 450);
-            ctx.loop((dt) => {
-                if (dead) return;
-                for (const b of bugs) { b.x += b.v * dt; b.wig += dt * 8; }
-                if (bugs.some(b => b.x > ctx.W)) { dead = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 300); return; }
-                if (spawned >= total && bugs.length === 0) { dead = true; ctx.timeout(() => ctx.win(), 200); return; }
-                drawBg(g, 'lab', ctx.W, ctx.H);
-                for (const b of bugs) {
-                    const sy = b.y + Math.sin(b.wig) * 3;
-                    drawSpr(g, 'bug', b.x, sy, 3);
-                }
-                // pulsing red danger zone
-                g.fillStyle = '#5a1010'; g.fillRect(ctx.W - 8, 0, 8, ctx.H);
-                g.fillStyle = '#ff3a3a'; g.fillRect(ctx.W - 6, 0, 2, ctx.H);
-            });
-        }
-    };
+    // (M.bug_smash removed.)
 
-    // (M.balloon_pop removed — too easy, replaced by tighter games.)
+    // (M.balloon_pop removed.)
 
-    // 9. Tap the Number
-    // Difficulty: 20 numbers in 45s (was 30s) with hard reset on wrong tap. The reset
-    // mechanic is harsh enough that the timer needed slack. Searching the next number
-    // visually takes ~1-1.5s per tap so 30s was effectively impossible.
-    M.tap_number = {
-        title: 'TAP THE NUMBER',
-        desc: 'Tap numbers 1 to 20 in order. Out-of-order tap RESETS your streak.',
-        run(ctx) {
-            ctx.stage.style.background = 'radial-gradient(ellipse at center, #0a141a 0%, #020408 100%)';
-            const N = 20;
-            const positions = [];
-            for (let i = 1; i <= N; i++) {
-                let p, ok = false, tries = 0;
-                while (!ok && tries < 200) {
-                    p = { x: rand(40, ctx.W - 40), y: rand(40, ctx.H - 40) };
-                    ok = positions.every(q => Math.hypot(p.x - q.x, p.y - q.y) > 70);
-                    tries++;
-                }
-                positions.push(p);
-            }
-            let next = 1;
-            ctx.setScore(`NEXT ${next}`);
-            const btns = [];
-            function resetStreak() {
-                next = 1;
-                btns.forEach(b => { b.disabled = false; b.style.background = '#1a1a1a'; b.style.borderColor = '#555'; });
-                ctx.setScore(`NEXT 1 (RESET!)`);
-            }
-            for (let i = 0; i < N; i++) {
-                const n = i + 1;
-                const b = ctx.el('button', { style: { position: 'absolute', left: (positions[i].x - 28) + 'px', top: (positions[i].y - 28) + 'px', width: '56px', height: '56px', background: '#1a1a1a', border: '3px solid #555', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '28px', cursor: 'pointer', boxShadow: 'inset 0 0 0 2px #000, inset 0 -4px 0 rgba(0,0,0,0.5), 0 4px 0 #000' }, text: String(n), onclick: () => {
-                    if (n === next) {
-                        b.style.background = '#3ae26a'; b.style.borderColor = '#3ae26a'; b.disabled = true; sfx.hit();
-                        next++; ctx.setScore(next > N ? 'DONE' : `NEXT ${next}`);
-                        if (next > N) ctx.win();
-                    } else {
-                        sfx.bad();
-                        // Out-of-order tap: flash all green cells red, then reset progress.
-                        btns.forEach(x => { if (x.disabled) { x.style.background = '#e23a3a'; x.style.borderColor = '#e23a3a'; } });
-                        ctx.timeout(resetStreak, 350);
-                    }
-                } });
-                btns.push(b); ctx.stage.appendChild(b);
-            }
-            countdown(ctx, 45, 'TIME', () => ctx.lose());
-        }
-    };
+    // (M.tap_number removed.)
 
     // 10. Red Light / Green Light
     // Difficulty: 10 rounds, single mistake = lose. Green window 0.9-2.2s, red 0.9-1.6s.
@@ -1132,20 +986,18 @@
             let ball = null;
             ctx.setScore(`HITS 0/${need}`);
 
-            // Angle meter — horizontal across the bottom.
+            // Angle meter — no sweet-zone hint. Player has to learn by feel.
             const angleMeter = ctx.el('div', { style: { position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '26px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
-            const angleSweet = ctx.el('div', { style: { position: 'absolute', top: 0, bottom: 0, left: '45%', width: '22%', background: 'rgba(74,255,122,0.28)', borderLeft: '2px solid #4eff7a', borderRight: '2px solid #4eff7a' } });
             const angleMark = ctx.el('div', { style: { position: 'absolute', top: '-4px', bottom: '-4px', width: '5px', background: '#ffd24a', left: '0%', boxShadow: '0 0 8px #ffd24a' } });
-            angleMeter.appendChild(angleSweet); angleMeter.appendChild(angleMark);
+            angleMeter.appendChild(angleMark);
             ctx.stage.appendChild(angleMeter);
             const angleLabel = ctx.el('div', { style: { position: 'absolute', bottom: '46px', left: '50%', transform: 'translateX(-50%)', color: '#ffd24a', fontFamily: 'VT323, monospace', fontSize: '14px', letterSpacing: '2px' }, text: 'ANGLE' });
             ctx.stage.appendChild(angleLabel);
 
-            // Power meter — vertical on right edge.
+            // Power meter — also no sweet-zone hint.
             const powerMeter = ctx.el('div', { style: { position: 'absolute', right: '20px', top: '60px', width: '34px', height: '380px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
-            const powerSweet = ctx.el('div', { style: { position: 'absolute', left: 0, right: 0, bottom: '60%', height: '22%', background: 'rgba(74,255,122,0.28)', borderTop: '2px solid #4eff7a', borderBottom: '2px solid #4eff7a' } });
             const powerMark = ctx.el('div', { style: { position: 'absolute', left: '-4px', right: '-4px', height: '5px', background: '#ff3a3a', bottom: '0%', boxShadow: '0 0 8px #ff3a3a' } });
-            powerMeter.appendChild(powerSweet); powerMeter.appendChild(powerMark);
+            powerMeter.appendChild(powerMark);
             ctx.stage.appendChild(powerMeter);
             const powerLabel = ctx.el('div', { style: { position: 'absolute', right: '20px', top: '34px', width: '34px', textAlign: 'center', color: '#ff7a7a', fontFamily: 'VT323, monospace', fontSize: '14px' }, text: 'PWR' });
             ctx.stage.appendChild(powerLabel);
@@ -1211,50 +1063,7 @@
         }
     };
 
-    // 12. Archery — moving target, hit 3/5
-    // Difficulty: target r=36 oscillating vertically at 130 px/s; 5 arrows, need 3.
-    // Click position determines arrow trajectory. 60% hit rate target, achievable.
-    M.archery = {
-        title: 'ARCHERY',
-        desc: 'Hit the moving target 3 of 5 times. Click to shoot.',
-        run(ctx) {
-            const { c, g } = mkCanvas(ctx);
-            let arrows = 5, hits = 0;
-            const target = { x: ctx.W - 80, y: 300, r: 36, vy: 130, dir: 1 };
-            let arrow = null;
-            ctx.setScore(`HITS 0/${arrows}`);
-            ctx.on(c, 'pointerdown', (e) => {
-                if (arrow || arrows <= 0) return;
-                const r = c.getBoundingClientRect();
-                const cx = (e.clientX - r.left) * (c.width / r.width);
-                const cy = (e.clientY - r.top) * (c.height / r.height);
-                arrow = { x: 60, y: 480, vx: 700, vy: -((480 - cy) / 0.7), gravity: 250 };
-            });
-            ctx.loop((dt) => {
-                target.y += target.vy * target.dir * dt;
-                if (target.y < 90 || target.y > 480) target.dir *= -1;
-                if (arrow) {
-                    arrow.vy += arrow.gravity * dt; arrow.x += arrow.vx * dt; arrow.y += arrow.vy * dt;
-                    if (Math.hypot(arrow.x - target.x, arrow.y - target.y) < target.r) {
-                        hits++; arrows--; sfx.win(); arrow = null; ctx.setScore(`HITS ${hits}/5`);
-                        if (hits >= 3) { ctx.timeout(() => ctx.win(), 500); return; }
-                        if (arrows <= 0) { ctx.timeout(() => ctx.lose(), 500); return; }
-                    } else if (arrow && (arrow.x > ctx.W || arrow.y > ctx.H)) {
-                        arrows--; sfx.bad(); arrow = null;
-                        if (arrows <= 0) { ctx.timeout(() => hits >= 3 ? ctx.win() : ctx.lose(), 500); return; }
-                    }
-                }
-                drawBg(g, 'grass', ctx.W, ctx.H);
-                // target on a stand
-                g.fillStyle = '#3a2010'; g.fillRect(target.x - 4, target.y + target.r, 8, 60);
-                drawSpr(g, 'target', target.x, target.y, 5);
-                // archer
-                drawSpr(g, 'archer', 55, 485, 5);
-                if (arrow) { const ang = Math.atan2(arrow.vy, arrow.vx); drawSpr(g, 'arrow', arrow.x, arrow.y, 2, { rot: ang }); }
-                ctx.setTimer(`ARROWS ${arrows}`);
-            });
-        }
-    };
+    // (M.archery removed.)
 
     // 13. Angry Birds — slingshot, knock all blocks in 3 shots
     // Difficulty: pyramid reduced from 4 tiers (10 blocks) to 3 tiers (6 blocks) — old
@@ -1317,6 +1126,10 @@
                 if (dragging) {
                     g.strokeStyle = '#3a1a08'; g.lineWidth = 4; g.beginPath(); g.moveTo(sling.x - 6, sling.y - 8); g.lineTo(sling.x - dragV.x, sling.y - dragV.y); g.lineTo(sling.x + 6, sling.y - 8); g.stroke();
                     drawSpr(g, 'abird', sling.x - dragV.x, sling.y - dragV.y, 2);
+                } else if (!bird && shots > 0) {
+                    // Bird sitting on the slingshot ready to be flung.
+                    // Without this the player saw an EMPTY slingshot between shots.
+                    drawSpr(g, 'abird', sling.x, sling.y - 4, 2);
                 }
                 // blocks
                 for (const b of blocks) if (b.alive) { drawSpr(g, 'woodblock', b.x + b.w/2, b.y + b.h/2, Math.max(2, Math.floor(b.w / 16))); }
@@ -1347,15 +1160,13 @@
             ctx.setScore(`HITS 0/5`);
 
             const angleMeter = ctx.el('div', { style: { position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '24px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
-            const angleSweet = ctx.el('div', { style: { position: 'absolute', top: 0, bottom: 0, left: '40%', width: '22%', background: 'rgba(74,255,122,0.28)', borderLeft: '2px solid #4eff7a', borderRight: '2px solid #4eff7a' } });
             const angleMark = ctx.el('div', { style: { position: 'absolute', top: '-4px', bottom: '-4px', width: '5px', background: '#ffd24a', left: '0%', boxShadow: '0 0 8px #ffd24a' } });
-            angleMeter.appendChild(angleSweet); angleMeter.appendChild(angleMark);
+            angleMeter.appendChild(angleMark);
             ctx.stage.appendChild(angleMeter);
 
             const powerMeter = ctx.el('div', { style: { position: 'absolute', right: '20px', top: '60px', width: '32px', height: '380px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
-            const powerSweet = ctx.el('div', { style: { position: 'absolute', left: 0, right: 0, bottom: '52%', height: '22%', background: 'rgba(74,255,122,0.28)', borderTop: '2px solid #4eff7a', borderBottom: '2px solid #4eff7a' } });
             const powerMark = ctx.el('div', { style: { position: 'absolute', left: '-4px', right: '-4px', height: '5px', background: '#ff3a3a', bottom: '0%', boxShadow: '0 0 8px #ff3a3a' } });
-            powerMeter.appendChild(powerSweet); powerMeter.appendChild(powerMark);
+            powerMeter.appendChild(powerMark);
             ctx.stage.appendChild(powerMeter);
 
             const phaseLabel = ctx.el('div', { style: { position: 'absolute', top: '52px', left: '50%', transform: 'translateX(-50%)', color: '#ffd24a', fontFamily: 'VT323, monospace', fontSize: '22px', letterSpacing: '3px', textShadow: '0 0 8px #000' }, text: 'TAP TO LOCK ANGLE' });
@@ -1416,91 +1227,7 @@
         }
     };
 
-    // 15. Cannon
-    // Difficulty: 5 shots, need 3 on a small (50x50) randomly-placed target. Sliders
-    // give precise control. Target jumps to a new random spot after each hit, so prior
-    // calibration only partly carries over. 60% hit rate is fair.
-    M.cannon = {
-        title: 'CANNON',
-        desc: 'Time both meters: angle, then power. Hit the target 3 of 5.',
-        run(ctx) {
-            const { c, g } = mkCanvas(ctx);
-            let shots = 5, hits = 0; let ball = null;
-            const tgt = { x: rand(550, 720), y: rand(150, 480), w: 50, h: 50 };
-            const ANGLE_MIN = 15, ANGLE_MAX = 80;
-            const POWER_MIN = 500, POWER_MAX = 1050;
-            let phase = 'angle';
-            let angleVal = 0, angleDir = 1;
-            let powerVal = 0, powerDir = 1;
-            let lockedAngle = 45, lockedPower = 750;
-            ctx.setScore(`HITS 0/3`);
-
-            const angleMeter = ctx.el('div', { style: { position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '24px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
-            const angleSweet = ctx.el('div', { style: { position: 'absolute', top: 0, bottom: 0, left: '40%', width: '20%', background: 'rgba(74,255,122,0.28)', borderLeft: '2px solid #4eff7a', borderRight: '2px solid #4eff7a' } });
-            const angleMark = ctx.el('div', { style: { position: 'absolute', top: '-4px', bottom: '-4px', width: '5px', background: '#ffd24a', left: '0%', boxShadow: '0 0 8px #ffd24a' } });
-            angleMeter.appendChild(angleSweet); angleMeter.appendChild(angleMark);
-            ctx.stage.appendChild(angleMeter);
-
-            const powerMeter = ctx.el('div', { style: { position: 'absolute', right: '20px', top: '60px', width: '32px', height: '380px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
-            const powerSweet = ctx.el('div', { style: { position: 'absolute', left: 0, right: 0, bottom: '50%', height: '24%', background: 'rgba(74,255,122,0.28)', borderTop: '2px solid #4eff7a', borderBottom: '2px solid #4eff7a' } });
-            const powerMark = ctx.el('div', { style: { position: 'absolute', left: '-4px', right: '-4px', height: '5px', background: '#ff3a3a', bottom: '0%', boxShadow: '0 0 8px #ff3a3a' } });
-            powerMeter.appendChild(powerSweet); powerMeter.appendChild(powerMark);
-            ctx.stage.appendChild(powerMeter);
-
-            const phaseLabel = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', color: '#ffd24a', fontFamily: 'VT323, monospace', fontSize: '22px', letterSpacing: '3px', textShadow: '0 0 8px #000' }, text: 'TAP TO LOCK ANGLE' });
-            ctx.stage.appendChild(phaseLabel);
-
-            ctx.on(c, 'pointerdown', () => {
-                if (ball || shots <= 0 || phase === 'firing') return;
-                if (phase === 'angle') {
-                    lockedAngle = ANGLE_MIN + (angleVal / 100) * (ANGLE_MAX - ANGLE_MIN);
-                    sfx.tick && sfx.tick(); phase = 'power';
-                    phaseLabel.textContent = 'TAP TO LOCK POWER'; phaseLabel.style.color = '#ff7a7a';
-                } else if (phase === 'power') {
-                    lockedPower = POWER_MIN + (powerVal / 100) * (POWER_MAX - POWER_MIN);
-                    sfx.tick && sfx.tick();
-                    const r = lockedAngle * Math.PI / 180;
-                    ball = { x: 80, y: 510, vx: Math.cos(r) * lockedPower, vy: -Math.sin(r) * lockedPower };
-                    shots--; phase = 'firing'; phaseLabel.textContent = '...';
-                }
-            });
-            ctx.loop((dt) => {
-                if (phase === 'angle') {
-                    angleVal += angleDir * 100 * dt;
-                    if (angleVal >= 100) { angleVal = 100; angleDir = -1; }
-                    if (angleVal <= 0) { angleVal = 0; angleDir = 1; }
-                } else if (phase === 'power') {
-                    powerVal += powerDir * 130 * dt;
-                    if (powerVal >= 100) { powerVal = 100; powerDir = -1; }
-                    if (powerVal <= 0) { powerVal = 0; powerDir = 1; }
-                }
-                angleMark.style.left = angleVal + '%';
-                powerMark.style.bottom = powerVal + '%';
-
-                if (ball) {
-                    ball.vy += 980 * dt; ball.x += ball.vx * dt; ball.y += ball.vy * dt;
-                    if (ball.x > tgt.x && ball.x < tgt.x + tgt.w && ball.y > tgt.y && ball.y < tgt.y + tgt.h) {
-                        hits++; sfx.win(); ball = null; ctx.setScore(`HITS ${hits}/3`);
-                        tgt.x = rand(550, 720); tgt.y = rand(150, 480);
-                        if (hits >= 3) { ctx.timeout(() => ctx.win(), 400); return; }
-                        if (shots <= 0) { ctx.timeout(() => ctx.lose(), 400); return; }
-                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
-                    } else if (ball && (ball.y > 530 || ball.x > ctx.W)) {
-                        sfx.bad(); ball = null;
-                        if (shots <= 0) { ctx.timeout(() => hits >= 3 ? ctx.win() : ctx.lose(), 400); return; }
-                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
-                    }
-                }
-                drawBg(g, 'night', ctx.W, ctx.H);
-                g.fillStyle = '#1a1408'; g.fillRect(0, 530, ctx.W, 40);
-                g.fillStyle = '#3a2a1a'; g.fillRect(0, 528, ctx.W, 4);
-                drawSpr(g, 'cannon', 80, 510, 2, { rot: -lockedAngle * Math.PI / 180 });
-                drawSpr(g, 'target', tgt.x + tgt.w/2, tgt.y + tgt.h/2, 4);
-                if (ball) { drawSpr(g, 'cball', ball.x, ball.y, 2); }
-                ctx.setTimer(`SHOTS ${shots}`);
-            });
-        }
-    };
+    // (M.cannon removed.)
 
     // 16. Darts
     // Difficulty: 6 darts, need 3, bullseye r=26 bouncing at (180, 110) px/s. 50% hit
@@ -1536,49 +1263,7 @@
         }
     };
 
-    // 17. Penalty Kick
-    // Difficulty: keeper picks uniformly random of 3 sides → 2/3 score chance per shot.
-    // Need raised from 3/5 to 4/5: P(≥4 of 5 at p=2/3) = C(5,4)(2/3)⁴(1/3) + (2/3)⁵
-    // ≈ 46%, landing in the 40-60% target band.
-    M.penalty_kick = {
-        title: 'PENALTY KICK',
-        desc: 'Pick a side and power. Score 4 of 5. The keeper guesses random.',
-        run(ctx) {
-            let shots = 5, scored = 0;
-            const stage = ctx.stage;
-            ctx.stage.style.background = `radial-gradient(ellipse at 50% 100%, #1a3a18 0%, #08140a 70%)`;
-            const goal = ctx.el('div', { style: { position: 'absolute', top: '60px', left: '160px', width: '480px', height: '180px', background: 'linear-gradient(180deg, #0a0a0a, #1a1a1a)', border: '6px solid #fff', boxShadow: 'inset 0 0 0 4px #aaa, 0 8px 0 #000', backgroundImage: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.08) 0 2px, transparent 2px 18px), repeating-linear-gradient(90deg, rgba(255,255,255,0.08) 0 2px, transparent 2px 18px)' } });
-            const keeper = ctx.el('div', { style: { position: 'absolute', top: '110px', width: '70px', height: '130px', backgroundImage: `url(${sprURL('keeper', 7)})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', imageRendering: 'pixelated', transition: 'left 0.18s' } });
-            const ball = ctx.el('div', { style: { position: 'absolute', bottom: '30px', left: '380px', width: '44px', height: '44px', backgroundImage: `url(${sprURL('soccer', 6)})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', imageRendering: 'pixelated', transition: 'all 0.4s' } });
-            stage.appendChild(goal); stage.appendChild(keeper); stage.appendChild(ball);
-            const choices = ctx.el('div', { style: { position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '16px' } });
-            ['LEFT','CENTER','RIGHT'].forEach((label, i) => {
-                const b = pxBtn(label, () => shoot(i));
-                b.dataset.dir = i; choices.appendChild(b);
-            });
-            stage.appendChild(choices);
-            ctx.setScore(`SCORED 0/${shots}`);
-            keeper.style.left = '350px';
-            function shoot(dir) {
-                if (shots <= 0) return;
-                const keeperDir = randInt(0, 2);
-                const targetLeft = [200, 380, 560][dir];
-                ball.style.left = (targetLeft - 20) + 'px';
-                ball.style.bottom = '180px';
-                keeper.style.left = ([200, 380, 560][keeperDir] - 30) + 'px';
-                shots--;
-                ctx.timeout(() => {
-                    if (dir === keeperDir) { sfx.bad(); }
-                    else { scored++; sfx.win(); ctx.setScore(`SCORED ${scored}/${shots+scored}`); }
-                    if (scored >= 4) { ctx.timeout(() => ctx.win(), 400); return; }
-                    if (shots <= 0) { ctx.timeout(() => scored >= 4 ? ctx.win() : ctx.lose(), 400); return; }
-                    ball.style.transition = 'none';
-                    ball.style.left = '380px'; ball.style.bottom = '40px';
-                    ctx.timeout(() => { ball.style.transition = 'all 0.4s'; }, 50);
-                }, 450);
-            }
-        }
-    };
+    // (M.penalty_kick removed.)
 
     // 18. Bowling
     // Difficulty: 3 frames, need 15+ pins of 30 (50%). Aim cursor sweeps L↔R, click to
@@ -1782,38 +1467,82 @@
     // any length resets entire game. Risky but standard for the genre.
     M.simon_says = {
         title: 'SIMON SAYS',
-        desc: 'Watch the sequence, then repeat. Reach length 10.',
+        desc: 'Watch the sequence, repeat in time. Reach length 10. Time per round = length × 1.2s.',
         run(ctx) {
             const seq = []; let pStep = 0; const TARGET = 10; let watching = true;
+            let done = false;
             const colors = ['#e23a3a', '#3a72e2', '#3ae26a', '#e2c83a'];
             const grid = ctx.el('div', { style: { position: 'absolute', top: '110px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' } });
             const msg = ctx.el('div', { style: { position: 'absolute', top: '40px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '36px', letterSpacing: '4px' }, text: 'WATCH' });
+            // Per-round countdown bar — drains while the player is in REPEAT mode.
+            const tBar = ctx.el('div', { style: { position: 'absolute', top: '90px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '10px', background: '#1a1a1a', border: '2px solid #555' } });
+            const tFill = ctx.el('div', { style: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#3ae26a', width: '100%', transition: 'width 0.1s linear' } });
+            tBar.appendChild(tFill);
             const btns = colors.map((col, i) => {
                 const b = ctx.el('button', { style: { width: '170px', height: '170px', background: col, opacity: 0.4, border: '4px solid rgba(0,0,0,0.6)', cursor: 'pointer', transition: 'opacity 0.1s', boxShadow: 'inset 0 0 0 6px rgba(255,255,255,0.15), inset 0 -10px 0 rgba(0,0,0,0.3), 0 6px 0 #000' }, onclick: () => onTap(i) });
                 grid.appendChild(b); return b;
             });
-            ctx.stage.appendChild(grid); ctx.stage.appendChild(msg);
+            ctx.stage.appendChild(grid); ctx.stage.appendChild(msg); ctx.stage.appendChild(tBar);
             ctx.setScore(`LEN 0/${TARGET}`);
             function flash(i) { btns[i].style.opacity = 1; ctx.timeout(() => { btns[i].style.opacity = 0.4; }, 280); beep(220 + i * 110, 0.18, 'square', 0.05); }
+
+            // Countdown timer for the REPEAT phase. Length × 1.2s gives more
+            // time for longer sequences but tightens per-step. Clearing this
+            // is critical when a round ends so it doesn't kill the player
+            // mid-WATCH on the next round.
+            let timerEnd = 0; let timerId = null;
+            function startTimer() {
+                stopTimer();
+                const ms = Math.max(2200, seq.length * 1200);
+                timerEnd = performance.now() + ms;
+                tFill.style.width = '100%';
+                tFill.style.background = '#3ae26a';
+                timerId = ctx.interval(() => {
+                    const remain = Math.max(0, timerEnd - performance.now());
+                    const pct = (remain / ms) * 100;
+                    tFill.style.width = pct + '%';
+                    if (pct < 30) tFill.style.background = '#e2c83a';
+                    if (pct < 12) tFill.style.background = '#e23a3a';
+                    if (remain <= 0) {
+                        stopTimer();
+                        if (!done) { done = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 400); }
+                    }
+                }, 100);
+            }
+            function stopTimer() { if (timerId) { ctx.clearInterval(timerId); timerId = null; } tFill.style.width = '0%'; }
+
             function play() {
+                if (done) return;
+                stopTimer();
                 watching = true; msg.textContent = 'WATCH'; pStep = 0;
                 seq.push(randInt(0, 3));
                 ctx.setScore(`LEN ${seq.length-1}/${TARGET}`);
                 let i = 0;
                 const id = ctx.interval(() => {
+                    if (done) { ctx.clearInterval(id); return; }
                     if (i < seq.length) { flash(seq[i]); i++; }
-                    else { ctx.clearInterval(id); ctx.timeout(() => { watching = false; msg.textContent = 'REPEAT'; }, 300); }
+                    else {
+                        ctx.clearInterval(id);
+                        ctx.timeout(() => {
+                            if (done) return;
+                            watching = false; msg.textContent = 'REPEAT';
+                            startTimer();
+                        }, 300);
+                    }
                 }, 600);
             }
             function onTap(i) {
-                if (watching) return; flash(i);
+                if (done || watching) return; flash(i);
                 if (i === seq[pStep]) {
                     pStep++;
                     if (pStep === seq.length) {
-                        if (seq.length >= TARGET) { ctx.timeout(() => ctx.win(), 400); return; }
+                        stopTimer();
+                        if (seq.length >= TARGET) { done = true; ctx.timeout(() => ctx.win(), 400); return; }
                         ctx.timeout(play, 700);
                     }
-                } else { sfx.lose(); ctx.timeout(() => ctx.lose(), 400); }
+                } else {
+                    stopTimer(); done = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 400);
+                }
             }
             play();
         }
@@ -1892,56 +1621,72 @@
     };
 
     // 24. Cup Shuffle
-    // Difficulty: 5 rounds; swap count = 6 + round*2 (8→14), speed 380 - round*50 ms
-    // (380→180 ms). Round 5 is hard but trackable. Single wrong pick = lose.
+    // 5 rounds, each round faster. Cup count grows by 1 every other round:
+    //   round 1: 3 cups   round 2: 3   round 3: 4   round 4: 4   round 5: 5
+    // Single wrong pick at any round = instant lose.
     M.cup_shuffle = {
         title: 'CUP SHUFFLE',
-        desc: 'Watch where the ball goes. 7 rounds, each faster.',
+        desc: '5 rounds. Each round faster, more cups every other round.',
         run(ctx) {
-            let round = 0; const total = 7;
-            const cups = []; let ballAt = 0; let shuffling = false;
+            let round = 0; const total = 5;
             ctx.setScore(`ROUND 0/${total}`);
-            const row = ctx.el('div', { style: { position: 'absolute', top: '180px', width: '100%', display: 'flex', justifyContent: 'center', gap: '40px' } });
-            for (let i = 0; i < 3; i++) {
-                const cup = ctx.el('div', { style: { width: '120px', height: '160px', cursor: 'pointer', position: 'relative', backgroundImage: `url(${sprURL('cup', 8)})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', imageRendering: 'pixelated' } });
-                cups.push(cup); row.appendChild(cup);
-            }
+            const row = ctx.el('div', { style: { position: 'absolute', top: '180px', width: '100%', display: 'flex', justifyContent: 'center', gap: '24px' } });
             ctx.stage.appendChild(row);
             const status = ctx.el('div', { style: { position: 'absolute', top: '60px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '36px' }, text: 'GET READY' });
             ctx.stage.appendChild(status);
-            // ballAt = identity of the cup holding the ball (a fixed cup id 0..2)
-            // posMap[positionIndex] = cup id currently at that position
-            let posMap = [0, 1, 2];
+
+            let cups = [];      // re-created each round
+            let ballAt = 0;     // identity of the cup holding the ball
+            let posMap = [];    // posMap[positionIndex] = cup identity at that position
+            let shuffling = false;
+            let cupCount = 3;
+
             function guess(positionClicked) {
                 if (shuffling) return;
                 const cupAtPos = posMap[positionClicked];
-                if (cupAtPos === ballAt) { sfx.win(); round++; ctx.setScore(`ROUND ${round}/${total}`); status.textContent = 'YES!'; if (round >= total) { ctx.timeout(() => ctx.win(), 600); return; } ctx.timeout(nextRound, 800); }
-                else { sfx.lose(); ctx.timeout(() => ctx.lose(), 500); }
+                if (cupAtPos === ballAt) {
+                    sfx.win(); round++; ctx.setScore(`ROUND ${round}/${total}`);
+                    status.textContent = round >= total ? 'YES!' : 'NEXT...';
+                    if (round >= total) { ctx.timeout(() => ctx.win(), 600); return; }
+                    ctx.timeout(nextRound, 800);
+                } else {
+                    sfx.lose(); ctx.timeout(() => ctx.lose(), 500);
+                }
             }
-            // Rewire cup clicks to use position index in posMap.
-            cups.forEach((cup, originalIdx) => {
-                cup.onclick = null;
-                ctx.on(cup, 'click', () => {
-                    if (shuffling) return;
-                    guess(posMap.indexOf(originalIdx));
+            function buildCups(n) {
+                cups.forEach(c => c.remove());
+                cups = [];
+                for (let i = 0; i < n; i++) {
+                    const cup = ctx.el('div', { style: { width: '110px', height: '150px', cursor: 'pointer', position: 'relative', backgroundImage: `url(${sprURL('cup', 7)})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', imageRendering: 'pixelated' } });
+                    cups.push(cup); row.appendChild(cup);
+                }
+                cups.forEach((cup, originalIdx) => {
+                    ctx.on(cup, 'click', () => {
+                        if (shuffling) return;
+                        guess(posMap.indexOf(originalIdx));
+                    });
                 });
-            });
+            }
             function nextRound() {
                 shuffling = true;
-                ballAt = randInt(0, 2);
-                posMap = [0, 1, 2];
-                // Reset DOM order to canonical [0,1,2]
+                // Cup count grows every other round: 3, 3, 4, 4, 5.
+                cupCount = 3 + Math.floor(round / 2);
+                buildCups(cupCount);
+                ballAt = randInt(0, cupCount - 1);
+                posMap = [];
+                for (let i = 0; i < cupCount; i++) posMap.push(i);
                 row.innerHTML = '';
                 cups.forEach(c => { c.style.transform = ''; c.style.transition = 'none'; row.appendChild(c); });
                 cups.forEach((c, i) => { c.style.boxShadow = i === ballAt ? '0 0 24px 6px #3ae26a' : 'none'; });
                 status.textContent = 'WATCH';
                 ctx.timeout(() => {
                     cups.forEach(c => { c.style.boxShadow = 'none'; });
-                    const n = 6 + round * 2;
-                    const speed = Math.max(120, 380 - round * 50);
+                    // More swaps each round, much faster each round.
+                    const n = 6 + round * 3;
+                    const speed = Math.max(110, 380 - round * 60);
                     function step(left) {
                         if (left <= 0) { shuffling = false; status.textContent = 'PICK'; return; }
-                        const i = randInt(0, 1); const j = i + 1;
+                        const i = randInt(0, cupCount - 2); const j = i + 1;
                         const cupA = cups[posMap[i]], cupB = cups[posMap[j]];
                         const ar = cupA.getBoundingClientRect(), br = cupB.getBoundingClientRect();
                         const dx = br.left - ar.left;
@@ -2696,25 +2441,53 @@
             pad.appendChild(mkKey('0', () => { if (cur.length < 4) { cur += '0'; sfx.tick && sfx.tick(); refreshSlots(); } }));
             pad.appendChild(mkKey('GUESS', () => trySubmit(), '#4eff7a'));
 
-            // 0 = exact win; 1-4 = HOT; 5-12 = WARM; 13+ = COLD.
-            function feedback(distance) {
-                if (distance === 0) return { label: 'CORRECT', color: '#3ae26a' };
-                if (distance <= 4) return { label: 'HOT',     color: '#ff7a3a' };
-                if (distance <= 12) return { label: 'WARM',    color: '#e2c83a' };
-                return { label: 'COLD',                          color: '#7aaaff' };
+            // Mastermind-style feedback: per-guess pegs.
+            //   ● (filled green) = right digit, RIGHT POSITION
+            //   ○ (hollow yellow) = right digit, WRONG POSITION
+            //   absent           = digit not in the code at all
+            // Each digit in the code is "consumed" by at most one peg, so
+            // duplicate guesses against duplicate code digits are scored
+            // correctly (classic Mastermind rules).
+            function scoreGuess(guess) {
+                const exact = []; const partial = [];
+                const codeUsed = new Array(4).fill(false);
+                const guessUsed = new Array(4).fill(false);
+                // First pass — exacts.
+                for (let i = 0; i < 4; i++) {
+                    if (guess[i] === code[i]) {
+                        exact.push(i); codeUsed[i] = true; guessUsed[i] = true;
+                    }
+                }
+                // Second pass — partials.
+                for (let i = 0; i < 4; i++) {
+                    if (guessUsed[i]) continue;
+                    for (let j = 0; j < 4; j++) {
+                        if (codeUsed[j]) continue;
+                        if (guess[i] === code[j]) {
+                            partial.push(i); codeUsed[j] = true; guessUsed[i] = true;
+                            break;
+                        }
+                    }
+                }
+                return { exact: exact.length, partial: partial.length };
             }
             function trySubmit() {
                 if (cur.length !== 4) { sfx.bad && sfx.bad(); return; }
                 const digs = cur.split('').map(Number);
-                let dist = 0; for (let i = 0; i < 4; i++) dist += Math.abs(digs[i] - code[i]);
-                const fb = feedback(dist);
-                guesses.push({ guess: cur, label: fb.label, color: fb.color });
+                const sc = scoreGuess(digs);
+                guesses.push({ guess: cur, exact: sc.exact, partial: sc.partial });
                 const row = ctx.el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dashed #333' } });
                 row.appendChild(ctx.el('span', { style: { letterSpacing: '8px', color: '#fff' }, text: cur.split('').join(' ') }));
-                row.appendChild(ctx.el('span', { style: { color: fb.color, fontWeight: 'bold' }, text: fb.label }));
+                // Right side — peg row.
+                const pegs = ctx.el('span', { style: { display: 'flex', gap: '6px', alignItems: 'center', fontSize: '20px' } });
+                for (let i = 0; i < sc.exact; i++) pegs.appendChild(ctx.el('span', { style: { color: '#3ae26a', fontWeight: 'bold' }, text: '●' }));
+                for (let i = 0; i < sc.partial; i++) pegs.appendChild(ctx.el('span', { style: { color: '#e2c83a' }, text: '○' }));
+                if (sc.exact + sc.partial === 0) pegs.appendChild(ctx.el('span', { style: { color: '#7aaaff' }, text: 'NONE' }));
+                pegs.appendChild(ctx.el('span', { style: { color: '#888', marginLeft: '8px', fontSize: '16px' }, text: `${sc.exact}● ${sc.partial}○` }));
+                row.appendChild(pegs);
                 history.appendChild(row);
                 history.scrollTop = history.scrollHeight;
-                if (dist === 0) { sfx.win && sfx.win(); ctx.timeout(() => ctx.win(), 500); return; }
+                if (sc.exact === 4) { sfx.win && sfx.win(); ctx.timeout(() => ctx.win(), 500); return; }
                 if (guesses.length >= MAX_TRIES) {
                     sfx.lose && sfx.lose();
                     history.appendChild(ctx.el('div', { style: { color: '#e23a3a', textAlign: 'center', marginTop: '8px' }, text: `CODE WAS ${code.join(' ')}` }));
@@ -2724,6 +2497,8 @@
                 ctx.setScore(`TRIES LEFT ${MAX_TRIES - guesses.length}`);
             }
             ctx.setScore(`TRIES LEFT ${MAX_TRIES}`);
+            // One-line legend at the very top so first-time players know what the pegs mean.
+            history.appendChild(ctx.el('div', { style: { color: '#888', fontSize: '18px', textAlign: 'center', borderBottom: '1px solid #333', paddingBottom: '4px' }, text: '● = right digit, right position    ○ = right digit, wrong position' }));
         }
     };
 
@@ -2783,7 +2558,7 @@
     // a tile adjacent to empty to slide. Solve to row-major 1..8.
     M.puzzle_sliding = {
         title: 'SLIDING PUZZLE',
-        desc: 'Click a tile next to the empty slot to slide. Order 1-8. 90 seconds.',
+        desc: 'Click a tile next to the empty slot to slide. Order 1-8. 75 seconds.',
         run(ctx) {
             const N = 3; const SIZE = 90;
             // Start with the goal then make 30 random valid moves so the
@@ -2830,7 +2605,7 @@
                 tiles.push(t); wrap.appendChild(t);
             }
             refresh();
-            countdown(ctx, 90, 'TIME', () => ctx.lose());
+            countdown(ctx, 75, 'TIME', () => ctx.lose());
         }
     };
 
@@ -3090,8 +2865,8 @@
     // Category map — used by initPhase3() to pick exactly one game per
     // category so every run tests reflex + aim + memory + pattern + puzzle.
     window.MINIGAME_CATEGORIES = {
-        reflex:  ['flappy_bird', 'piano_tiles', 'whack_color', 'fruit_ninja', 'mole_rush', 'falling_blocks', 'bug_smash', 'tap_number', 'red_green'],
-        aim:     ['basketball', 'archery', 'angry_birds', 'paper_toss', 'cannon', 'darts', 'penalty_kick', 'bowling', 'pool', 'bottle_flip'],
+        reflex:  ['flappy_bird', 'piano_tiles', 'whack_color', 'fruit_ninja', 'mole_rush', 'red_green'],
+        aim:     ['basketball', 'angry_birds', 'paper_toss', 'darts', 'bowling', 'pool', 'bottle_flip'],
         memory:  ['simon_says', 'memory_match', 'sequence_recall', 'cup_shuffle', 'pattern_flash', 'story_recall', 'sound_sequence', 'color_memory', 'word_recall'],
         pattern: ['math_sprint', 'spot_imposter', 'sequence_completion', 'symbol_decoder', 'grid_logic', 'analogy_sprint', 'password_crack'],
         puzzle:  ['puzzle_lights_out', 'puzzle_sliding', 'puzzle_mastermind', 'puzzle_2048', 'puzzle_hanoi'],
