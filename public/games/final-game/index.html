@@ -584,6 +584,8 @@
             <button class="adm-btn" data-action="win">TRIGGER WIN (FREE)</button>
             <button class="adm-btn" data-action="lose">TRIGGER LOSE (SHOT)</button>
             <button class="adm-btn" data-action="reset">RESET GAME</button>
+            <button class="adm-btn" data-action="replace-game" style="border-color:#3a3a8a; color:#7a7adf;">REPLACE GAME (fresh wipe)</button>
+            <button class="adm-btn" data-action="exit-game" style="border-color:#1a3a1a; color:#7adf7a;">EXIT GAME (back to lobby)</button>
             <button class="adm-btn" data-action="lock" style="border-color:#3a1010; color:#aa5050;">LOCK ADMIN (forget pass)</button>
             <div id="adm-mg-row">
                 <select id="adm-mg-select"><option value="">— pick game —</option></select>
@@ -2186,6 +2188,41 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
                 if (action === 'lock') {
                     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
                     window.__adminGodMode = false;
+                    location.reload();
+                    return;
+                }
+                if (action === 'exit-game') {
+                    // Leave the game and return to the games lobby in the
+                    // PARENT frame (since the iframe lives at /games/final-game).
+                    // Clean up the live-player record on the way out so the
+                    // admin doesn't show as 'still playing' to other players.
+                    try {
+                        if (db && userId) {
+                            deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)).catch(()=>{});
+                        }
+                    } catch (e) {}
+                    try {
+                        // Same-origin parent → /games. Fall through to in-frame
+                        // navigation if the parent navigation is blocked.
+                        const target = '/games';
+                        if (window.top && window.top !== window) window.top.location.href = target;
+                        else window.location.href = target;
+                    } catch (e) {
+                        window.location.href = '/games';
+                    }
+                    return;
+                }
+                if (action === 'replace-game') {
+                    // Hard wipe — clear runtime state and reload from scratch.
+                    // Keeps the admin unlock so the dev panel re-opens, but
+                    // forgets the play history, Phase-1 chat, Firebase player
+                    // entry, and any in-flight minigame state.
+                    try {
+                        if (db && userId) {
+                            deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)).catch(()=>{});
+                        }
+                    } catch (e) {}
+                    try { localStorage.removeItem('comboGameHistory'); } catch (e) {}
                     location.reload();
                     return;
                 }
