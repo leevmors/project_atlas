@@ -780,25 +780,69 @@
             out = out.replace(/[^a-z]/g, '').replace(/[aeiou]/g, '');
             return out;
         }
+        // Common Russian/Kazakh diminutives → full forms. The consonant
+        // skeleton matcher above can't catch these because nicknames have
+        // FEWER consonants in DIFFERENT positions ("Костя"=ksty vs
+        // "Константин"=knstntn). Expand at the input layer instead.
+        const NICKNAMES = {
+            'kostya': 'konstantin', 'костя': 'константин',
+            'dima': 'dmitriy', 'дима': 'дмитрий', 'dmitry': 'dmitriy',
+            'sasha': 'aleksandr', 'саша': 'александр',
+            'vova': 'vladimir', 'вова': 'владимир', 'volodya': 'vladimir', 'володя': 'владимир',
+            'masha': 'mariya', 'маша': 'мария',
+            'katya': 'ekaterina', 'катя': 'екатерина',
+            'lena': 'elena', 'лена': 'елена',
+            'anya': 'anna', 'аня': 'анна',
+            'tanya': 'tatyana', 'таня': 'татьяна',
+            'vanya': 'ivan', 'ваня': 'иван',
+            'misha': 'mihail', 'миша': 'михаил',
+            'olya': 'olga', 'оля': 'ольга',
+            'yulya': 'yuliya', 'юля': 'юлия',
+            'seryozha': 'sergey', 'серёжа': 'сергей', 'сережа': 'сергей',
+            'kolya': 'nikolay', 'коля': 'николай',
+            'pasha': 'pavel', 'паша': 'павел',
+            'gosha': 'georgiy', 'гоша': 'георгий',
+            'natasha': 'nataliya', 'наташа': 'наталья',
+            'lera': 'valeriya', 'лера': 'валерия',
+            'nastya': 'anastasiya', 'настя': 'анастасия',
+            'zhenya': 'evgeniy', 'женя': 'евгений',
+            'andrey': 'andrey', 'andrew': 'andrey', 'андрей': 'андрей',
+            'alex': 'aleksandr',
+        };
+        function expandNickname(token) {
+            const t = token.toLowerCase();
+            return NICKNAMES[t] || t;
+        }
+
         function matchStudent(typedName, roster) {
             const trimmed = typedName.trim();
             if (trimmed.length < 3) return null;
             const inputParts = trimmed.split(/\s+/).filter(p => p.length >= 2);
-            // Require fingerprints to be at least 3 consonants long so single
-            // 1-2 letter ones (e.g. "hn") don't match the entire roster.
-            const inputFps = inputParts.map(nameFingerprint).filter(fp => fp.length >= 3);
-            if (inputFps.length === 0) return null;
-            // Score each roster entry. Every typed token's fingerprint must
-            // appear as a substring of some student-name token's fingerprint
-            // (or vice versa). The mutual containment makes "Alikhan" (lhn)
-            // match "Әлихан" (lhn), "Alixan", "Aikhan" etc.
+            // For each typed token, generate fingerprints for BOTH the
+            // typed form and its nickname-expanded form. Either can match.
+            const inputFpSets = inputParts.map(p => {
+                const fps = new Set();
+                const fp1 = nameFingerprint(p);
+                if (fp1.length >= 3) fps.add(fp1);
+                const expanded = expandNickname(p);
+                if (expanded !== p.toLowerCase()) {
+                    const fp2 = nameFingerprint(expanded);
+                    if (fp2.length >= 3) fps.add(fp2);
+                }
+                return fps;
+            }).filter(set => set.size > 0);
+            if (inputFpSets.length === 0) return null;
+            // Score each roster entry. Every typed token must match some
+            // student-name token via mutual fingerprint containment.
             for (const s of roster) {
                 const studentParts = s.n.toLowerCase().split(/\s+/);
                 const studentFps = studentParts.map(nameFingerprint).filter(fp => fp.length >= 3);
                 if (studentFps.length === 0) continue;
-                const allMatched = inputFps.every(ifp =>
-                    studentFps.some(sfp =>
-                        sfp.includes(ifp) || ifp.includes(sfp)
+                const allMatched = inputFpSets.every(fpSet =>
+                    [...fpSet].some(ifp =>
+                        studentFps.some(sfp =>
+                            sfp.includes(ifp) || ifp.includes(sfp)
+                        )
                     )
                 );
                 if (allMatched) return s;
@@ -891,9 +935,9 @@ ${targetQuestionPrompt}
 If you haven't already mentioned it in the chat, mention this terrifying fact! Tell them you know they are your student, mention their group name, and use this to scare them. IF YOU ASK ABOUT THIS, DO NOT ASK THE PROFILING QUESTION YET. Output [CONTINUE].`;
                 } else {
                     prompt += `\n\nCRITICAL KNOWLEDGE: The player's name is "${playerName}". You are a university teacher. Your full student roster is: [${studentListString}].
-Analyze if "${playerName}" is a nickname, short form (like 'Костя' for 'Константин'), or a typo of a name on your roster.
+Analyze if "${playerName}" is a nickname, short form (like 'Костя' for 'Константин', 'Дима' for 'Дмитрий', 'Саша' for 'Александр'), or a typo/transliteration of a name on your roster.
 - IF IT IS A MATCH/NICKNAME: If you haven't already, ask them suspiciously: "Wait... ${playerName}? Are you actually [Full Name] from my [Group] group?" IF YOU ASK THIS, DO NOT ASK ANY OTHER PUZZLES OR QUESTIONS THIS TURN. Output [CONTINUE].
-- IF IT IS DEFINITELY NOT ON THE ROSTER: If you haven't mentioned it yet, tell them exactly this: "Oh okay, you're not one of my students, so I won't go easy on you." (Even though you treat everyone with the same cruelty, say this to intimidate them, then ask your ONE interrogation question based on YOUR NEXT ACTION).
+- IF IT IS DEFINITELY NOT ON THE ROSTER: If you haven't mentioned it yet, tell them exactly this in a flat, honest tone: "Hm. You're not one of my students. Doesn't matter — everyone in this room is treated the same." DO NOT promise or threaten extra difficulty. The game has one difficulty for everyone. Then immediately ask your ONE interrogation question based on YOUR NEXT ACTION.
 DO NOT repeat these realizations if you have already discussed them.`;
                 }
 
@@ -1396,7 +1440,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                 dialogueBox.style.display = 'block';
                 dialogueBox.style.transition = 'opacity 1s';
                 dialogueBox.style.opacity = '1';
-                document.getElementById('dialogue-text').innerHTML = "Five games. Win three. Or die.";
+                document.getElementById('dialogue-text').innerHTML = "Five games. Win all of them. Or die.";
                 setTimeout(() => {
                     dialogueBox.style.opacity = '0';
                     setTimeout(() => { dialogueBox.style.display = 'none'; }, 1100);
@@ -1699,8 +1743,9 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             return ctx;
         }
 
-        // Phase 3 constants — 5 games (one per category), need 3 wins.
-        const PHASE3_NEED = 3;
+        // Phase 3 constants — 5 games (one per category), MUST WIN ALL.
+        // No second chances, no margin for error, no failure budget.
+        const PHASE3_NEED = 5;
         const PHASE3_TOTAL = 5;
 
         function initPhase3() {
@@ -1738,7 +1783,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
 
             showIntro({
                 title: "PHASE 3",
-                desc: `Win ${PHASE3_NEED} of ${PHASE3_TOTAL} games. Win or die.`,
+                desc: `Win all ${PHASE3_TOTAL} games. One loss = death.`,
                 button: "BEGIN",
                 onClick: () => startNextGame(),
             });
@@ -1857,7 +1902,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                 }
                 showIntro({
                     title: success ? "SURVIVED" : "FAILED",
-                    desc: `WINS ${gamesWon}/${PHASE3_NEED}  ·  ${remaining} GAME${remaining === 1 ? '' : 'S'} LEFT`,
+                    desc: `WINS ${gamesWon}/${PHASE3_TOTAL}  ·  ${remaining} GAME${remaining === 1 ? '' : 'S'} LEFT`,
                     button: "NEXT",
                     onClick: () => startNextGame(),
                 });
