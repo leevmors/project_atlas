@@ -509,9 +509,149 @@
             outline: none; max-width: 130px;
         }
 
+        /* ────────────────────────────────────────────────────────────
+           ROTATE-YOUR-PHONE OVERLAY
+           Forces landscape on small touch devices. Hidden by default;
+           shown by media queries below for portrait phones/tablets.
+           ──────────────────────────────────────────────────────────── */
+        #rotate-overlay {
+            display: none;
+            position: fixed; inset: 0; z-index: 9999;
+            background: #000; color: #e0caaa;
+            font-family: 'VT323', monospace;
+            justify-content: center; align-items: center;
+            flex-direction: column; text-align: center;
+            padding: 30px; box-sizing: border-box;
+        }
+        #rotate-overlay .rotate-icon {
+            font-size: 96px; line-height: 1; margin-bottom: 24px;
+            animation: rotateBounce 1.6s ease-in-out infinite;
+            color: #ff3333; text-shadow: 0 0 20px #ff3333;
+        }
+        #rotate-overlay h2 {
+            font-size: 36px; letter-spacing: 4px; margin: 0 0 14px;
+            color: #ff3333; text-shadow: 2px 2px 0 #000;
+        }
+        #rotate-overlay p {
+            font-size: 22px; max-width: 480px; line-height: 1.4;
+            color: #ccc; text-shadow: 1px 1px 0 #000; margin: 0;
+        }
+        @keyframes rotateBounce {
+            0%, 100% { transform: rotate(-90deg); }
+            50%      { transform: rotate(0deg); }
+        }
+
+        /* ────────────────────────────────────────────────────────────
+           MOBILE / SMALL VIEWPORTS
+           Two breakpoints:
+             - portrait phones/tablets → show rotate overlay
+             - any small viewport (≤ 900px wide OR ≤ 500px tall)
+               → compact HUD, smaller fonts, full-width chat, etc.
+           ──────────────────────────────────────────────────────────── */
+        @media (orientation: portrait) and (max-width: 900px),
+               (orientation: portrait) and (max-height: 900px) {
+            #rotate-overlay { display: flex; }
+            /* Hide the rest of the game while rotated wrong so iOS
+               doesn't try to render a 3D scene that won't fit. */
+            #game-canvas, #ui-layer, #irritation-container, #timer-container,
+            #live-players-container, #give-up-btn, #view-toggle-btn,
+            #tablet-overlay, #admin-panel, #admin-gate, #start-screen, #end-screen {
+                visibility: hidden !important;
+            }
+        }
+
+        /* Compact HUD for small landscape screens (most phones in landscape). */
+        @media (max-width: 900px), (max-height: 500px) {
+            /* Start screen — pack tighter */
+            #start-screen h1 { font-size: 48px !important; letter-spacing: 3px; }
+            #start-screen h2.subtitle { font-size: 22px !important; margin-bottom: 16px; }
+            #start-screen .instructions { font-size: 15px !important; max-width: 90vw; margin-bottom: 20px; line-height: 1.3; }
+            #real-name-input {
+                font-size: 18px !important; padding: 8px 14px; width: min(80vw, 280px);
+            }
+            #start-screen .click-to-wake { font-size: 22px !important; }
+            #name-input-container { gap: 10px; margin-bottom: 16px; }
+
+            /* Dialogue + input */
+            #ui-layer { width: 96%; bottom: 3%; gap: 8px; max-width: none; }
+            #dialogue-box { padding: 10px 12px; font-size: 18px; min-height: 60px; line-height: 1.25; }
+            #kidnapper-label { font-size: 14px; padding: 0 8px; top: -12px; }
+            #input-container { padding: 8px 10px; }
+            #prompt-char { font-size: 18px; margin-right: 8px; }
+            #player-input { font-size: 16px; }   /* 16px = no iOS auto-zoom */
+
+            /* HUD */
+            #timer-container { top: 6px; }
+            #timer-text { font-size: 22px; letter-spacing: 1px; }
+            .time-label { font-size: 10px; }
+            #irritation-container { top: 6px; left: 8px; }
+            #irritation-label { font-size: 14px; margin-bottom: 2px; letter-spacing: 1px; }
+            .pip { width: 16px; height: 16px; }
+
+            /* Live subjects panel — collapsed by default on small screens */
+            #live-players-container {
+                top: 6px; right: 8px; padding: 6px 8px; min-width: 0;
+                max-width: 38vw;
+            }
+            #live-players-title { font-size: 14px; margin-bottom: 4px; padding-bottom: 2px; letter-spacing: 0; }
+            #live-players-list { max-height: 90px; }
+            #live-players-list li { font-size: 13px; gap: 5px; padding: 1px 0; }
+            .live-dot { width: 6px; height: 6px; }
+
+            /* HUD buttons */
+            .hud-btn { font-size: 14px !important; padding: 5px 10px; }
+            #give-up-btn { bottom: 8px; right: 8px; }
+            #view-toggle-btn { top: auto; bottom: 8px; right: auto; left: 8px; }
+
+            /* Admin panel — slimmer */
+            #admin-panel { padding: 8px !important; min-width: 160px !important; bottom: 8px !important; left: 8px !important; }
+            #admin-panel > div:first-child { font-size: 14px !important; }
+            .adm-btn { font-size: 13px !important; padding: 4px 6px !important; }
+            #adm-mg-select { font-size: 11px !important; padding: 2px 4px !important; max-width: 90px !important; }
+
+            /* End screen */
+            #end-text { font-size: 38px; }
+            #restart-btn { font-size: 22px; padding: 10px 20px; margin-top: 24px; }
+
+            /* "ARE YOU SURE" modal */
+            #sure-card { padding: 20px 24px; max-width: 86vw; }
+            #sure-question { font-size: 26px; letter-spacing: 3px; }
+            #sure-sub { font-size: 14px; margin-bottom: 16px; }
+            #sure-chosen { font-size: 18px; padding: 6px 14px; margin-bottom: 16px; }
+            .sure-btn { font-size: 16px; padding: 8px 16px; min-width: 100px; letter-spacing: 1px; }
+            #sure-buttons { gap: 10px; }
+
+            /* Phase 3 tablet — let it use more of the screen */
+            #tablet-overlay { padding: 0 !important; }
+
+            /* The minigame intro card */
+            #mg-intro { padding: 0 20px; }
+            .minigame-title { font-size: 38px; margin-bottom: 12px; }
+            .minigame-desc { font-size: 18px; margin-bottom: 22px; }
+            .mg-start-btn { font-size: 22px; padding: 6px 28px; }
+        }
+
+        /* Touch-friendly: bigger hit targets on coarse pointers (mobile/tablet). */
+        @media (pointer: coarse) {
+            button, .hud-btn, .adm-btn, .sure-btn, .mg-start-btn, .px-btn {
+                min-height: 32px;
+            }
+            /* Disable hover transforms that don't work on touch */
+            .px-btn:hover:not(:disabled) { background: #1a1a1a; border-color: #555; color: #fff; }
+        }
+
     </style>
 </head>
 <body class="crt">
+
+    <!-- Rotate-your-phone overlay. CSS shows this only when the device
+         is in portrait orientation AND viewport is small enough that it
+         must be a phone or small tablet. -->
+    <div id="rotate-overlay">
+        <div class="rotate-icon">⟳</div>
+        <h2>ROTATE YOUR DEVICE</h2>
+        <p>This game is meant to be played in landscape. Hold your phone sideways to begin.</p>
+    </div>
 
     <div id="start-screen">
         <h1>FINAL GAME</h1>
@@ -685,7 +825,10 @@
             // Scale to fit viewport with letterboxing, but never above 1.
             const TABLET_W = 830, TABLET_H = 630;
             function updateTabletScale() {
-                const margin = 20;
+                // Tighter margin on small screens so the tablet uses more
+                // of the viewport when playing on a phone.
+                const small = window.innerWidth <= 900 || window.innerHeight <= 500;
+                const margin = small ? 4 : 20;
                 const availW = Math.max(200, window.innerWidth - margin * 2);
                 const availH = Math.max(200, window.innerHeight - margin * 2);
                 const scale = Math.min(1, availW / TABLET_W, availH / TABLET_H);
@@ -1287,6 +1430,28 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             mouseX = (event.clientX - windowHalfX); mouseY = (event.clientY - windowHalfY);
             mouseNDC.x = (event.clientX / window.innerWidth) * 2 - 1; mouseNDC.y = -(event.clientY / window.innerHeight) * 2 + 1;
         }, false);
+        // Mobile/touch: mousemove never fires before a tap, so the
+        // raycaster's hover state is stale at click time. pointermove
+        // covers both mouse and touch (Chrome/Safari fire it on tap),
+        // and we also update mouseNDC defensively from clientX/Y on
+        // pointerdown so a brand-new tap still hits the right object.
+        document.addEventListener('pointermove', (event) => {
+            mouseNDC.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseNDC.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }, { passive: true });
+        document.addEventListener('pointerdown', (event) => {
+            mouseNDC.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseNDC.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            // Re-run the raycast so the body 'click' handler that fires
+            // a moment later sees fresh hoveredObj.
+            try {
+                raycaster.setFromCamera(mouseNDC, camera);
+                const objs = [...activeCards.map(c => c.mesh)];
+                if (currentPhase === 3) objs.push(tablet, tabletScreen);
+                const ints = raycaster.intersectObjects(objs);
+                hoveredObj = ints.length > 0 ? ints[0].object : null;
+            } catch(e) {}
+        }, { passive: true });
 
         function animateCamera() {
             if (cameraMode === 'topdown') {
