@@ -151,6 +151,12 @@ INSERT INTO games (name, answer, bonus_points)
 SELECT 'COMBINATION GAME', 'FLAMINGOBIRD100', 50
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'COMBINATION GAME');
 
+-- Seed the final game — Deadman's Choice (safe to re-run)
+-- NOTE: answer is a placeholder; update to the real win-code before going live.
+INSERT INTO games (name, answer, bonus_points)
+SELECT 'THE FINAL GAME (DEADMAN''S CHOICE)', '__PLACEHOLDER_TBD__', 200
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'THE FINAL GAME (DEADMAN''S CHOICE)');
+
 -- Migrations (safe to re-run)
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
 ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_cooldown_until timestamptz;
