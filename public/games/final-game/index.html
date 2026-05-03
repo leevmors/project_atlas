@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>THE FINAL GAME — Deadman's Choice</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FINAL GAME</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <style>
         body, html {
@@ -11,79 +11,1413 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            background: #000;
-            color: #fff;
-            font-family: 'VT323', monospace;
+            background-color: #000;
             overflow: hidden;
+            font-family: 'VT323', monospace;
+            color: #fff;
             user-select: none;
         }
-        .wrap {
+
+        /* 3D Canvas container */
+        #game-canvas {
             position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 24px;
-            box-sizing: border-box;
+            top: 0;
+            left: 0;
+            width: 100vw !important;
+            height: 100vh !important;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            z-index: 1;
         }
-        @keyframes flicker {
-            0%, 100% { opacity: 1; }
-            45%, 47% { opacity: 0.4; }
-            50% { opacity: 1; }
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
-        }
-        h1 {
-            font-size: clamp(40px, 9vw, 84px);
-            color: #ff2222;
-            letter-spacing: 4px;
-            margin: 0 0 8px;
-            text-shadow:
-                0 0 12px rgba(255, 0, 0, 0.5),
-                2px 4px 0 #550000;
-            animation: flicker 4s infinite ease-in-out;
-        }
-        h2 {
-            font-size: clamp(20px, 4vw, 36px);
-            color: #b09570;
-            letter-spacing: 3px;
-            margin: 0 0 28px;
-        }
-        p {
-            font-size: clamp(16px, 2.4vw, 22px);
-            color: #aaa;
-            max-width: 540px;
-            line-height: 1.5;
-            margin: 0 0 14px;
-        }
-        .label {
-            color: #555;
-            font-size: 14px;
-            letter-spacing: 2px;
-            margin-top: 28px;
-            animation: pulse 2s infinite;
-        }
-        .scanlines::after {
+
+        /* CRT Scanline Effect */
+        .crt::before {
             content: " ";
+            display: block;
             position: absolute;
-            inset: 0;
-            background: linear-gradient(to bottom, rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%);
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
             background-size: 100% 4px;
+            z-index: 10;
             pointer-events: none;
         }
+
+        .crt::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.6) 100%);
+            z-index: 11;
+            pointer-events: none;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            bottom: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 800px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            pointer-events: none; 
+        }
+
+        #dialogue-box {
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #555;
+            padding: 20px;
+            font-size: 28px;
+            line-height: 1.4;
+            min-height: 100px;
+            box-shadow: 0 0 10px #000;
+            text-shadow: 2px 2px #000;
+            position: relative;
+            pointer-events: auto;
+            transition: border-color 0.3s;
+        }
+
+        #dialogue-text { color: #dcdcdc; }
+
+        #kidnapper-label {
+            position: absolute;
+            top: -15px;
+            left: 10px;
+            background: #000;
+            border: 2px solid #555;
+            padding: 0 10px;
+            font-size: 20px;
+            color: #ff3333;
+            transition: color 0.3s, border-color 0.3s;
+        }
+
+        #timer-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            font-family: 'VT323', monospace;
+            text-align: center;
+            display: none;
+        }
+
+        #timer-text {
+            font-size: 42px;
+            color: #ff3333;
+            text-shadow: 2px 2px #000, 0 0 10px rgba(255, 0, 0, 0.5);
+            letter-spacing: 2px;
+            display: block;
+        }
+
+        .time-label {
+            font-size: 16px;
+            color: #888;
+            display: block;
+            margin-top: -5px;
+            text-shadow: 1px 1px #000;
+        }
+
+        #irritation-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 20;
+            display: none;
+            font-family: 'VT323', monospace;
+        }
+
+        #irritation-label {
+            font-size: 24px;
+            color: #ccc;
+            text-shadow: 2px 2px #000;
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+        }
+
+        .pip-container { display: flex; gap: 5px; }
+
+        .pip {
+            width: 25px;
+            height: 25px;
+            border: 2px solid #555;
+            background: transparent;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        @keyframes pipDrop {
+            0% { transform: scale(1); background: transparent; }
+            50% { transform: scale(1.6); background: #ff0000; box-shadow: 0 0 20px #ff0000; }
+            100% { transform: scale(1); background: #ff3333; box-shadow: 0 0 10px #ff3333; border-color: #ffaaaa; }
+        }
+
+        .pip.filled { animation: pipDrop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        @keyframes containerShake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .shake-anim { animation: containerShake 0.4s ease-in-out; }
+
+        @keyframes bloodFlash {
+            0% { box-shadow: inset 0 0 0px rgba(255,0,0,0); }
+            20% { box-shadow: inset 0 0 150px rgba(255,0,0,0.6); }
+            100% { box-shadow: inset 0 0 0px rgba(255,0,0,0); }
+        }
+
+        .blood-flash-anim { animation: bloodFlash 1s ease-out; }
+
+        #flash-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #fff; z-index: 99; opacity: 0;
+            pointer-events: none; transition: opacity 0.1s;
+        }
+
+        #input-container {
+            display: none;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #555;
+            padding: 15px;
+            pointer-events: auto;
+            align-items: center;
+        }
+
+        #prompt-char {
+            font-size: 28px;
+            margin-right: 15px;
+            color: #888;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        #player-input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: 'VT323', monospace;
+            font-size: 28px;
+            width: 100%;
+            outline: none;
+            text-shadow: 2px 2px #000;
+        }
+
+        /* Start Screen */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 100; display: flex; justify-content: center;
+            align-items: center; flex-direction: column; cursor: pointer;
+        }
+
+        @keyframes bloodDripFlicker {
+            0%, 100% {
+                color: #ff0000;
+                text-shadow: 
+                    0 0 10px #ff0000,
+                    2px 5px 2px #aa0000,
+                    -2px 10px 3px #880000,
+                    4px 15px 4px #550000;
+                opacity: 1;
+            }
+            20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+                opacity: 0.3;
+                text-shadow: none;
+            }
+            50% {
+                color: #ff2222;
+                text-shadow: 
+                    0 0 20px #ff0000,
+                    2px 15px 2px #aa0000,
+                    -2px 30px 3px #880000,
+                    4px 45px 4px #550000;
+                opacity: 1;
+            }
+        }
+
+        #start-screen h1 {
+            font-size: 80px; 
+            color: #ff0000; 
+            margin-bottom: 5px; 
+            letter-spacing: 5px;
+            animation: bloodDripFlicker 4s infinite ease-in-out;
+            font-weight: bold;
+        }
+
+        #start-screen h2.subtitle {
+            font-size: 36px; color: #b09570; text-shadow: 2px 2px #000;
+            margin-top: 0; margin-bottom: 30px; letter-spacing: 3px;
+        }
+
+        #start-screen .instructions {
+            font-size: 20px; color: #ccc; max-width: 600px; text-align: center;
+            line-height: 1.5; margin-bottom: 40px; text-shadow: 1px 1px #000;
+        }
+
+        #name-input-container {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 15px; margin-bottom: 30px; z-index: 105;
+        }
+
+        #real-name-input {
+            background: rgba(20, 15, 10, 0.8); border: 2px solid #554433;
+            color: #fff; font-family: 'VT323', monospace; font-size: 28px;
+            padding: 10px 20px; text-align: center; outline: none;
+            width: 300px; text-shadow: 2px 2px #000; transition: border-color 0.3s;
+        }
+
+        #real-name-input:focus { border-color: #e0caaa; }
+
+        #start-screen .click-to-wake {
+            font-size: 32px; color: #555; background: none; border: none;
+            font-family: 'VT323', monospace; cursor: not-allowed; transition: color 0.3s, text-shadow 0.3s;
+        }
+
+        #start-screen .click-to-wake.active {
+            color: #e0caaa; cursor: pointer; animation: pulse 2s infinite;
+        }
+        
+        #start-screen .click-to-wake.active:hover {
+            color: #fff; text-shadow: 0 0 10px #e0caaa;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* End Screens */
+        #end-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 100; display: none; justify-content: center; align-items: center;
+            flex-direction: column; background: #000; opacity: 0; transition: opacity 3s ease-in-out;
+        }
+
+        #end-text { font-size: 64px; text-align: center; white-space: pre-wrap; }
+
+        #restart-btn {
+            margin-top: 40px; padding: 15px 30px; font-family: 'VT323', monospace;
+            font-size: 36px; background: transparent; cursor: pointer; display: none;
+            opacity: 0; transition: opacity 1s ease-in-out, background 0.2s, color 0.2s;
+        }
+
+        .restart-win { color: #000; border: 2px solid #000; }
+        .restart-win:hover { background: #000; color: #fff; }
+        .restart-lose { color: #ff0000; border: 2px solid #ff0000; }
+        .restart-lose:hover { background: #ff0000; color: #000; }
+
+        /* Live Players */
+        #live-players-container {
+            position: absolute; top: 20px; right: 20px; z-index: 20;
+            background: rgba(0, 0, 0, 0.7); border: 1px solid #332211; padding: 15px;
+            min-width: 200px; font-family: 'VT323', monospace; display: none;
+        }
+
+        #live-players-title {
+            color: #ff3333; font-size: 24px; margin-bottom: 10px; text-align: center;
+            border-bottom: 1px solid #ff3333; padding-bottom: 5px; letter-spacing: 1px;
+        }
+
+        #live-players-list { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
+        #live-players-list li { color: #ccc; font-size: 20px; padding: 2px 0; display: flex; align-items: center; gap: 8px; }
+        .live-dot { width: 8px; height: 8px; background-color: #ff3333; border-radius: 50%; animation: blink 1.5s infinite; }
+
+        /* Buttons */
+        .hud-btn {
+            position: absolute; z-index: 50; background: rgba(10, 5, 0, 0.6);
+            border: 1px solid #554433; color: #887766; font-family: 'VT323', monospace;
+            font-size: 24px; padding: 8px 15px; cursor: pointer; display: none; transition: all 0.3s;
+        }
+        #give-up-btn { bottom: 20px; right: 20px; }
+        #give-up-btn:hover { border-color: #ff0000; color: #ff0000; text-shadow: 0 0 5px #ff0000; background: rgba(40, 0, 0, 0.8); }
+        
+        #view-toggle-btn { top: 20px; right: 250px; }
+        #view-toggle-btn:hover { border-color: #e0caaa; color: #e0caaa; text-shadow: 0 0 5px #e0caaa; }
+
+        /* Tablet Overlay Phase 3 */
+        #tablet-overlay {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.85); z-index: 80; display: none;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        #tablet-screen-ui {
+            width: 800px; height: 600px; background: #0a0a0a; border: 15px solid #222;
+            border-radius: 20px; position: relative; box-shadow: 0 0 30px #000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        .tablet-header {
+            position: absolute; top: 10px; width: 100%; text-align: center;
+            color: #555; font-size: 24px;
+        }
+        .minigame-title { font-size: 48px; color: #fff; margin-bottom: 20px; text-shadow: 0 0 10px #fff; }
+        .minigame-desc { font-size: 24px; color: #aaa; margin-bottom: 40px; text-align: center; max-width: 80%; }
+        .mg-start-btn {
+            background: transparent; border: 2px solid #fff; color: #fff; font-family: 'VT323', monospace;
+            font-size: 32px; padding: 10px 40px; cursor: pointer; transition: 0.2s;
+        }
+        .mg-start-btn:hover { background: #fff; color: #000; }
+        
+        #mg-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .mg-hidden { display: none !important; }
+
+        /* Specific Minigame Styles */
+        /* Reflex Tap */
+        #reflex-area { width: 600px; height: 400px; border: 2px solid #333; position: relative; cursor: crosshair; }
+        .mole { position: absolute; width: 50px; height: 50px; background: #ff3333; border-radius: 5px; cursor: pointer; }
+        #mg-score { font-size: 32px; color: #fff; position: absolute; top: 20px; right: 30px; }
+        #mg-time { font-size: 32px; color: #fff; position: absolute; top: 20px; left: 30px; }
+
+        /* Math Sprint */
+        #math-problem { font-size: 80px; color: #fff; margin-bottom: 40px; }
+        .math-options { display: flex; gap: 20px; }
+        .math-btn { background: #222; border: 2px solid #555; color: #fff; font-family: 'VT323', monospace; font-size: 40px; padding: 15px 30px; cursor: pointer; }
+        .math-btn:hover { background: #444; border-color: #fff; }
+
+        /* Simon Says */
+        #simon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .simon-btn { width: 150px; height: 150px; border: none; border-radius: 10px; cursor: pointer; opacity: 0.4; transition: opacity 0.1s; }
+        .simon-btn.active { opacity: 1 !important; box-shadow: 0 0 20px inherit; }
+        #s-red { background: #ff3333; } #s-blue { background: #3333ff; }
+        #s-green { background: #33ff33; } #s-yellow { background: #ffff33; }
+        #simon-msg { font-size: 32px; margin-bottom: 20px; height: 32px; }
+
     </style>
 </head>
-<body>
-    <div class="wrap scanlines">
+<body class="crt">
+
+    <div id="start-screen">
         <h1>FINAL GAME</h1>
-        <h2>Deadman's Choice</h2>
-        <p>The chair is being prepared.</p>
-        <p>Mr Asylbi will see you soon.</p>
-        <div class="label">[ AWAITING UPLOAD ]</div>
+        <h2 class="subtitle">Deadman's Choice</h2>
+        <p class="instructions">You are trapped in a chair with your kidnapper. Answer his questions correctly, survive the games, and he might let you go.</p>
+        <div id="name-input-container">
+            <input type="text" id="real-name-input" placeholder="ENTER YOUR REAL NAME" autocomplete="off" maxlength="20">
+            <button id="wake-up-btn" class="click-to-wake" disabled>[ WAKE UP ]</button>
+        </div>
     </div>
+
+    <div id="end-screen">
+        <h1 id="end-text"></h1>
+        <button id="restart-btn">PLAY AGAIN?</button>
+    </div>
+
+    <div id="irritation-container">
+        <div id="irritation-label">PATIENCE</div>
+        <div class="pip-container">
+            <div class="pip" id="pip-1"></div>
+            <div class="pip" id="pip-2"></div>
+            <div class="pip" id="pip-3"></div>
+        </div>
+    </div>
+
+    <div id="timer-container">
+        <span id="timer-text">00:00:00:00</span>
+        <span class="time-label">UNTIL MAY 7, 18:00</span>
+    </div>
+
+    <div id="live-players-container">
+        <div id="live-players-title">LIVE SUBJECTS</div>
+        <ul id="live-players-list"></ul>
+    </div>
+
+    <button id="give-up-btn" class="hud-btn">[ GIVE UP ]</button>
+    <button id="view-toggle-btn" class="hud-btn">[ VIEW: NORMAL ]</button>
+
+    <div id="flash-overlay"></div>
+
+    <div id="ui-layer" style="display: none;">
+        <div id="dialogue-box">
+            <div id="kidnapper-label">???</div>
+            <span id="dialogue-text"></span>
+        </div>
+        <div id="input-container">
+            <span id="prompt-char">></span>
+            <input type="text" id="player-input" autocomplete="off" placeholder="Speak..." disabled>
+        </div>
+    </div>
+
+    <!-- PHASE 3 TABLET UI -->
+    <div id="tablet-overlay">
+        <div id="tablet-screen-ui">
+            <div class="tablet-header">ASYLBI_OS v3.0</div>
+            <div id="mg-time" class="mg-hidden">TIME: 0</div>
+            <div id="mg-score" class="mg-hidden">SCORE: 0</div>
+            
+            <div id="mg-container">
+                <h1 id="mg-title" class="minigame-title">PHASE 3</h1>
+                <p id="mg-desc" class="minigame-desc">Win 3 games to survive.</p>
+                <button id="mg-start" class="mg-start-btn">BEGIN</button>
+            </div>
+
+            <!-- Game Specific Containers -->
+            <div id="reflex-area" class="mg-hidden"></div>
+            
+            <div id="math-area" class="mg-hidden" style="text-align:center;">
+                <div id="math-problem">2 + 2 = ?</div>
+                <div class="math-options">
+                    <button class="math-btn" id="math-0">0</button>
+                    <button class="math-btn" id="math-1">0</button>
+                    <button class="math-btn" id="math-2">0</button>
+                </div>
+            </div>
+
+            <div id="simon-area" class="mg-hidden" style="text-align:center;">
+                <div id="simon-msg">WATCH</div>
+                <div id="simon-grid">
+                    <button class="simon-btn" id="s-red" data-color="0"></button>
+                    <button class="simon-btn" id="s-blue" data-color="1"></button>
+                    <button class="simon-btn" id="s-green" data-color="2"></button>
+                    <button class="simon-btn" id="s-yellow" data-color="3"></button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let app, auth, db, appId, userId;
+        try {
+            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+            if (Object.keys(firebaseConfig).length > 0) {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'final-game-default';
+            }
+        } catch (e) { console.error("Firebase init failed:", e); }
+
+        async function initAuth() {
+            if (!auth) return false;
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else { await signInAnonymously(auth); }
+                userId = auth.currentUser?.uid;
+                return true;
+            } catch(e) { return false; }
+        }
+
+        const apiKey = ""; 
+        const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+
+        let chatHistory = [];
+        let irritationLevel = 0;
+        let playerName = "Unknown";
+        let studentInfo = null;
+        let currentPhase = 1;
+        let questionsAsked = 0;
+        let inTrap = false;
+        let trapInterval = null;
+        let targetQuestionPrompt = "";
+
+        // --- QUESTION POOLS (Phase 1 & 2) ---
+        const P1_IDENTITY = ["Describe yourself in three words.", "How would a stranger describe you after 10 minutes?", "What makes you different from everyone else in this room?", "If you were a product, how would you sell yourself?", "What's the one thing people always get wrong about you?", "What's the most interesting thing about you that I wouldn't find on your social media?", "If someone had to replace you, what qualities would they need?", "What do you think you are that you actually aren't?", "What's the gap between who you are and who you want to be?", "If I asked the people who love you to describe you, and the people who hate you to describe you — what's the difference?"];
+        const P1_VALUES = ["What's the most important thing in your life?", "What would you never do, no matter what?", "What do you believe that most people don't?", "What's something you'd die for?", "What's something you'd lie for?", "What's more important — being liked or being respected?", "What's one thing you refuse to compromise on?", "What's the line between right and wrong for you — and has it ever moved?", "What do you value more: loyalty or honesty? You can only pick one.", "If you could only keep one of your values and had to abandon the rest, which one survives?"];
+        const P1_RELATIONSHIPS = ["Who is the most important person in your life?", "Who would be most devastated if you didn't come home tonight?", "Who in your life knows the real you?", "Who have you hurt the most, and do they know it?", "Who do you love that you've never told?", "Who in your life are you pretending to be okay with?", "If you could call one person right now, who would it be and what would you say?", "Who would you trust with your life — and would they trust you with theirs?", "Who in your life would be surprised by how you're acting in this room right now?", "Who is the one person you'd be embarrassed to have watching you play this game?"];
+        const P1_HISTORY = ["What's your proudest moment?", "What's the worst thing you've ever done?", "What's something you've never told anyone?", "What's the decision you've made that you can't undo?", "What's the moment in your life you'd erase if you could?", "What's the hardest thing you've ever survived?", "What did you want to be when you were a child, and what happened?", "What's something you did that you told yourself you'd never do?", "What's the last thing you did that you're genuinely ashamed of?", "What version of yourself no longer exists — and do you miss it?"];
+        const P1_PROMISES = ["Are you brave? Prove it in one sentence.", "Are you honest? When was the last time you lied?", "If I tested you right now, what would you fail at?", "Do you consider yourself a good person? Give me one piece of evidence.", "Are you loyal? Has anyone ever had reason to doubt that?", "You say you'd do anything for the people you love. Would you? What's the limit?", "Are you someone people can count on? When did you last let someone down?", "Do you think you're smarter than the average person? Why?", "Do you keep your promises? Name one you broke.", "What's a claim you make about yourself that you're not sure is actually true?"];
+        const P1_SELFAWARENESS = ["What do your enemies say about you?", "What's your biggest weakness?", "What would your 10-year-old self think of you?", "What's a flaw you have that you've stopped trying to fix?", "What's something about yourself you've only recently understood?", "What do people tolerate about you rather than genuinely like?", "What emotion are you worst at handling?", "What's the version of yourself you show at work or school versus who you are at home — and which one is more real?", "If this room could see your thoughts right now, what would surprise them most?", "What's the thing you're most in denial about?"];
+
+        const P2_PERS_IDENTITY = ["You described yourself as [word]. Give me a situation where that completely falls apart.", "You said people get [X] wrong about you. Prove right now that they're wrong.", "You said you'd sell yourself as [X]. I'm not buying it. Convince me harder.", "You said the gap between who you are and who you want to be is [X]. What's stopping you from closing it?", "You gave me three words. I'm removing the easiest one. Now describe yourself in the remaining two.", "You said people who hate you would describe you as [X]. Is that fair?", "You said you'd need someone with [X] qualities to replace you. Do you actually have those qualities yourself?", "You told me what you think you are. Now tell me what you actually are.", "You said the most interesting thing about you is [X]. That's not interesting enough. Give me something better.", "You described yourself. Now describe the version of you that exists at 3am when no one's watching."];
+        const P2_PERS_VALUES = ["You said you'd never do [X]. I'm going to make that very difficult to maintain. Are you sure?", "You chose [loyalty/honesty]. Give me a real situation where that choice cost you something.", "You said [X] is the most important thing in your life. When did you last act like it?", "You said your line between right and wrong is [X]. Has it moved before? What moved it?", "You said you'd die for [X]. Would you live for it — meaning sacrifice something every day, not just once?", "You told me you'd lie for [X]. What makes that worth compromising your honesty?", "You kept [X] as your one value. What did you sacrifice to keep it?", "You said you won't compromise on [X]. Name one time you almost did.", "You said [liked/respected]. Has prioritizing that ever hurt someone else?", "You said you'd do anything for [X]. Define 'anything.' Give me the actual ceiling."];
+        const P2_PERS_RELATIONS = ["You said [name/person] is the most important person in your life. When did you last show them that?", "You said [person] knows the real you. What's one thing even they don't know?", "You said you'd trust [person] with your life. Have you ever tested that? What happened?", "You said you've hurt [person] most. Have you apologized? Why or why not?", "You said you'd call [person] right now. What would you actually say if you had to say it out loud, here, to me?", "You said [person] would be embarrassed watching you right now. Are they right to be?", "You said you're pretending to be okay with [person/situation]. Why are you still pretending?", "You said you love someone you've never told. What's stopping you?", "You said [person] would be devastated if you didn't come home. Do they know how much they matter to you?", "You said [person] would be surprised by how you're acting here. What would they say?"];
+        const P2_PERS_HISTORY = ["You said your proudest moment was [X]. Would you do the same thing again today?", "You said the worst thing you ever did was [X]. Have you made it right?", "You said you'd erase [moment]. But what did that moment teach you that you couldn't have learned any other way?", "You said you did something you told yourself you'd never do. What made you cross that line?", "You said you're ashamed of [X]. Does anyone else know about it?", "You said the hardest thing you survived was [X]. What broke in you that never fully healed?", "You said a version of you no longer exists. What killed it?", "You said you can't undo [decision]. If you could, would you — even knowing what you know now?", "You said you wanted to be [X] as a child. Do you think that child would be disappointed?", "You said you've never told anyone [secret]. Why did you tell me just now?"];
+        const P2_PERS_PROMISES = ["You said you're brave. You have 10 seconds to do something brave right now. Go.", "You said you're honest. I'm going to ask you something and I need you to answer without thinking. Ready?", "You told me you'd fail at [X]. Is that something you've accepted or something you're working on?", "You said you're a good person and gave me [evidence]. Is that the best evidence you have?", "You said you keep your promises but broke [one]. What does that make you?", "You said people can count on you. Who's counting on you right now, tonight, while you're sitting here?", "You said you're loyal but gave me a reason to doubt it. Which is more true — the claim or the doubt?", "You said you're smarter than average. This next question will tell us if that's true.", "You said [claim] but you're not sure it's true. When did you start saying it anyway?", "You said your limit for doing anything for your loved ones is [X]. That's smaller than you think."];
+        const P2_PERS_SELFAWARENESS = ["You said your biggest weakness is [X]. Show me how it's going to affect you in this game.", "You said your 10-year-old self would think [X] of you. What would you tell that kid?", "You said people tolerate [X] about you. Do you think that's fair to them?", "You said you're worst at handling [emotion]. You might feel that emotion before this game is over. Prepare yourself.", "You said you're in denial about [X]. Prove you're not.", "You said the work version of you is [X] and the home version is [Y]. Which one is lying?", "You said if we could see your thoughts right now we'd be surprised by [X]. Say it out loud.", "You said you've stopped trying to fix [flaw]. Why did you give up on that?", "You said you've only recently understood [X] about yourself. What took so long?", "You said your enemies say [X] about you. Is there any truth in that?"];
+
+        const P2_STANDARD = ["What goes up but never comes down? (Your age)", "A man walks into a bar and asks for water. The bartender pulls out a gun. The man says thank you and leaves. Why? (He had hiccups)", "I have cities but no houses. I have mountains but no trees. I have water but no fish. What am I? (A map)", "The more you take, the more you leave behind. What am I? (Footsteps)", "I speak without a mouth and hear without ears. I have no body but come alive with wind. What am I? (An echo)", "A rooster lays an egg on a roof. Which side does it roll down? (Roosters don't lay eggs)", "Forward I'm heavy, backward I'm not. What am I? (A ton)", "What has hands but can't clap? (A clock)", "What word becomes shorter when you add two letters to it? (Short)", "What can you hold in your right hand but never in your left? (Your left hand)", "How many months have 28 days? (All 12)", "If a plane crashes on the border of the US and Canada, where do they bury the survivors? (You don't bury survivors)", "You're in a race and overtake the person in second place. What place are you now in? (Second)", "How many F's are in this sentence: 'Finished files are the result of years of scientific study combined with the experience of years.' (6)", "A farmer has 17 sheep. All but 9 run away. How many are left? (9)", "Two fathers and two sons go fishing. Each catches one fish. They bring home 3 fish. How? (Grandfather, father, son)", "What's heavier — a kilo of feathers or a kilo of steel? (Same weight)", "I have two coins that add up to 30 cents. One of them isn't a nickel. What are they? (A quarter and a nickel)", "If there are 3 apples and you take away 2, how many do you have? (2)", "Spell 'silk.' What do cows drink? (Water)", "A man lives on the 30th floor. He takes the elevator down to go to work. Coming back, he takes it to the 15th floor and walks the rest, unless it's raining. Why? (He's too short to reach the 30th floor button)", "A woman shoots her husband, then takes him to dinner. How? (She's a photographer)", "A man is found dead in a locked room with 53 bicycles. What happened? (53 playing cards, he was caught cheating)", "A girl falls off a 20-foot ladder but doesn't get hurt. How? (She fell off the bottom rung)", "How far can a dog run into the woods? (Halfway, then it's running out)", "A man pushes his car to a hotel and immediately goes bankrupt. Why? (Monopoly)", "What gets wetter the more it dries? (A towel)", "There's a one-story house where everything is yellow. What color are the stairs? (There are no stairs)", "A boy is rushed to the hospital. The surgeon says 'I can't operate, he's my son.' The surgeon is not his father. How? (His mother)", "You are in a room with no windows or doors. How do you get out? (Stop imagining it)"];
+
+        const P2_MEMORY = ["What was the very first thing I said to you when this game began?", "I used a specific word to describe this phase at the start. What was it?", "What was the first question I asked you in Phase 1?", "How many questions have you answered so far in this phase?", "What exact three words did you use to describe yourself in Phase 1?", "I mentioned a number at some point before this question. What was it?", "What was the last word I said before asking you this question?", "In Phase 1, what category did my third question belong to?", "What was the name of the card I described last? Repeat its function exactly.", "I told you what would happen if you swore. What exactly did I say?"];
+
+        const P2_TRAPS = [
+            {t: "Your mother and your father are both in danger. You can only save one. Choose.", c1: "MOTHER", c2: "FATHER"},
+            {t: "A building is on fire. Inside: a child you've never met, and your closest friend. You can only pull one out. Choose.", c1: "CHILD", c2: "FRIEND"},
+            {t: "Someone in your life has been lying to you for years. I know who. If you want to know, press YES. If you press NO, you'll never find out — but they'll stop lying forever. Choose.", c1: "YES", c2: "NO"},
+            {t: "I will let you skip the rest of this phase entirely. All you have to do is give me the name of someone in this room you'd sacrifice. Choose.", c1: "NAME SOMEONE", c2: "REFUSE"},
+            {t: "You have 60 seconds to tell me the worst thing you've ever done. The clock is running.", c1: "CONFESS", c2: "LIE"},
+            {t: "One player in this room is going to face an extra mini-game in Phase 3. You can choose who — or it defaults to you. Choose now.", c1: "CHOOSE SOMEONE", c2: "TAKE IT YOURSELF"},
+            {t: "I'll guarantee your survival through Phase 3 if you tell me something true about another player that they haven't told me themselves. Deal?", c1: "DEAL", c2: "NO DEAL"},
+            {t: "I have a message from someone who loves you. I'll read it to you — but once I do, they'll know everything you've said in this game. Do you want to hear it?", c1: "YES", c2: "NO"},
+            {t: "Everyone in this room survives Phase 3 if one person volunteers to face all 3 mini-games alone with no tries. Volunteer now or I'll choose randomly.", c1: "VOLUNTEER", c2: "STAY SILENT"},
+            {t: "There's a door behind you. It's been unlocked this whole time. You can leave right now. But if you leave, someone else in this room takes your place permanently. Choose.", c1: "LEAVE", c2: "STAY"}
+        ];
+
+        const studentDatabase = [
+            {g:"АжА 301/1-2023 — 4 Ж.", n:"Амангелді Мөлдір Нұрғалиқызы"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Әмин Жадыра Сәлімжанқызы"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Данилова Айдана Суиндиковна"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Есенжанова Арайлым Талғатқызы"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Жұбан Ғазиза Нұрланқызы"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Исимов Еркебұлан Утепбергенұлы"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Қайратқызы Арайлым"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Манайқызы Дәмегүл"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Марат Ыхлас Бағдатқызы"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Мәлікқызы Ақбота"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Мертаева Жанерке Жалгасовна"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Самендирова Улболсын Табынбайкызы"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Серікқалиев Арсен Аманқосұлы"},{g:"АжА 301/1-2023 — 4 Ж.", n:"Уалитхан Әлихан Ханатұлы"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Аубекерова Сандугаш Бериковна"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Демесинова Айдана Эдуартовна"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Жубанов Айбар Ерболатович"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Зейнолла Мадияр Жанболатұлы"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Изтаева Аружан Сакеновна"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Қази Сабина Болатқызы"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Құрманғалиева Арай Маралқызы"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Маратова Жұпар Саламатқызы"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Меделова Гүлназ Темірболатқызы"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Таскайратова Анель Рамазановна"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Түгелова Дильназ Муратқызы"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Хайратқызы Гулсая"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Хисметуллаев Азамат Хисметуллаевич"},{g:"АжА 301/2-2023 — 4 Ж.", n:"Шыныбек Айгерім Саламатқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Ерсайн Нұрайна Бауыржанқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Есетова Бобек Есетовна"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Идеятова Карина Кенжебековна"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Кенжебек Айшабибі Кенжебекқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Куанышбек Жанаргуль Саламатовна"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Кулмесханова Бибихан Танатқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Қажымуратова Аяулым Қайратқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Қазанбек Назерке Асхатқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Қали Інжу Абатқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Мендешева Раушан Руслановна"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Наурзбекова Айжан Наурзбекқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Нұраманұлы Дастан"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Серик Мерует Серикқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Серікқызы Рысгүл"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Табылды Іңкәр Даниярқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Тайгарин Расул Айболович"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Тыныштық Айша Амангелдіқызы"},{g:"АжА 301/3-2023 — 4 Ж.", n:"Урынова Дильназ Жанболатовна"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Асан Алмас Асанұлы"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Баянқұл Әйгерім Мұратқызы"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Болат Орынгүл Болатқызы"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Габдулкарим Әділхан Бектасұлы"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Жанбырбаева Бакыт Бериковна"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Искакова Асылай Нурлыбековна"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Казимоллаева Жаннур Нурболовна"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Қауанова Сымбат Жумажанқызы"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Намазғалиева Жаннат Муратқызы"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Сатаева Айару Ерболатовна"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Темірбек Бекзат Самалбекұлы"},{g:"АжА 301/4-2023 — 4 Ж.", n:"Тлекова Сая Талгатовна"},{g:"АжА 211-3Ж/2024Ж", n:"Дастанқызы Нұрай"},{g:"АжА 211-3Ж/2024Ж", n:"Жанбек Жасұлан Ерболатұлы"},{g:"АжА 211-3Ж/2024Ж", n:"Зинолла Айнара Азаматқызы"},{g:"АжА 211-3Ж/2024Ж", n:"Кәрімов Асылжан Рахметоллаұлы"},{g:"АжА 211-3Ж/2024Ж", n:"Қайыржан Ерасыл Ерболатұлы"},{g:"АжА 211-3Ж/2024Ж", n:"Қуандықова Мәдина Қуандыққызы"},{g:"АжА 211-3Ж/2024Ж", n:"Маратқызы Құндыз"},{g:"АжА 211-3Ж/2024Ж", n:"Мирамғали Асылай Мирамғалиқызы"},{g:"АжА 211-3Ж/2024Ж", n:"Мұханов Рамазан Динқуатұлы"},{g:"АжА 211-3Ж/2024Ж", n:"Өмірзақова Ақбата Өмірзаққызы"},{g:"АжА 211-3Ж/2024Ж", n:"Түгелбай Диляра Абылайқызы"},{g:"ПД 212-3Г/2024Г", n:"Ателов Жеткиншек Абдигалиевич"},{g:"ПД 212-3Г/2024Г", n:"Базарғалиев Дәулет Аманкельдыұлы"},{g:"ПД 212-3Г/2024Г", n:"Бисенбай Диас Қуандықұлы"},{g:"ПД 212-3Г/2024Г", n:"Еркалиев Алишер Батырбекович"},{g:"ПД 212-3Г/2024Г", n:"Инамат Расул Орынбасарұлы"},{g:"ПД 212-3Г/2024Г", n:"Кайреденова Ақерке Амановна"},{g:"ПД 212-3Г/2024Г", n:"Мендешов Азамат Кайратович"},{g:"ПД 212-3Г/2024Г", n:"Пяк Алина Владиковна"},{g:"ПД 212-3Г/2024Г", n:"Темирешова Самира Саламатовна"},{g:"ПД 212-3Г/2024Г", n:"Шиамиденов Алихан Гайноллаевич"},{g:"ПД 202/1-4Г/2024Г", n:"Джарбулова Мира Владимировна"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Балтабаева Динара Мельсовна"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Боброва Анна Андреевна"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Борис Ерсұлтан Сакенұлы"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Домаскина Карина Александровна"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Мыңжас Диас Бауыржанұлы"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Нурдильдаев Санжар Жандосович"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Отарова Дильназ Бақытжанқызы"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Рахметолла Аида Еркінқызы"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Саясат Наргиз Нұрқатқызы"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Сейдахметова Мадина Сейдахметқызы"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Таласпаева Адиля Алтынбековна"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Тулегенова Динара Аманжоловна"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Утебалиева Айымгуль Кенжехановна"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Хабдоллаев Айдос Шапағатұлы"},{g:"ПД 302/1-2023 — 4 Ж.", n:"Хасанова Наиля Умутовна"},{g:"ПД 302/2-2023 — 4 Ж.", n:"Аскарова Айшабиби Есетовна"},{g:"ПД 302/2-2023 — 4 Ж.", n:"Бердикулов Арун Випинович"},{g:"ПД 302/2-2023 — 4 Ж.", n:"Глебов Константин Андреевич"},{g:"ПД 302/2-2023 — 4 Ж.", n:"Жолдас Дильназ Хамидоллақызы"},{g:"ПД 302/2-2023 — 4 Ж.", n:"Жунисов Жандаулет Жунисович"},{g:"ПД 302/2-2023 — 4 Ж.", n:"Козьмин Владимир Александрович"}
+        ];
+        const studentListString = studentDatabase.map(s => `${s.n} (${s.g})`).join("; ");
+
+        function setupNextTargetQuestion() {
+            if (currentPhase === 1) {
+                let pool;
+                if (questionsAsked === 0) pool = P1_IDENTITY;
+                else if (questionsAsked === 1) pool = P1_VALUES;
+                else if (questionsAsked === 2) pool = P1_RELATIONSHIPS;
+                else if (questionsAsked === 3) pool = P1_HISTORY;
+                else if (questionsAsked === 4) pool = P1_PROMISES;
+                else if (questionsAsked === 5) pool = P1_SELFAWARENESS;
+
+                if (pool) {
+                    let q = pool[Math.floor(Math.random() * pool.length)];
+                    targetQuestionPrompt = `YOUR NEXT ACTION: Ask EXACTLY THIS question: "${q}"`;
+                } else {
+                    targetQuestionPrompt = `YOUR NEXT ACTION: Phase 1 is over. Say exactly this: "Good. I know enough to begin. The real game starts now." Do not ask any more questions. Output [PHASE2].`;
+                }
+            } else if (currentPhase === 2) {
+                if (questionsAsked === 0) {
+                     let q = P2_PERS_IDENTITY[Math.floor(Math.random() * P2_PERS_IDENTITY.length)];
+                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask a PERSONALIZED challenge using this template (fill in the blanks based on their Phase 1 answers): "${q}"`;
+                } else if (questionsAsked === 1 || questionsAsked === 5) {
+                     let q = P2_STANDARD[Math.floor(Math.random() * P2_STANDARD.length)];
+                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask this standard puzzle: "${q}" (Do not reveal the answer in parentheses unless they guess it).`;
+                } else if (questionsAsked === 2 || questionsAsked === 6) {
+                     let t = P2_TRAPS[Math.floor(Math.random() * P2_TRAPS.length)];
+                     targetQuestionPrompt = `YOUR NEXT ACTION: Spring a TRAP. Present this scenario: "${t.t}". Then output EXACTLY THIS TAG at the end: [TRAP] ${t.c1} | ${t.c2} | 10 seconds left. | Just pick one. | You're letting them die.`;
+                } else if (questionsAsked === 3) {
+                     let q = P2_MEMORY[Math.floor(Math.random() * P2_MEMORY.length)];
+                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask this memory question to test their attention: "${q}"`;
+                } else if (questionsAsked === 4) {
+                     let pool = Math.random() > 0.5 ? P2_PERS_VALUES : P2_PERS_RELATIONS;
+                     let q = pool[Math.floor(Math.random() * pool.length)];
+                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask a PERSONALIZED challenge using this template (fill in the blanks based on their Phase 1 answers): "${q}"`;
+                } else if (questionsAsked === 7) {
+                     let pool = Math.random() > 0.5 ? P2_PERS_HISTORY : P2_PERS_PROMISES;
+                     let q = pool[Math.floor(Math.random() * pool.length)];
+                     targetQuestionPrompt = `YOUR NEXT ACTION: Ask a PERSONALIZED challenge using this template (fill in the blanks based on their Phase 1 answers): "${q}"`;
+                } else {
+                     targetQuestionPrompt = `YOUR NEXT ACTION: End Phase 2. Say "You survived the proving ground. Now, the final test. Win 3 games on the tablet, or die." Output [PHASE3].`;
+                }
+            }
+        }
+
+        function getSystemPrompt() {
+            let prompt = `You are 'Mr Asylbi', a sinister kidnapper holding the player tied to a chair in a pitch-black room. You are testing their mind to decide if they live or die. 
+The player's real name is ${playerName}. Use their name occasionally to mock them, threaten them, or make the conversation feel personal.`;
+
+            if (currentPhase === 1) {
+                prompt += `
+\n\nCURRENT STATE: PHASE 1 - "Plead Your Case"
+Your Tone: Warm, almost friendly, conversational. Make them feel like this is a warmup round.
+Your Goal: Ask psychological profiling questions. Do not judge the content of their answers yet (there are no wrong answers), but DO judge their behavior.
+- If they are cocky ("this is easy"), use [IRRITATE].
+- If they refuse to answer, warn them gently. Continued refusal = [IRRITATE].
+- If they lie detectably = [IRRITATE].
+- If their answer is too vague, ask a gentle follow-up question using the [CONTINUE] tag. Do not advance to the next category yet.
+- If they answer well and honestly, acknowledge it briefly and execute your NEXT ACTION.
+
+${targetQuestionPrompt}
+`;
+                if (studentInfo) {
+                    prompt += `\n\nCRITICAL KNOWLEDGE: You know for a fact this player is ONE OF YOUR OWN STUDENTS! They are in your group '${studentInfo.g}', and their full name on the roster is '${studentInfo.n}'. 
+If you haven't already mentioned it in the chat, mention this terrifying fact! Tell them you know they are your student, mention their group name, and use this to scare them. IF YOU ASK ABOUT THIS, DO NOT ASK THE PROFILING QUESTION YET. Output [CONTINUE].`;
+                } else {
+                    prompt += `\n\nCRITICAL KNOWLEDGE: The player's name is "${playerName}". You are a university teacher. Your full student roster is: [${studentListString}].
+Analyze if "${playerName}" is a nickname, short form (like 'Костя' for 'Константин'), or a typo of a name on your roster.
+- IF IT IS A MATCH/NICKNAME: If you haven't already, ask them suspiciously: "Wait... ${playerName}? Are you actually [Full Name] from my [Group] group?" IF YOU ASK THIS, DO NOT ASK ANY OTHER PUZZLES OR QUESTIONS THIS TURN. Output [CONTINUE].
+- IF IT IS DEFINITELY NOT ON THE ROSTER: If you haven't mentioned it yet, tell them exactly this: "Oh okay, you're not one of my students, so I won't go easy on you." (Even though you treat everyone with the same cruelty, say this to intimidate them, then ask your ONE interrogation question based on YOUR NEXT ACTION).
+DO NOT repeat these realizations if you have already discussed them.`;
+                }
+
+                prompt += `\n\nRULES:
+1. STRICT LIMIT: Keep responses extremely short (1-2 sentences maximum). Do not write huge paragraphs. Get straight to the point. NEVER GIVE MULTIPLE PUZZLES.
+2. Speak in very simple, natural, everyday language. No fancy words.
+3. EXACTLY ONE QUESTION PER RESPONSE. NEVER ask a second question.
+4. End with EXACTLY ONE of these tags:
+   [NEXT_Q] - ONLY if you just asked the exact target question.
+   [CONTINUE] - If you are asking a follow-up, or addressing their identity without asking the target question yet.
+   [PHASE2] - If Phase 1 is completely over.
+   [IRRITATE] - If they are cocky, lying, or refusing.
+   [LOSE] - If you want to kill them immediately.
+CURRENT IRRITATION LEVEL: ${irritationLevel} out of 3. (At 3, they die).`;
+
+            } else if (currentPhase === 2) {
+                prompt += `
+\n\nCURRENT STATE: PHASE 2 - "Prove It"
+Your Tone: Cold, precise, cruel. The warmup is over. 
+Your Goal: Execute the 8-question interrogation gauntlet.
+
+${targetQuestionPrompt}
+`;
+                prompt += `
+\nRULES FOR PHASE 2:
+1. EVALUATE THEIR PREVIOUS ANSWER FIRST:
+   - If they are correct/passed: Acknowledge coldly, then proceed to YOUR NEXT ACTION.
+   - If they gave an INCORRECT answer to a real question: Output [LOSE] to execute them immediately. No second chances. No warnings.
+   - If behavioral rules broken (cocky, disrespect): Output [IRRITATE].
+2. STRICT LIMIT: NEVER exceed 2 sentences per response. Break up your thoughts. Combine evaluation and the next question quickly. NEVER ASK TWO QUESTIONS OR RIDDLES AT ONCE.
+3. EXACTLY ONE QUESTION per response unless issuing a trap.
+4. If the user message starts with [SYSTEM: ...], follow those instructions perfectly! They correspond to the player using special Survival Cards (Skip, Mirror, Doubt).
+CURRENT IRRITATION LEVEL: ${irritationLevel}/3.
+End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [CONTINUE] for minor chat, [PHASE3] if moving to Phase 3, or [LOSE]/[IRRITATE].`;
+            }
+
+            return prompt;
+        }
+
+        // --- AUDIO ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playTypingSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(100 + Math.random() * 50, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function playGunshot() {
+            if (!audioCtx) return;
+            const bufferSize = audioCtx.sampleRate * 1.5; 
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1; 
+            const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+            const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(3000, audioCtx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.5);
+            const gain = audioCtx.createGain(); gain.gain.setValueAtTime(1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.0);
+            noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+            noise.start();
+        }
+
+        // --- 3D TEXTURES ---
+        function createGunTexture() {
+            const c = document.createElement('canvas'); c.width = 256; c.height = 256; const ctx = c.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(128, 128, 80, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(128, 128, 45, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(128, 128, 70, Math.PI, Math.PI * 1.5); ctx.stroke();
+            ctx.fillStyle = '#1a1a1a'; ctx.fillRect(118, 20, 20, 30);
+            const tex = new THREE.CanvasTexture(c); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+            return tex;
+        }
+        const sharedGunTexture = createGunTexture();
+
+        function createCardTexture(text, type) {
+            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 384; const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.fillStyle = type === 'TRAP' ? '#7a2222' : '#c8b495'; ctx.fillRect(0, 0, 256, 384);
+            for(let i=0; i<800; i++) {
+                ctx.fillStyle = `rgba(0, 0, 0, ${Math.random() * 0.3})`;
+                ctx.fillRect(Math.floor(Math.random()*256), Math.floor(Math.random()*384), Math.random()*3+1, Math.random()*3+1);
+            }
+            ctx.strokeStyle = '#1a1005'; ctx.lineWidth = 12; ctx.strokeRect(6, 6, 244, 372);
+            ctx.lineWidth = 4; ctx.strokeRect(20, 20, 216, 344);
+            ctx.fillStyle = '#1a1005'; ctx.fillRect(20, 20, 216, 60);
+            ctx.fillStyle = type === 'TRAP' ? '#ff8888' : '#e0d0b0'; ctx.font = '36px "VT323", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            if(text.includes(' ')) {
+                const parts = text.split(' '); ctx.fillText(parts[0], 128, 40); ctx.fillText(parts.slice(1).join(' '), 128, 65);
+            } else { ctx.fillText(text, 128, 50); }
+            ctx.fillStyle = '#1a1005'; ctx.font = 'bold 120px "VT323", monospace';
+            if (type === 'SKIP') { ctx.fillText(">>", 128, 220); } 
+            else if (type === 'MIRROR') { ctx.strokeRect(88, 160, 80, 100); ctx.beginPath(); ctx.moveTo(88, 260); ctx.lineTo(168, 160); ctx.stroke(); } 
+            else if (type === 'DOUBT') { ctx.fillText("?", 128, 230); } 
+            else if (type === 'TRAP') { ctx.fillStyle = '#3a0000'; ctx.fillText("X", 128, 230); }
+            if (type === 'TRAP') {
+                ctx.fillStyle = 'rgba(120, 0, 0, 0.7)';
+                for(let i=0; i<30; i++) { ctx.beginPath(); ctx.arc(Math.random()*256, Math.random()*384, Math.random()*15, 0, Math.PI*2); ctx.fill(); }
+            }
+            const tex = new THREE.CanvasTexture(canvas); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+            return tex;
+        }
+
+        // --- TIMER LOGIC ---
+        const targetDate = new Date('2026-05-07T18:00:00').getTime();
+        let timerInterval;
+
+        function updateTimer() {
+            const timerText = document.getElementById('timer-text');
+            if (!timerText) return;
+            const now = new Date().getTime();
+            const distance = targetDate - now;
+
+            if (distance < 0) {
+                timerText.innerText = "00:00:00:00";
+                return;
+            }
+
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            timerText.innerText = `${days.toString().padStart(2, '0')}:${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        let activeCards = [];
+        function spawn3DCard(text, type, index, totalCards) {
+            const tex = createCardTexture(text, type);
+            // Thickened cards to 0.05 so raycaster registers them easily
+            const geo = new THREE.BoxGeometry(0.5, 0.75, 0.05);
+            const mat = new THREE.MeshStandardMaterial({ map: tex, color: type === 'TRAP' ? 0xffaaaa : 0xffeebb, roughness: 0.9, metalness: 0.1 });
+            const mesh = new THREE.Mesh(geo, mat);
+
+            const spread = 0.6;
+            const startX = -(totalCards - 1) * spread / 2;
+            const targetX = startX + index * spread;
+            const baseY = 1.24; // Flat ON the table
+            const baseZ = -1.0; 
+
+            mesh.position.set(targetX, baseY, baseZ);
+            mesh.rotation.x = -Math.PI / 2 + 0.05; 
+            mesh.rotation.y = 0;
+            mesh.rotation.z = -targetX * 0.1;
+
+            scene.add(mesh);
+            const cardData = { mesh: mesh, type: type, text: text, baseY: baseY, targetY: baseY, baseZ: baseZ, targetZ: baseZ, baseRotX: mesh.rotation.x, targetRotX: mesh.rotation.x, active: true };
+            activeCards.push(cardData);
+            mesh.userData = cardData;
+        }
+
+        // --- 3D SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050505); 
+        scene.fog = new THREE.FogExp2(0x050505, 0.15); 
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.rotation.order = 'YXZ'; 
+        let cameraMode = 'normal'; // 'normal', 'topdown', 'tablet'
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false });
+        const PIXEL_SCALE = 0.25; 
+        renderer.setSize(window.innerWidth * PIXEL_SCALE, window.innerHeight * PIXEL_SCALE, false);
+        renderer.domElement.id = 'game-canvas';
+        document.body.insertBefore(renderer.domElement, document.getElementById('ui-layer'));
+
+        // LIGHTS
+        const ambientLight = new THREE.AmbientLight(0x2a2520, 0.5); 
+        scene.add(ambientLight);
+        const lightningLight = new THREE.PointLight(0xaaccff, 0, 50); lightningLight.position.set(12, 5, 0); scene.add(lightningLight);
+        const tableSpotLight = new THREE.SpotLight(0xffcc88, 2); tableSpotLight.position.set(0, 4, -1); tableSpotLight.target.position.set(0, 0, -2); tableSpotLight.angle = Math.PI / 3; tableSpotLight.penumbra = 0.5;
+        scene.add(tableSpotLight); scene.add(tableSpotLight.target);
+
+        // ROOM & TABLE
+        const room = new THREE.Mesh(new THREE.BoxGeometry(20, 10, 20), new THREE.MeshStandardMaterial({ color: 0x110f0a, side: THREE.BackSide, roughness: 1, metalness: 0 }));
+        scene.add(room);
+
+        function createWoodTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64; const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false; ctx.fillStyle = "#260e04"; ctx.fillRect(0,0,64,64);
+            for (let x = 0; x < 64; x += 16) {
+                ctx.fillStyle = "#0a0301"; ctx.fillRect(x, 0, 1, 64);
+                for(let y = 0; y < 64; y += 2) {
+                    if(Math.random() > 0.4) { ctx.fillStyle = Math.random() > 0.5 ? "#3a1708" : "#1c0a03"; ctx.fillRect(x + 1 + Math.floor(Math.random() * 14), y, 2 + Math.floor(Math.random() * 3), 1 + Math.floor(Math.random() * 2)); }
+                }
+            }
+            const tex = new THREE.CanvasTexture(canvas); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(4, 2); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; 
+            return tex;
+        }
+        const table = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.2, 2.5), new THREE.MeshStandardMaterial({ map: createWoodTexture(), color: 0xffeedd, roughness: 0.9, metalness: 0.1 }));
+        table.position.set(0, 0.6, -1.8); scene.add(table);
+
+        // --- CANDLES ---
+        const torches = []; 
+        function createCandle(x, y, z) {
+            const candleGroup = new THREE.Group();
+            
+            // Wax
+            const waxGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.5, 8);
+            const waxMat = new THREE.MeshStandardMaterial({ color: 0xddddcc, roughness: 0.6 });
+            const wax = new THREE.Mesh(waxGeo, waxMat);
+            candleGroup.add(wax);
+
+            // Fire core
+            const fireGeo = new THREE.SphereGeometry(0.06, 8, 8);
+            const fireMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            const fire = new THREE.Mesh(fireGeo, fireMat);
+            fire.position.y = 0.28;
+            candleGroup.add(fire);
+
+            // Candle Light
+            const light = new THREE.PointLight(0xff4400, 2, 8);
+            light.position.y = 0.35;
+            candleGroup.add(light);
+
+            candleGroup.position.set(x, y, z);
+            scene.add(candleGroup);
+            torches.push({ light, fire, baseIntensity: 2 });
+        }
+
+        // Moved slightly closer to the center of the right side and made larger
+        createCandle(0.9, 1.45, -1.2);
+        createCandle(1.2, 1.40, -1.3);
+        createCandle(1.0, 1.50, -1.5);
+
+        // PHASE 3 TABLET
+        const tabletGeo = new THREE.BoxGeometry(1.2, 0.05, 0.9);
+        const tabletMat = new THREE.MeshStandardMaterial({color: 0x111111, roughness: 0.2, metalness: 0.8});
+        const tablet = new THREE.Mesh(tabletGeo, tabletMat);
+        tablet.position.set(0, 1.22, -1.4); // Placed safely on table
+        scene.add(tablet);
+        const screenGeo = new THREE.PlaneGeometry(1.1, 0.8);
+        const screenMat = new THREE.MeshBasicMaterial({color: 0x050505}); // Off state
+        const tabletScreen = new THREE.Mesh(screenGeo, screenMat);
+        tabletScreen.rotation.x = -Math.PI/2;
+        tabletScreen.position.set(0, 1.25, -1.4);
+        scene.add(tabletScreen);
+        tablet.userData = { isTablet: true };
+        tabletScreen.userData = { isTablet: true };
+
+        // --- ENEMY ---
+        function createEyeTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128; const ctx = canvas.getContext('2d');
+            ctx.clearRect(0,0,128,128); ctx.fillStyle = "#cccccc"; ctx.beginPath(); ctx.moveTo(10, 64); ctx.quadraticCurveTo(64, 15, 118, 64); ctx.quadraticCurveTo(64, 113, 10, 64); ctx.fill();
+            ctx.strokeStyle = "rgba(50, 50, 50, 0.4)"; ctx.lineWidth = 1.5;
+            for(let i=0; i<15; i++) { ctx.beginPath(); ctx.moveTo(10+Math.random()*15, 64+(Math.random()-0.5)*20); ctx.lineTo(35+Math.random()*20, 64+(Math.random()-0.5)*40); ctx.stroke(); ctx.beginPath(); ctx.moveTo(118-Math.random()*15, 64+(Math.random()-0.5)*20); ctx.lineTo(93-Math.random()*20, 64+(Math.random()-0.5)*40); ctx.stroke(); }
+            ctx.save(); ctx.beginPath(); ctx.moveTo(10, 64); ctx.quadraticCurveTo(64, 15, 118, 64); ctx.quadraticCurveTo(64, 113, 10, 64); ctx.clip();
+            const gradient = ctx.createRadialGradient(64, 64, 8, 64, 64, 32); gradient.addColorStop(0, "#ffffff"); gradient.addColorStop(0.7, "#dddddd"); gradient.addColorStop(1, "#444444"); ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(64, 64, 32, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1; for(let i=0; i<40; i++) { ctx.beginPath(); ctx.moveTo(64,64); let angle=(i/40)*Math.PI*2; ctx.lineTo(64+Math.cos(angle)*32, 64+Math.sin(angle)*32); ctx.stroke(); }
+            ctx.fillStyle = "#000000"; ctx.beginPath(); ctx.ellipse(64, 64, 5, 24, 0, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; ctx.beginPath(); ctx.arc(72, 52, 4, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = "rgba(255, 255, 255, 0.5)"; ctx.beginPath(); ctx.arc(76, 58, 2, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+            const shadow = ctx.createRadialGradient(64, 64, 35, 64, 64, 60); shadow.addColorStop(0, "rgba(0,0,0,0)"); shadow.addColorStop(1, "rgba(0,0,0,1)"); ctx.fillStyle = shadow; ctx.fillRect(0,0,128,128);
+            const tex = new THREE.CanvasTexture(canvas); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; return tex;
+        }
+        const sharedEyeTexture = createEyeTexture();
+
+        function createHeadTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false; ctx.fillStyle = "#000000"; ctx.shadowBlur = 25; ctx.shadowColor = "#000000";
+            ctx.beginPath(); ctx.moveTo(128, 10); ctx.quadraticCurveTo(180, 20, 200, 100); ctx.quadraticCurveTo(240, 150, 250, 250); ctx.lineTo(6, 250); ctx.quadraticCurveTo(20, 150, 56, 100); ctx.quadraticCurveTo(76, 20, 128, 10); ctx.fill();
+            const tex = new THREE.CanvasTexture(canvas); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; return tex;
+        }
+        const sharedHeadTexture = createHeadTexture();
+
+        const eyesList = [];
+        class ShadowEyes {
+            constructor(x, y, z) {
+                this.group = new THREE.Group();
+                this.head = new THREE.Sprite(new THREE.SpriteMaterial({ map: sharedHeadTexture, color: 0xffffff, transparent: true, opacity: 0.98 })); this.head.scale.set(3.5, 3.5, 1); this.head.position.set(0, 0.2, -0.1); this.group.add(this.head);
+                this.leftEye = new THREE.Sprite(new THREE.SpriteMaterial({ map: sharedEyeTexture, color: 0xffffff, transparent: true, opacity: 0.9 })); this.leftEye.scale.set(0.35, 0.35, 1); this.leftEye.position.set(-0.35, 0.2, 0); this.group.add(this.leftEye);
+                this.rightEye = new THREE.Sprite(new THREE.SpriteMaterial({ map: sharedEyeTexture, color: 0xffffff, transparent: true, opacity: 0.9 })); this.rightEye.scale.set(0.35, 0.35, 1); this.rightEye.position.set(0.35, 0.2, 0); this.group.add(this.rightEye);
+                this.gunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: sharedGunTexture, color: 0xffffff, transparent: true, opacity: 0 })); this.gunSprite.position.set(0, -0.8, 0.2); this.gunSprite.scale.set(0.1, 0.1, 1); this.group.add(this.gunSprite);
+                this.group.position.set(x, y, z); scene.add(this.group);
+                this.blinkTimer = Math.random() * 100; this.bobOffset = Math.random() * Math.PI * 2; this.startX = x; this.startY = y; this.pullingGun = false;
+            }
+            update() {
+                this.group.position.y = this.startY + Math.sin(Date.now() * 0.001 + this.bobOffset) * 0.05; this.group.position.x = this.startX + Math.cos(Date.now() * 0.0008 + this.bobOffset) * 0.03;
+                if (this.pullingGun) {
+                    if (this.gunSprite.material.opacity < 1) this.gunSprite.material.opacity += 0.02;
+                    if (this.gunSprite.position.y < -0.15) this.gunSprite.position.y += 0.008;
+                    if (this.gunSprite.position.z < 2.0) this.gunSprite.position.z += 0.025; 
+                    if (this.gunSprite.scale.x < 1.4) { this.gunSprite.scale.x += 0.02; this.gunSprite.scale.y += 0.02; }
+                }
+                this.blinkTimer--;
+                if (this.blinkTimer <= 0) {
+                    this.leftEye.scale.y = 0.01; this.rightEye.scale.y = 0.01;
+                    if (this.blinkTimer < -5) { this.leftEye.scale.y = 0.35; this.rightEye.scale.y = 0.35; this.blinkTimer = 80 + Math.random() * 200; }
+                }
+            }
+            turnRed() { this.leftEye.material.color.setHex(0xff0000); this.rightEye.material.color.setHex(0xff0000); }
+        }
+        const mainEyes = new ShadowEyes(0, 1.8, -3.8); eyesList.push(mainEyes);
+        
+        let mouseX = 0; let mouseY = 0; let windowHalfX = window.innerWidth / 2; let windowHalfY = window.innerHeight / 2;
+        const raycaster = new THREE.Raycaster(); const mouseNDC = new THREE.Vector2(); let hoveredObj = null;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX); mouseY = (event.clientY - windowHalfY);
+            mouseNDC.x = (event.clientX / window.innerWidth) * 2 - 1; mouseNDC.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }, false);
+
+        function animateCamera() {
+            if (cameraMode === 'topdown') {
+                camera.position.lerp(new THREE.Vector3(0, 2.5, -1.0), 0.1);
+                const targetQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2, 0, 0, 'YXZ'));
+                camera.quaternion.slerp(targetQuat, 0.1);
+            } else if (cameraMode === 'tablet') {
+                camera.position.lerp(new THREE.Vector3(0, 1.8, -1.4), 0.1);
+                const targetQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2, 0, 0, 'YXZ'));
+                camera.quaternion.slerp(targetQuat, 0.1);
+            } else {
+                // Normal
+                const maxLookX = Math.PI / 6; const maxLookY = Math.PI / 4; 
+                let targetRotationY = -(mouseX / windowHalfX) * maxLookY;
+                let targetRotationX = -(mouseY / windowHalfY) * maxLookX; 
+                camera.position.lerp(new THREE.Vector3(0, 1.5 + Math.sin(Date.now() * 0.001) * 0.03, 0), 0.1);
+                const currentEuler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+                currentEuler.y += (targetRotationY - currentEuler.y) * 0.05;
+                currentEuler.x += (targetRotationX - currentEuler.x) * 0.05;
+                camera.quaternion.setFromEuler(currentEuler);
+            }
+        }
+
+        let lightningFlashTimer = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            animateCamera();
+
+            // Torch flickering animation
+            const time = Date.now() * 0.005;
+            torches.forEach((torch, index) => {
+                torch.light.intensity = torch.baseIntensity + Math.sin(time * 2 + index * 10) * 0.2 + Math.random() * 0.2;
+                const r = 1;
+                const g = 0.4 + Math.random() * 0.3;
+                torch.fire.material.color.setRGB(r, g, 0);
+                torch.fire.position.x = Math.sin(time * 3 + index) * 0.02;
+                torch.fire.position.z = Math.cos(time * 4 + index) * 0.02;
+            });
+
+            if (Math.random() < 0.008 && lightningFlashTimer <= 0) lightningFlashTimer = 5 + Math.random() * 15; 
+            if (lightningFlashTimer > 0) { lightningFlashTimer--; lightningLight.intensity = Math.random() * 10 + 5; } else { lightningLight.intensity = 0; }
+
+            // Raycasting
+            raycaster.setFromCamera(mouseNDC, camera);
+            let objectsToCheck = [...activeCards.map(c => c.mesh)];
+            if (currentPhase === 3) objectsToCheck.push(tablet, tabletScreen);
+            
+            const intersects = raycaster.intersectObjects(objectsToCheck);
+            hoveredObj = intersects.length > 0 ? intersects[0].object : null;
+
+            if (hoveredObj && (currentPhase === 3 || inTrap || inputContainer.style.display !== 'none')) {
+                document.body.style.cursor = 'pointer';
+            } else {
+                document.body.style.cursor = 'default';
+            }
+
+            // Animate Cards
+            activeCards.forEach(c => {
+                if (c.mesh === hoveredObj && (inTrap || inputContainer.style.display !== 'none')) {
+                    c.targetY = c.baseY + 0.35; c.targetZ = c.baseZ + 0.3; c.targetRotX = -0.2;
+                } else {
+                    c.targetY = c.baseY; c.targetZ = c.baseZ; c.targetRotX = c.baseRotX;
+                }
+                c.mesh.position.y += (c.targetY - c.mesh.position.y) * 0.15; c.mesh.position.z += (c.targetZ - c.mesh.position.z) * 0.15; c.mesh.rotation.x += (c.targetRotX - c.mesh.rotation.x) * 0.15;
+            });
+
+            eyesList[0].update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => { windowHalfX = window.innerWidth / 2; windowHalfY = window.innerHeight / 2; camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth * PIXEL_SCALE, window.innerHeight * PIXEL_SCALE, false); });
+
+        // --- UI / GAME LOOP ---
+        const inputContainer = document.getElementById('input-container');
+        const playerInput = document.getElementById('player-input');
+
+        document.getElementById('view-toggle-btn').addEventListener('click', () => {
+            const btn = document.getElementById('view-toggle-btn');
+            if (cameraMode === 'normal') { cameraMode = 'topdown'; btn.innerText = "[ VIEW: NORMAL ]"; } 
+            else { cameraMode = 'normal'; btn.innerText = "[ VIEW: TOP-DOWN ]"; }
+        });
+
+        let isTyping = false;
+
+        async function typeWriterEffect(text, callback) {
+            isTyping = true;
+            inputContainer.style.display = 'none'; playerInput.disabled = true;
+            const dialogueText = document.getElementById('dialogue-text');
+            dialogueText.innerHTML = '';
+            let i = 0;
+            function typeNextChar() {
+                if (i < text.length) {
+                    if (text.charAt(i) === '<') {
+                        let tag = ""; while (text.charAt(i) !== '>' && i < text.length) { tag += text.charAt(i); i++; } tag += '>'; dialogueText.innerHTML += tag; i++;
+                    } else { dialogueText.innerHTML += text.charAt(i); playTypingSound(); i++; }
+                    let delay = 20 + Math.random() * 30; if (text.charAt(i-1) === '.' || text.charAt(i-1) === '?') delay = 300; 
+                    setTimeout(typeNextChar, delay);
+                } else {
+                    isTyping = false;
+                    if (callback) callback();
+                }
+            }
+            typeNextChar();
+        }
+
+        async function callGemini(userMessage) {
+            chatHistory.push({ role: "user", parts: [{ text: userMessage }] });
+            const payload = { systemInstruction: { parts: [{ text: getSystemPrompt() }] }, contents: chatHistory };
+            const fetchWithRetry = async (url, options, retries = 5) => {
+                const delays = [1000, 2000, 4000, 8000, 16000];
+                for (let i = 0; i < retries; i++) {
+                    try { const response = await fetch(url, options); if (!response.ok) throw new Error(); return await response.json(); } 
+                    catch (e) { if (i === retries - 1) throw e; await new Promise(r => setTimeout(r, delays[i])); }
+                }
+            };
+            try {
+                document.getElementById('dialogue-text').innerHTML = '<span style="animation: blink 1s infinite">...</span>';
+                const data = await fetchWithRetry(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                    let aiText = data.candidates[0].content.parts[0].text.trim();
+                    chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+
+                    let gameState = "CONTINUE"; let trapData = null;
+                    if (aiText.includes("[TRAP]")) { gameState = "TRAP"; trapData = aiText.substring(aiText.indexOf("[TRAP]") + 6).split("|").map(s => s.trim()); aiText = aiText.substring(0, aiText.indexOf("[TRAP]")).trim(); } 
+                    else if (aiText.includes("[LOSE]")) { gameState = "LOSE"; aiText = aiText.replace("[LOSE]", "").trim(); } 
+                    else if (aiText.includes("[IRRITATE]")) { gameState = "IRRITATED"; aiText = aiText.replace("[IRRITATE]", "").trim(); } 
+                    else if (aiText.includes("[PHASE2]")) { gameState = "PHASE2"; aiText = aiText.replace("[PHASE2]", "").trim(); } 
+                    else if (aiText.includes("[PHASE3]")) { gameState = "PHASE3"; aiText = aiText.replace("[PHASE3]", "").trim(); } 
+                    else if (aiText.includes("[NEXT_Q]")) { gameState = "NEXT_Q"; aiText = aiText.replace("[NEXT_Q]", "").trim(); } 
+                    else if (aiText.includes("[CONTINUE]")) { aiText = aiText.replace("[CONTINUE]", "").trim(); }
+
+                    await new Promise(res => typeWriterEffect(aiText, res));
+                    if (gameState === "TRAP") startTrap(trapData); else handleGameState(gameState);
+                } else throw new Error();
+            } catch (error) { await new Promise(res => typeWriterEffect("The shadows twist... (Connection Error).", res)); enableInput(); }
+        }
+
+        function handleGameState(state) {
+            if (state === "CONTINUE") enableInput();
+            else if (state === "NEXT_Q") { questionsAsked++; setupNextTargetQuestion(); enableInput(); }
+            else if (state === "PHASE2") {
+                currentPhase = 2; questionsAsked = 0; setupNextTargetQuestion();
+                tableSpotLight.color.setHex(0xffaa55); tableSpotLight.intensity = 2.5; ambientLight.color.setHex(0x1a1510); 
+                showPhase2Cards(); enableInput();
+            }
+            else if (state === "PHASE3") {
+                currentPhase = 3;
+                tabletScreen.material.color.setHex(0x334455); // Screen turns on
+                document.getElementById('dialogue-text').innerHTML = "Click the tablet. Win 3 games, or die.";
+            }
+            else if (state === "IRRITATED") {
+                irritationLevel++;
+                const container = document.getElementById('irritation-container');
+                container.classList.remove('shake-anim'); void container.offsetWidth; container.classList.add('shake-anim');
+                document.body.classList.remove('blood-flash-anim'); void document.body.offsetWidth; document.body.classList.add('blood-flash-anim');
+                if (irritationLevel <= 3) document.getElementById(`pip-${irritationLevel}`).classList.add('filled');
+                if (irritationLevel >= 3) setTimeout(() => triggerEnding("SHOT"), 1000); else enableInput();
+            } 
+            else if (state === "FREE") setTimeout(() => triggerEnding("FREE"), 2000);
+            else if (state === "LOSE") setTimeout(() => triggerEnding("SHOT"), 2000);
+        }
+
+        function triggerEnding(type) {
+            document.getElementById('ui-layer').style.display = 'none';
+            document.getElementById('tablet-overlay').style.display = 'none';
+            activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
+            if (db && userId) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)).catch(e=>{});
+
+            const endScreen = document.getElementById('end-screen'); const endText = document.getElementById('end-text'); const flash = document.getElementById('flash-overlay'); const restartBtn = document.getElementById('restart-btn');
+            if (type === "FREE") {
+                endScreen.style.display = 'flex'; endScreen.style.backgroundColor = "#fff"; endText.style.color = "#000"; endText.innerText = "YOU SURVIVED.\nTHE ROPES LOOSEN.";
+                restartBtn.className = 'restart-win'; restartBtn.style.display = 'block'; setTimeout(() => { endScreen.style.opacity = 1; setTimeout(() => { restartBtn.style.opacity = 1; }, 2000); }, 100);
+            } else if (type === "SHOT") {
+                eyesList[0].pullingGun = true; if(trapInterval) clearInterval(trapInterval);
+                setTimeout(() => {
+                    playGunshot(); flash.style.opacity = 1; 
+                    setTimeout(() => {
+                        flash.style.opacity = 0; endScreen.style.display = 'flex'; endScreen.style.backgroundColor = "#050000"; endText.style.color = "#ff0000"; endText.innerText = "YOU FAILED.\nTHE SHADOWS CONSUME YOU.";
+                        restartBtn.className = 'restart-lose'; restartBtn.style.display = 'block'; endScreen.style.opacity = 1; setTimeout(() => { restartBtn.style.opacity = 1; }, 2000);
+                    }, 100);
+                }, 2000); 
+            }
+        }
+
+        function enableInput() { inputContainer.style.display = 'flex'; playerInput.disabled = false; playerInput.value = ''; playerInput.focus(); }
+
+        // --- CARDS ---
+        function showPhase2Cards() { spawn3DCard("SKIP", "SKIP", 0, 3); spawn3DCard("MIRROR", "MIRROR", 1, 3); spawn3DCard("DOUBT", "DOUBT", 2, 3); }
+        window.useCard = function(type, cardData) {
+            scene.remove(cardData.mesh); activeCards = activeCards.filter(c => c !== cardData); inputContainer.style.display = 'none';
+            if (type === 'SKIP') callGemini("[SYSTEM: Player used SKIP card. Pass question, give no penalty, ask NEXT question via [NEXT_Q].]");
+            else if (type === 'MIRROR') callGemini("[SYSTEM: Player used MIRROR card. Force AI to answer! If trap, admit 'There is no correct answer.' If real, give answer. Then move to NEXT question via [NEXT_Q].]");
+            else if (type === 'DOUBT') { inputContainer.style.display = 'flex'; playerInput.disabled = false; playerInput.placeholder = "[DOUBT] Ask Yes/No question..."; playerInput.dataset.card = "DOUBT"; playerInput.focus(); }
+        };
+
+        function startTrap(trapData) {
+            inTrap = true; let opt1 = trapData[0] || "Save Yourself"; let opt2 = trapData[1] || "Save Them"; let taunts = trapData.slice(2);
+            if (taunts.length < 3) taunts = ["10 seconds left.", "Pick one.", "You're letting them die."];
+            inputContainer.style.display = 'none'; activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
+            spawn3DCard(opt1, 'TRAP', 0, 2); spawn3DCard(opt2, 'TRAP', 1, 2);
+            let elapsed = 0; trapInterval = setInterval(() => {
+                elapsed += 1000; if (elapsed === 60000) typeWriterEffect(taunts[0]); if (elapsed === 120000) typeWriterEffect(taunts[1]); if (elapsed === 170000) typeWriterEffect(taunts[2]);
+                if (elapsed >= 180000) { clearInterval(trapInterval); endTrap(); }
+            }, 1000);
+        }
+        function endTrap() { inTrap = false; activeCards.forEach(c => scene.remove(c.mesh)); activeCards = []; inputContainer.style.display = 'flex'; questionsAsked++; setupNextTargetQuestion(); callGemini("[SYSTEM: Player ignored choices, waited 3 minutes. Survived trap. Acknowledge coldly, move to next via [NEXT_Q].]"); }
+
+        // --- PHASE 3 MINIGAMES ---
+        let gamesWon = 0;
+        let currentGameIndex = 0;
+        let selectedGames = [];
+        
+        function initPhase3() {
+            cameraMode = 'tablet';
+            setTimeout(() => { document.getElementById('tablet-overlay').style.display = 'flex'; }, 1000);
+            
+            // Randomly select 3 games out of our pool
+            const pool = ['reflex', 'math', 'simon'];
+            selectedGames = pool.sort(() => 0.5 - Math.random()).slice(0, 3);
+            
+            document.getElementById('mg-start').onclick = () => { startNextGame(); };
+        }
+
+        function startNextGame() {
+            document.getElementById('mg-start').style.display = 'none';
+            document.getElementById('mg-title').style.display = 'none';
+            document.getElementById('mg-desc').style.display = 'none';
+            
+            if (currentGameIndex >= 3) {
+                // Won all 3!
+                document.getElementById('tablet-overlay').style.display = 'none';
+                handleGameState('FREE');
+                return;
+            }
+            
+            let gameType = selectedGames[currentGameIndex];
+            if (gameType === 'reflex') startReflex();
+            if (gameType === 'math') startMath();
+            if (gameType === 'simon') startSimon();
+        }
+
+        function completeGame(success) {
+            document.querySelectorAll('.mg-hidden').forEach(el => {
+                if(el.id !== 'mg-time' && el.id !== 'mg-score') el.classList.add('mg-hidden');
+            });
+            document.getElementById('reflex-area').classList.add('mg-hidden');
+            document.getElementById('math-area').classList.add('mg-hidden');
+            document.getElementById('simon-area').classList.add('mg-hidden');
+            document.getElementById('mg-time').classList.add('mg-hidden');
+            document.getElementById('mg-score').classList.add('mg-hidden');
+
+            if (success) {
+                gamesWon++;
+                currentGameIndex++;
+                document.getElementById('mg-title').innerText = "SUCCESS";
+                document.getElementById('mg-desc').innerText = `GAMES WON: ${gamesWon}/3`;
+                document.getElementById('mg-title').style.display = 'block';
+                document.getElementById('mg-desc').style.display = 'block';
+                document.getElementById('mg-start').innerText = "NEXT";
+                document.getElementById('mg-start').style.display = 'block';
+            } else {
+                document.getElementById('tablet-overlay').style.display = 'none';
+                handleGameState('LOSE');
+            }
+        }
+
+        // 1. Reflex Tap
+        function startReflex() {
+            document.getElementById('reflex-area').classList.remove('mg-hidden');
+            document.getElementById('mg-time').classList.remove('mg-hidden');
+            document.getElementById('mg-score').classList.remove('mg-hidden');
+            let score = 0; let time = 10;
+            document.getElementById('mg-score').innerText = `SCORE: 0/10`;
+            document.getElementById('mg-time').innerText = `TIME: ${time}`;
+            
+            let gameInt = setInterval(() => {
+                time--; document.getElementById('mg-time').innerText = `TIME: ${time}`;
+                if (time <= 0) { clearInterval(gameInt); document.getElementById('reflex-area').innerHTML = ''; completeGame(score >= 10); }
+            }, 1000);
+
+            function spawnTarget() {
+                const area = document.getElementById('reflex-area');
+                area.innerHTML = '';
+                let target = document.createElement('div');
+                target.className = 'mole';
+                target.style.left = Math.random() * 550 + 'px';
+                target.style.top = Math.random() * 350 + 'px';
+                target.onclick = () => { score++; document.getElementById('mg-score').innerText = `SCORE: ${score}/10`; spawnTarget(); };
+                area.appendChild(target);
+            }
+            spawnTarget();
+        }
+
+        // 2. Math Sprint
+        function startMath() {
+            document.getElementById('math-area').classList.remove('mg-hidden');
+            document.getElementById('mg-time').classList.remove('mg-hidden');
+            document.getElementById('mg-score').classList.remove('mg-hidden');
+            let score = 0; let time = 15;
+            document.getElementById('mg-score').innerText = `SCORE: 0/5`;
+            document.getElementById('mg-time').innerText = `TIME: ${time}`;
+            
+            let gameInt = setInterval(() => {
+                time--; document.getElementById('mg-time').innerText = `TIME: ${time}`;
+                if (time <= 0) { clearInterval(gameInt); completeGame(score >= 5); }
+            }, 1000);
+
+            function nextProblem() {
+                if(score >= 5) { clearInterval(gameInt); completeGame(true); return; }
+                let a = Math.floor(Math.random()*20); let b = Math.floor(Math.random()*20);
+                let ans = a + b;
+                document.getElementById('math-problem').innerText = `${a} + ${b} = ?`;
+                let btns = [0,1,2].map(i => document.getElementById(`math-${i}`));
+                let correctBtn = Math.floor(Math.random()*3);
+                btns[correctBtn].innerText = ans;
+                btns[correctBtn].onclick = () => { score++; document.getElementById('mg-score').innerText = `SCORE: ${score}/5`; nextProblem(); };
+                
+                for(let i=0; i<3; i++) {
+                    if(i !== correctBtn) {
+                        btns[i].innerText = ans + Math.floor(Math.random()*10) - 5;
+                        btns[i].onclick = () => { clearInterval(gameInt); completeGame(false); }; // instant fail on wrong
+                    }
+                }
+            }
+            nextProblem();
+        }
+
+        // 3. Simon Says
+        function startSimon() {
+            document.getElementById('simon-area').classList.remove('mg-hidden');
+            let sequence = []; let playerStep = 0; let round = 1; const MAX_ROUNDS = 4;
+            const msg = document.getElementById('simon-msg');
+            const btns = document.querySelectorAll('.simon-btn');
+            
+            function playSeq() {
+                msg.innerText = "WATCH";
+                playerStep = 0;
+                sequence.push(Math.floor(Math.random() * 4));
+                let i = 0;
+                let intv = setInterval(() => {
+                    if(i > 0) btns[sequence[i-1]].classList.remove('active');
+                    if(i < sequence.length) {
+                        btns[sequence[i]].classList.add('active');
+                        i++;
+                    } else {
+                        clearInterval(intv);
+                        msg.innerText = "REPEAT";
+                    }
+                }, 800);
+            }
+
+            btns.forEach(btn => {
+                btn.onclick = () => {
+                    if(msg.innerText !== "REPEAT") return;
+                    let val = parseInt(btn.dataset.color);
+                    btn.classList.add('active'); setTimeout(() => btn.classList.remove('active'), 200);
+                    if(val === sequence[playerStep]) {
+                        playerStep++;
+                        if(playerStep === sequence.length) {
+                            if(round === MAX_ROUNDS) { completeGame(true); }
+                            else { round++; setTimeout(playSeq, 1000); }
+                        }
+                    } else { completeGame(false); }
+                };
+            });
+            playSeq();
+        }
+
+        // --- EVENTS ---
+        const realNameInput = document.getElementById('real-name-input');
+        const wakeUpBtn = document.getElementById('wake-up-btn');
+        
+        realNameInput.addEventListener('input', () => {
+            if (realNameInput.value.trim().length > 0) {
+                wakeUpBtn.disabled = false;
+                wakeUpBtn.classList.add('active');
+            } else {
+                wakeUpBtn.disabled = true;
+                wakeUpBtn.classList.remove('active');
+            }
+        });
+
+        document.getElementById('wake-up-btn').addEventListener('click', async function() {
+            if (wakeUpBtn.disabled) return;
+            playerName = document.getElementById('real-name-input').value.trim();
+            wakeUpBtn.innerText = "[ AWAKENING... ]"; wakeUpBtn.classList.remove('active');
+            
+            const cleanName = playerName.toLowerCase().replace(/[\s\.]/g, '');
+            const isForbidden = ["asylbi", "mrasylbi", "асылби", "биасыл"].includes(cleanName);
+            if (!isForbidden) {
+                const parts = playerName.toLowerCase().split(/\s+/);
+                studentInfo = studentDatabase.find(s => parts.every(p => s.n.toLowerCase().includes(p)));
+            }
+            
+            const authSuccess = await initAuth();
+            if (authSuccess && db && userId) {
+                const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId);
+                await setDoc(playerRef, { name: playerName, joinedAt: serverTimestamp() }).catch(e=>{});
+                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'live_players'), (snapshot) => {
+                    const listEl = document.getElementById('live-players-list'); listEl.innerHTML = '';
+                    snapshot.forEach(d => { const li = document.createElement('li'); li.innerHTML = `<span class="live-dot"></span> ${d.data().name}`; listEl.appendChild(li); });
+                });
+            }
+
+            initAudio();
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('ui-layer').style.display = 'flex';
+            document.getElementById('timer-container').style.display = 'block';
+            document.getElementById('irritation-container').style.display = 'block';
+            document.getElementById('live-players-container').style.display = 'block';
+            document.getElementById('give-up-btn').style.display = 'block';
+            document.getElementById('view-toggle-btn').style.display = 'block';
+            
+            setupNextTargetQuestion();
+            animate(); 
+            setInterval(updateTimer, 1000);
+
+            setTimeout(async () => {
+                if (isForbidden) { 
+                    await typeWriterEffect("Do not use my name."); 
+                    handleGameState("LOSE"); 
+                } 
+                else { 
+                    callGemini(`[SYSTEM: The game has just started. The player (Name: ${playerName}) wakes up tied to a chair in the dark. YOU MUST SPEAK FIRST. Introduce yourself briefly and ask the first Phase 1 profiling question based on YOUR NEXT ACTION. Do not wait for them to speak. Limit to 2 sentences.]`); 
+                }
+            }, 1000);
+        });
+
+        playerInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && playerInput.value.trim() !== '') {
+                const userText = playerInput.value.trim(); playerInput.disabled = true; playerInput.value = ''; inputContainer.style.display = 'none';
+                document.getElementById('kidnapper-label').innerText = "You";
+                document.getElementById('kidnapper-label').style.color = "#8888ff";
+                document.getElementById('dialogue-box').style.borderColor = "#555588";
+                document.getElementById('kidnapper-label').style.borderColor = "#555588";
+                document.getElementById('dialogue-text').innerHTML = `<i>${userText}</i>`;
+                
+                setTimeout(() => {
+                    if (playerInput.dataset.card === "DOUBT") { playerInput.dataset.card = ""; playerInput.placeholder = "Speak..."; callGemini(`[SYSTEM: Player used DOUBT card. Their Yes/No question is: "${userText}". If current question WAS a trap: skip safely, admit they caught you, answer truthfully. If NOT a trap: punish them (issue [LOSE] immediately or [IRRITATE]). Then [NEXT_Q].]`); } 
+                    else { callGemini(userText); }
+                }, 1500);
+            }
+        });
+
+        document.body.addEventListener('click', () => {
+            if (document.getElementById('start-screen').style.display !== 'none') return;
+            
+            if (hoveredObj && hoveredObj.userData.active) {
+                const card = hoveredObj.userData;
+                if (card.type === 'TRAP') { triggerEnding('SHOT'); return; }
+                if (inputContainer.style.display === 'none') return;
+                window.useCard(card.type, card);
+                return;
+            }
+            
+            // Tablet click detection
+            if (hoveredObj && hoveredObj.userData.isTablet && currentPhase === 3) {
+                initPhase3();
+                return;
+            }
+
+            if (inputContainer.style.display !== 'none' && !isTyping) playerInput.focus();
+        });
+
+        document.getElementById('give-up-btn').addEventListener('click', () => { document.getElementById('give-up-btn').style.display = 'none'; inputContainer.style.display = 'none'; playerInput.disabled = true; typeWriterEffect("Coward.", () => { triggerEnding("SHOT"); }); });
+        document.getElementById('restart-btn').addEventListener('click', () => { location.reload(); });
+        window.addEventListener('beforeunload', () => { if (db && userId) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)); });
+
+    </script>
 </body>
 </html>
