@@ -584,8 +584,6 @@
             <button class="adm-btn" data-action="win">TRIGGER WIN (FREE)</button>
             <button class="adm-btn" data-action="lose">TRIGGER LOSE (SHOT)</button>
             <button class="adm-btn" data-action="reset">RESET GAME</button>
-            <button class="adm-btn" data-action="replace-game" style="border-color:#3a3a8a; color:#7a7adf;">REPLACE GAME (fresh wipe)</button>
-            <button class="adm-btn" data-action="exit-game" style="border-color:#1a3a1a; color:#7adf7a;">EXIT GAME (back to lobby)</button>
             <button class="adm-btn" data-action="lock" style="border-color:#3a1010; color:#aa5050;">LOCK ADMIN (forget pass)</button>
             <div id="adm-mg-row">
                 <select id="adm-mg-select"><option value="">— pick game —</option></select>
@@ -631,6 +629,18 @@
 
     <!-- PHASE 3 TABLET UI -->
     <div id="tablet-overlay">
+        <!-- Admin-only strip — visible only when god-mode is on AND a
+             minigame is actively running. Lets the admin abort or swap
+             the current minigame without playing it out. -->
+        <div id="mg-admin-strip" style="display:none; position:absolute; top:14px; right:14px;
+            z-index:90; font-family:'VT323',monospace; gap:8px;">
+            <button id="mg-admin-replace" style="background:rgba(20,20,80,0.85); color:#aabaff;
+                border:2px solid #5566cc; font-family:'VT323',monospace; font-size:16px;
+                padding:6px 14px; cursor:pointer; letter-spacing:1px;">↻ REPLACE</button>
+            <button id="mg-admin-exit" style="background:rgba(80,20,20,0.85); color:#ffaaaa;
+                border:2px solid #cc5566; font-family:'VT323',monospace; font-size:16px;
+                padding:6px 14px; cursor:pointer; letter-spacing:1px;">✕ EXIT</button>
+        </div>
         <div id="tablet-scaler">
             <div id="tablet-screen-ui">
                 <div class="tablet-header">ASYLBI_OS v3.0</div>
@@ -1915,12 +1925,92 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             document.getElementById('mg-hud-time').innerText = '';
             document.getElementById('mg-hud-score').innerText = '';
 
-            const ctx = buildGameCtx((success) => { activeGameCtx = null; completeGame(success, isAdminTest); });
+            // Track the currently-running minigame slot so REPLACE knows
+            // which category to swap from and which entry in selectedGames
+            // to overwrite.
+            currentRunningId = id;
+            currentRunningIsAdminTest = !!isAdminTest;
+            updateAdminStripVisibility();
+
+            const ctx = buildGameCtx((success) => { activeGameCtx = null; currentRunningId = null; updateAdminStripVisibility(); completeGame(success, isAdminTest); });
             activeGameCtx = ctx;
             try { game.run(ctx); }
             catch (e) {
                 console.error('Minigame crashed:', id, e);
                 ctx.lose();
+            }
+        }
+
+        // Track which minigame is currently running, so the admin strip's
+        // REPLACE button can swap it for another from the same category.
+        let currentRunningId = null;
+        let currentRunningIsAdminTest = false;
+
+        function updateAdminStripVisibility() {
+            const strip = document.getElementById('mg-admin-strip');
+            if (!strip) return;
+            const visible = !!window.__adminGodMode && !!activeGameCtx;
+            strip.style.display = visible ? 'flex' : 'none';
+        }
+
+        function findCategoryForGameId(id) {
+            const cats = window.MINIGAME_CATEGORIES || {};
+            for (const [name, ids] of Object.entries(cats)) {
+                if (ids.includes(id)) return { name, ids };
+            }
+            return null;
+        }
+
+        function abortCurrentMinigame({ replace } = {}) {
+            if (!activeGameCtx) return;
+            const wasAdminTest = currentRunningIsAdminTest;
+            const oldId = currentRunningId;
+            // Tear down the running game without firing the onEnd callback
+            // (we don't want to count an abort as win OR loss — admin only).
+            activeGameCtx._abort();
+            activeGameCtx = null;
+            currentRunningId = null;
+            updateAdminStripVisibility();
+            // Hide the per-game UI; show the intro card with the right next-step.
+            document.getElementById('mg-stage').classList.add('mg-hidden');
+            document.getElementById('mg-stage').innerHTML = '';
+            document.getElementById('mg-hud-time').classList.add('mg-hidden');
+            document.getElementById('mg-hud-score').classList.add('mg-hidden');
+
+            if (replace) {
+                // Pick a different game from the same category and re-launch.
+                const cat = findCategoryForGameId(oldId);
+                let nextId = null;
+                if (cat) {
+                    const candidates = cat.ids.filter(x => x !== oldId && window.MINIGAMES && window.MINIGAMES[x]);
+                    if (candidates.length > 0) nextId = candidates[Math.floor(Math.random() * candidates.length)];
+                }
+                if (!nextId) {
+                    // Fallback — pick anything not equal to oldId.
+                    const allIds = Object.keys(window.MINIGAMES || {}).filter(x => x !== oldId);
+                    nextId = allIds[Math.floor(Math.random() * allIds.length)];
+                }
+                if (!nextId) return;
+                // For the regular Phase 3 run, overwrite the slot so future
+                // re-entries see the swapped game. For admin-test launches
+                // there is no slot, just launch.
+                if (!wasAdminTest && currentGameIndex < selectedGames.length && selectedGames[currentGameIndex] === oldId) {
+                    selectedGames[currentGameIndex] = nextId;
+                }
+                launchGame(nextId, window.MINIGAMES[nextId], wasAdminTest);
+                return;
+            }
+
+            // Plain EXIT — return to Phase 3 menu.
+            if (wasAdminTest) {
+                showIntro({ title: "PHASE 3", desc: "TEST EXITED", button: "BACK", onClick: () => initPhase3() });
+            } else {
+                showIntro({
+                    title: "PHASE 3",
+                    desc: `WINS ${gamesWon}/${PHASE3_TOTAL}  ·  GAME EXITED BY ADMIN`,
+                    button: "NEXT",
+                    onClick: () => startNextGame(),
+                });
             }
         }
 
@@ -2119,7 +2209,14 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
                 panel.style.display = 'block';
                 window.__adminGodMode = true;
                 try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+                updateAdminStripVisibility();
             }
+
+            // Wire the in-tablet admin strip (EXIT / REPLACE current minigame).
+            const exitBtn = document.getElementById('mg-admin-exit');
+            const replaceBtn = document.getElementById('mg-admin-replace');
+            if (exitBtn) exitBtn.addEventListener('click', () => abortCurrentMinigame({ replace: false }));
+            if (replaceBtn) replaceBtn.addEventListener('click', () => abortCurrentMinigame({ replace: true }));
 
             // Persist the unlock — admins shouldn't have to re-type the
             // password on every reload while they're testing.
@@ -2188,41 +2285,6 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
                 if (action === 'lock') {
                     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
                     window.__adminGodMode = false;
-                    location.reload();
-                    return;
-                }
-                if (action === 'exit-game') {
-                    // Leave the game and return to the games lobby in the
-                    // PARENT frame (since the iframe lives at /games/final-game).
-                    // Clean up the live-player record on the way out so the
-                    // admin doesn't show as 'still playing' to other players.
-                    try {
-                        if (db && userId) {
-                            deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)).catch(()=>{});
-                        }
-                    } catch (e) {}
-                    try {
-                        // Same-origin parent → /games. Fall through to in-frame
-                        // navigation if the parent navigation is blocked.
-                        const target = '/games';
-                        if (window.top && window.top !== window) window.top.location.href = target;
-                        else window.location.href = target;
-                    } catch (e) {
-                        window.location.href = '/games';
-                    }
-                    return;
-                }
-                if (action === 'replace-game') {
-                    // Hard wipe — clear runtime state and reload from scratch.
-                    // Keeps the admin unlock so the dev panel re-opens, but
-                    // forgets the play history, Phase-1 chat, Firebase player
-                    // entry, and any in-flight minigame state.
-                    try {
-                        if (db && userId) {
-                            deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)).catch(()=>{});
-                        }
-                    } catch (e) {}
-                    try { localStorage.removeItem('comboGameHistory'); } catch (e) {}
                     location.reload();
                     return;
                 }
