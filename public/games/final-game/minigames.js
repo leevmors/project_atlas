@@ -1404,13 +1404,12 @@
         }
     };
 
-    // 22. Memory Match (4x4) — 6 lives total.
+    // 22. Memory Match (4x4) — 6 lives + 60s timer.
     // Each WRONG pair (mismatched flip) costs 1 life. 0 lives = lose.
-    // Match all 8 pairs to win. Time pressure removed in favor of the
-    // lives mechanic — every careless flip hurts.
+    // Match all 8 pairs to win. Time also ticks down — both can kill you.
     M.memory_match = {
         title: 'MEMORY MATCH',
-        desc: 'Match all 8 pairs. 6 lives — every wrong pair costs 1.',
+        desc: 'Match all 8 pairs in 60 seconds. 6 lives — every wrong pair costs 1.',
         run(ctx) {
             const symbols = ['◆','▲','●','★','♥','♣','■','✚'];
             const deck = shuffle([...symbols, ...symbols]);
@@ -1451,6 +1450,7 @@
                     }
                 }
             }
+            countdown(ctx, 60, 'TIME', () => { if (!done) { done = true; ctx.lose(); } });
         }
     };
 
@@ -1545,99 +1545,7 @@
         }
     };
 
-    // 25. Pattern Flash — 3x3 lit pattern, reproduce, 7 rounds with REPRODUCE timer.
-    // Difficulty per round (lit cells / show time / reproduce time):
-    //   R1: 3 / 1500ms / 6.5s
-    //   R2: 3 / 1300ms / 5.5s
-    //   R3: 4 / 1100ms / 5.5s
-    //   R4: 4 /  950ms / 4.5s
-    //   R5: 5 /  850ms / 4.5s
-    //   R6: 6 /  750ms / 4.0s
-    //   R7: 6 /  650ms / 3.5s
-    M.pattern_flash = {
-        title: 'PATTERN FLASH',
-        desc: 'Reproduce the lit 3x3 pattern. 7 rounds. Reproduce timer per round.',
-        run(ctx) {
-            const ROUND_CFG = [
-                { n: 3, show: 1500, repro: 6500 },
-                { n: 3, show: 1300, repro: 5500 },
-                { n: 4, show: 1100, repro: 5500 },
-                { n: 4, show:  950, repro: 4500 },
-                { n: 5, show:  850, repro: 4500 },
-                { n: 6, show:  750, repro: 4000 },
-                { n: 6, show:  650, repro: 3500 },
-            ];
-            let round = 0; const total = ROUND_CFG.length;
-            let done = false;
-            const grid = ctx.el('div', { style: { position: 'absolute', inset: '90px 220px 110px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gridTemplateRows: 'repeat(3,1fr)', gap: '10px' } });
-            const status = ctx.el('div', { style: { position: 'absolute', top: '20px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '32px' }, text: 'WATCH' });
-            // Reproduce-phase countdown bar.
-            const tBar = ctx.el('div', { style: { position: 'absolute', top: '60px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '10px', background: '#1a1a1a', border: '2px solid #555' } });
-            const tFill = ctx.el('div', { style: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#3ae26a', width: '0%' } });
-            tBar.appendChild(tFill);
-            const cells = [];
-            for (let i = 0; i < 9; i++) {
-                const c = ctx.el('button', { style: { background: '#1a1a1a', border: '4px solid #555', cursor: 'pointer', boxShadow: 'inset 0 0 12px #000, inset 0 -6px 0 rgba(0,0,0,0.5)' }, onclick: () => onTap(i) });
-                cells.push(c); grid.appendChild(c);
-            }
-            ctx.stage.appendChild(grid); ctx.stage.appendChild(status); ctx.stage.appendChild(tBar);
-            const submitBtn = pxBtn('SUBMIT', () => check());
-            submitBtn.style.cssText += 'position:absolute;bottom:20px;left:50%;transform:translateX(-50%)';
-            ctx.stage.appendChild(submitBtn);
-            ctx.setScore(`ROUND 0/${total}`);
-            let target = []; let user = []; let watching = true;
-            let reproEnd = 0; let reproTimer = null;
-            function stopReproTimer() { if (reproTimer) { ctx.clearInterval(reproTimer); reproTimer = null; } tFill.style.width = '0%'; }
-            function startReproTimer(ms) {
-                stopReproTimer();
-                reproEnd = performance.now() + ms;
-                tFill.style.width = '100%';
-                tFill.style.background = '#3ae26a';
-                reproTimer = ctx.interval(() => {
-                    const remain = Math.max(0, reproEnd - performance.now());
-                    const pct = (remain / ms) * 100;
-                    tFill.style.width = pct + '%';
-                    if (pct < 30) tFill.style.background = '#e2c83a';
-                    if (pct < 12) tFill.style.background = '#e23a3a';
-                    if (remain <= 0) {
-                        stopReproTimer();
-                        if (!done) { done = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 300); }
-                    }
-                }, 100);
-            }
-            function show() {
-                if (done) return;
-                stopReproTimer();
-                const cfg = ROUND_CFG[round];
-                target = []; user = [];
-                while (target.length < cfg.n) { const i = randInt(0, 8); if (!target.includes(i)) target.push(i); }
-                cells.forEach(c => c.style.background = '#1a1a1a');
-                target.forEach(i => cells[i].style.background = '#3ae26a');
-                watching = true; status.textContent = 'WATCH';
-                ctx.timeout(() => {
-                    if (done) return;
-                    cells.forEach(c => c.style.background = '#1a1a1a');
-                    watching = false; status.textContent = 'REPRODUCE';
-                    startReproTimer(cfg.repro);
-                }, cfg.show);
-            }
-            function onTap(i) {
-                if (done || watching) return;
-                if (user.includes(i)) { user = user.filter(x => x !== i); cells[i].style.background = '#1a1a1a'; }
-                else { user.push(i); cells[i].style.background = '#3ae26a'; sfx.tick(); }
-            }
-            function check() {
-                if (done || watching) return;
-                stopReproTimer();
-                if (user.length === target.length && target.every(i => user.includes(i))) {
-                    sfx.win(); round++; ctx.setScore(`ROUND ${round}/${total}`);
-                    if (round >= total) { done = true; ctx.timeout(() => ctx.win(), 400); return; }
-                    ctx.timeout(show, 500);
-                } else { done = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 400); }
-            }
-            show();
-        }
-    };
+    // (M.pattern_flash removed.)
 
     // 26. Odd One Out
     // Difficulty: tightened from 3s → 1.8s per round (5 rounds, all needed). The bright
@@ -2066,31 +1974,45 @@
         }
     };
 
-    // 34. Sequence Completion
-    // Difficulty: solve 5 of 8 sequences in 90s. Wrong answer no longer ends the game —
-    // it deducts 10s and advances to the next problem. With 8 problems and need 5, you
-    // can get 3 wrong and still win if you're fast enough.
+    // 34. Sequence Completion — harder. Solve 6 of 14 in 60s. Wrong = -8s
+    // (was -10s but with 90s — now 60s and -8 → tighter overall). Pool
+    // includes harder mixed-rule sequences: alternating, polynomial,
+    // recursive (a(n) = a(n-1)+a(n-2)+1), prime gaps, and triangular numbers.
     M.sequence_completion = {
         title: 'SEQUENCE COMPLETION',
-        desc: 'Pick the next term. Solve 5 in 90s. Wrong = -10s.',
+        desc: 'Pick the next term. Solve 6 in 60s. Wrong = -8s.',
         run(ctx) {
             const probs = [
-                { seq: '2 4 6 8 ?', ans: '10', wrong: ['9','12','14','16'] },
-                { seq: '1 1 2 3 5 ?', ans: '8', wrong: ['6','7','9','13'] },
-                { seq: '3 6 12 24 ?', ans: '48', wrong: ['36','40','30','60'] },
-                { seq: '1 4 9 16 ?', ans: '25', wrong: ['20','22','30','36'] },
-                { seq: '100 81 64 49 ?', ans: '36', wrong: ['25','40','35','42'] },
-                { seq: '2 3 5 7 11 ?', ans: '13', wrong: ['12','15','17','9'] },
-                { seq: '1 2 4 7 11 ?', ans: '16', wrong: ['14','15','17','18'] },
-                { seq: '5 10 20 40 ?', ans: '80', wrong: ['60','70','100','45'] },
+                // Easier baseline (still no gimmes)
+                { seq: '1 4 9 16 ?', ans: '25', wrong: ['20','22','30','36'] },                      // squares
+                { seq: '100 81 64 49 ?', ans: '36', wrong: ['25','40','35','42'] },                   // descending squares
+                { seq: '2 3 5 7 11 ?', ans: '13', wrong: ['12','15','17','9'] },                      // primes
+                { seq: '1 1 2 3 5 ?', ans: '8', wrong: ['6','7','9','13'] },                          // fibonacci
+                { seq: '1 2 4 7 11 ?', ans: '16', wrong: ['14','15','17','18'] },                     // +1 +2 +3 +4 +5
+                // Harder — alternating rules
+                { seq: '3 6 5 10 9 ?', ans: '18', wrong: ['12','19','14','17'] },                     // ×2, −1, ×2, −1, ×2
+                { seq: '1 3 6 10 15 ?', ans: '21', wrong: ['18','20','22','25'] },                   // triangular numbers
+                { seq: '2 6 12 20 30 ?', ans: '42', wrong: ['36','40','45','50'] },                   // n(n+1)
+                { seq: '0 1 3 7 15 ?', ans: '31', wrong: ['25','27','29','33'] },                     // 2^n - 1
+                { seq: '1 2 6 24 120 ?', ans: '720', wrong: ['600','480','840','360'] },              // factorial
+                // Harder — recursive / non-obvious
+                { seq: '2 2 4 6 10 ?', ans: '16', wrong: ['12','14','18','20'] },                     // Fibonacci-shift (a+b)
+                { seq: '1 11 21 1211 111221 ?', ans: '312211', wrong: ['122121','312221','12111','321321'] }, // Look-and-say
+                { seq: '4 9 16 25 36 ?', ans: '49', wrong: ['42','45','48','64'] },                   // squares 2..7
+                // Mixed-rule
+                { seq: '5 11 23 47 ?', ans: '95', wrong: ['85','94','97','94'] },                     // 2x+1
+                { seq: '81 27 9 3 ?', ans: '1', wrong: ['0','2','3','9'] },                            // /3
+                { seq: '2 5 11 23 47 ?', ans: '95', wrong: ['72','89','94','100'] },                  // 2x+1 (longer)
+                { seq: '1 8 27 64 ?', ans: '125', wrong: ['100','120','144','216'] },                 // cubes
+                { seq: '7 14 28 56 ?', ans: '112', wrong: ['96','98','108','120'] },                  // doubling
             ];
             shuffle(probs);
-            let i = 0, ok = 0; const need = 5;
+            let i = 0, ok = 0; const need = 6;
             ctx.setScore(`SOLVED 0/${need}`);
-            const probEl = ctx.el('div', { style: { position: 'absolute', top: '120px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '56px', letterSpacing: '8px' } });
-            const opts = ctx.el('div', { style: { position: 'absolute', top: '270px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '14px' } });
+            const probEl = ctx.el('div', { style: { position: 'absolute', top: '120px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '46px', letterSpacing: '4px' } });
+            const opts = ctx.el('div', { style: { position: 'absolute', top: '270px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '700px' } });
             ctx.stage.appendChild(probEl); ctx.stage.appendChild(opts);
-            const cd = countdown(ctx, 90, 'TIME', () => ok >= need ? ctx.win() : ctx.lose());
+            const cd = countdown(ctx, 60, 'TIME', () => ok >= need ? ctx.win() : ctx.lose());
             function next() {
                 if (ok >= need) { ctx.timeout(() => ctx.win(), 400); return; }
                 if (i >= probs.length) { ctx.timeout(() => ok >= need ? ctx.win() : ctx.lose(), 400); return; }
@@ -2103,10 +2025,10 @@
                         if (b.disabled) return;
                         opts.querySelectorAll('button').forEach(x => x.disabled = true);
                         if (v === p.ans) { ok++; sfx.win(); ctx.setScore(`SOLVED ${ok}/${need}`); }
-                        else { sfx.bad(); cd.add(-10); }
+                        else { sfx.bad(); cd.add(-8); }
                         if (!cd.isDone()) next();
                     });
-                    b.style.fontSize = '28px'; opts.appendChild(b);
+                    b.style.fontSize = '24px'; opts.appendChild(b);
                 });
             }
             next();
@@ -2185,121 +2107,81 @@
 
     // (M.flow_connect removed.)
 
-    // 38. Grid Logic — 4x4 Latin square
-    // Difficulty: 75s (was 60s), 50% cells given (was 40%). Wrong submission resets the
-    // game which is harsh, but the higher given-rate constrains the puzzle enough that
-    // a deductive player can finish in well under the timer.
-    M.grid_logic = {
-        title: 'GRID LOGIC',
-        desc: 'Fill the 4x4 grid: numbers 1-4, no repeats per row or column. 75s.',
-        run(ctx) {
-            // Generate solved Latin square
-            const sol = [[1,2,3,4],[2,1,4,3],[3,4,1,2],[4,3,2,1]];
-            shuffle(sol); // shuffle rows
-            const cols = [0,1,2,3]; shuffle(cols);
-            const arr = sol.map(r => cols.map(c => r[c]));
-            const given = arr.map(r => r.map(v => Math.random() < 0.5 ? v : 0));
-            const grid = ctx.el('div', { style: { position: 'absolute', top: '40px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: 'repeat(4,80px)', gap: '4px' } });
-            const cells = []; let selected = null;
-            for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
-                const fixed = given[r][c] !== 0;
-                const cell = ctx.el('button', { style: { width: '80px', height: '80px', background: fixed ? '#3a3a8a' : '#1a1a1a', color: '#fff', border: '3px solid #555', fontFamily: 'VT323, monospace', fontSize: '40px', cursor: fixed ? 'default' : 'pointer' }, text: fixed ? String(given[r][c]) : '', onclick: () => { if (!fixed) { selected = { r, c, el: cell }; cells.forEach(x => x.el.style.borderColor = '#555'); cell.style.borderColor = '#3ae26a'; } } });
-                cells.push({ r, c, el: cell, fixed, val: fixed ? given[r][c] : 0 });
-                grid.appendChild(cell);
-            }
-            ctx.stage.appendChild(grid);
-            const pad = ctx.el('div', { style: { position: 'absolute', bottom: '60px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px' } });
-            for (let n = 1; n <= 4; n++) {
-                const b = pxBtn(String(n), () => {
-                    if (!selected) return;
-                    selected.el.textContent = String(n);
-                    const cell = cells.find(c => c.r === selected.r && c.c === selected.c);
-                    cell.val = n; sfx.tick();
-                });
-                b.style.fontSize = '28px'; pad.appendChild(b);
-            }
-            ctx.stage.appendChild(pad);
-            // SUBMIT lives in its OWN row below the number pad. Previously it
-            // was appended INSIDE the pad with absolute positioning, which
-            // (since the pad itself is positioned) meant submit was placed
-            // relative to the small pad and visually sat on top of buttons
-            // 2 and 3.
-            const submit = pxBtn('SUBMIT', () => {
-                const M2 = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
-                for (const c of cells) M2[c.r][c.c] = c.val;
-                if (M2.flat().includes(0)) { sfx.bad(); return; }
-                for (let r = 0; r < 4; r++) { const s = new Set(M2[r]); if (s.size !== 4) { sfx.lose(); ctx.timeout(() => ctx.lose(), 400); return; } }
-                for (let c = 0; c < 4; c++) { const s = new Set([0,1,2,3].map(r => M2[r][c])); if (s.size !== 4) { sfx.lose(); ctx.timeout(() => ctx.lose(), 400); return; } }
-                ctx.win();
-            });
-            submit.style.cssText += 'position:absolute;bottom:10px;left:50%;transform:translateX(-50%)';
-            ctx.stage.appendChild(submit);
-            ctx.setScore('LATIN SQUARE');
-            countdown(ctx, 75, 'TIME', () => ctx.lose());
-        }
-    };
+    // (M.grid_logic removed.)
 
-    // 39. Analogy Sprint — solve 7 in 50s. WRONG ANSWER ENDS THE GAME.
-    // Each item has 4 options, 3 of which are TRAP distractors that look
-    // right at a glance — same domain, semantically adjacent, or matching
-    // the wrong half of the relationship. The relationship type varies per
-    // item (cause/effect, part/whole, opposite, sequence, function, etc.)
-    // so muscle-memory pattern matching fails. Time pressure compounds it.
+    // 39. Analogy Sprint — solve 8 in 45s. WRONG ANSWER ENDS THE GAME.
+    // Each item has 4 options. ALL 3 distractors are designed traps:
+    //   - perfect-domain match with wrong relationship
+    //   - the OTHER half of the analogy (i.e. echoes the question)
+    //   - a high-frequency word that loosely associates with the prompt
+    // The pool tilts toward harder relationship types: process direction,
+    // hypernym/hyponym, etymology, abstract category, function-vs-output.
     M.analogy_sprint = {
         title: 'ANALOGY SPRINT',
-        desc: 'Solve 7 analogies in 50 seconds. Distractors are designed to fool you. Wrong = lose.',
+        desc: 'Solve 8 analogies in 45s. All distractors are traps. One wrong = lose.',
         run(ctx) {
-            // For each, the answer satisfies the EXACT relationship of the
-            // first pair. Distractors are tempting in different ways:
-            //   - "right domain, wrong relationship" trap
-            //   - "matches half the analogy"
-            //   - "looks like a synonym of the answer but is from a different part of the analogy"
-            //   - "feels like the answer if you skim"
             const probs = [
-                // Sequence trap: "FORTNIGHT" is also a time period but skips the doubling pattern.
+                // Sequence direction trap — fortnight IS a time, but doesn't extend the doubling.
                 { q: 'SECOND : MINUTE :: HOUR : ?', a: 'DAY', w: ['FORTNIGHT','WEEK','SECOND'] },
-                // Half-analogy trap: "PUPPY" matches "DOG" but the question goes the OTHER way.
+                // Reversed — "PUPPY" tempts because the prompt mentions it.
                 { q: 'PUPPY : DOG :: KITTEN : ?', a: 'CAT', w: ['LION','PUPPY','MOUSE'] },
-                // Function vs. body part — "FINGER" is on a hand but doesn't fit "see".
+                // Functional verb vs. body part the eye uses (a glasses-trap).
                 { q: 'EAR : LISTEN :: EYE : ?', a: 'SEE', w: ['BLINK','GLASSES','FINGER'] },
-                // Part-whole reversed trap.
+                // Part-whole vs. larger container (LIBRARY trap).
                 { q: 'PETAL : FLOWER :: PAGE : ?', a: 'BOOK', w: ['CHAPTER','LIBRARY','INK'] },
-                // Object → its enabler vs. its action.
+                // Object → MEDIUM, not the action it performs.
                 { q: 'KEY : LOCK :: PEN : ?', a: 'PAPER', w: ['INK','WRITE','HAND'] },
-                // Synonym trap.
+                // Antonym vs. weak-synonym (FRUGAL is "thrifty" — close but virtuous).
                 { q: 'BRAVE : COWARD :: GENEROUS : ?', a: 'STINGY', w: ['KIND','HONEST','FRUGAL'] },
-                // Cause/effect vs. category.
+                // Stage-of-development direction. Soil is a context not a result.
                 { q: 'SPARK : FIRE :: SEED : ?', a: 'PLANT', w: ['SOIL','SUN','GARDENER'] },
-                // "Where" trap — picks the wrong location category.
+                // Workplace category — university is a workplace but wrong field.
                 { q: 'JUDGE : COURT :: SURGEON : ?', a: 'HOSPITAL', w: ['UNIVERSITY','LAW','SCALPEL'] },
-                // Material trap — wood is part of the answer's function, not the analogue.
+                // Verb-of-use, not material it acts on.
                 { q: 'AXE : CHOP :: HAMMER : ?', a: 'POUND', w: ['NAIL','METAL','WOOD'] },
-                // Number-based — "DOZEN" matches the doubling pattern best, but is it 6×2 or 12×2?
+                // Doubling pattern, not arithmetic-progression.
                 { q: 'TWO : FOUR :: SIX : ?', a: 'TWELVE', w: ['EIGHT','THREE','SIXTEEN'] },
-                // Antonym vs. synonym.
+                // Antonym, not category-extension.
                 { q: 'GIGANTIC : TINY :: ANCIENT : ?', a: 'MODERN', w: ['OLD','HISTORIC','RUIN'] },
-                // Process direction.
+                // Metamorphosis. Salamander has a similar tail but isn't the result.
                 { q: 'CATERPILLAR : BUTTERFLY :: TADPOLE : ?', a: 'FROG', w: ['LIZARD','SALAMANDER','FISH'] },
-                // Tool/output vs. user/place.
+                // Tool → produced object. Hammer is a tool of the same family but not the output.
                 { q: 'BRUSH : PAINTING :: CHISEL : ?', a: 'SCULPTURE', w: ['ARTIST','STONE','HAMMER'] },
-                // Linguistic trap — "SOLO" is a synonym but "DUET" matches the count.
+                // Group-size by name.
                 { q: 'DUET : TWO :: TRIO : ?', a: 'THREE', w: ['SOLO','GROUP','BAND'] },
-                // Capital trap.
+                // Country capital — OSAKA is a famous city of Japan, not the capital.
                 { q: 'PARIS : FRANCE :: TOKYO : ?', a: 'JAPAN', w: ['CHINA','ASIA','OSAKA'] },
-                // Relationship reversal — wages flow FROM employer to worker.
+                // Creator → primary work form.
                 { q: 'AUTHOR : NOVEL :: COMPOSER : ?', a: 'SYMPHONY', w: ['POEM','BAND','CONDUCTOR'] },
-                // Body system trap — "HEART" pumps blood, "BRAIN" controls thinking.
+                // Organ → substance moved (NOT verb).
                 { q: 'HEART : BLOOD :: LUNG : ?', a: 'AIR', w: ['BREATH','OXYGEN','BREATHE'] },
-                // Time of day, but reversed direction.
+                // Phenomena pair — moonrise tempts as another rise event.
                 { q: 'DAWN : SUNRISE :: DUSK : ?', a: 'SUNSET', w: ['MOONRISE','MIDNIGHT','EVENING'] },
+                // --- Harder additions ---
+                // Etymology / derivation. ICHTHY- = fish; PYRO- = fire.
+                { q: 'PYRO : FIRE :: ICHTHY : ?', a: 'FISH', w: ['SUN','MUSCLE','SOUND'] },
+                // Hypernym/hyponym — VEHICLE is the parent class; SEDAN is a sibling, not the answer.
+                { q: 'SPARROW : BIRD :: CAR : ?', a: 'VEHICLE', w: ['SEDAN','ROAD','ENGINE'] },
+                // Function-of-tool, not its component.
+                { q: 'COMPASS : DIRECTION :: THERMOMETER : ?', a: 'TEMPERATURE', w: ['MERCURY','GLASS','HEAT'] },
+                // Author → work (book NAME), not author's other works.
+                { q: 'SHAKESPEARE : HAMLET :: HOMER : ?', a: 'ODYSSEY', w: ['GREECE','POEM','SHAKESPEARE'] },
+                // Substance source, not common compound.
+                { q: 'COW : MILK :: BEE : ?', a: 'HONEY', w: ['HIVE','POLLEN','STING'] },
+                // Earlier-form-of (technology evolution).
+                { q: 'CANDLE : BULB :: HORSE : ?', a: 'CAR', w: ['CARRIAGE','SADDLE','GAS'] },
+                // Vocabulary range. STAR is a common word for celestial; the question wants a UNIT scale.
+                { q: 'OUNCE : POUND :: INCH : ?', a: 'FOOT', w: ['MILE','METER','LENGTH'] },
+                // Inverse relationship. Sunset isn't a verb-pair to "ignite".
+                { q: 'IGNITE : EXTINGUISH :: ASCEND : ?', a: 'DESCEND', w: ['ELEVATE','RISE','PEAK'] },
             ];
             shuffle(probs);
-            let i = 0, ok = 0; const need = 7;
+            let i = 0, ok = 0; const need = 8;
             ctx.setScore(`SOLVED 0/${need}`);
             const probEl = ctx.el('div', { style: { position: 'absolute', top: '110px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '30px', letterSpacing: '2px' } });
             const opts = ctx.el('div', { style: { position: 'absolute', top: '230px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', minWidth: '440px' } });
             ctx.stage.appendChild(probEl); ctx.stage.appendChild(opts);
-            const cd = countdown(ctx, 50, 'TIME', () => ok >= need ? ctx.win() : ctx.lose());
+            const cd = countdown(ctx, 45, 'TIME', () => ok >= need ? ctx.win() : ctx.lose());
             let done = false;
             function next() {
                 if (done) return;
@@ -2793,8 +2675,8 @@
     window.MINIGAME_CATEGORIES = {
         reflex:  ['flappy_bird', 'piano_tiles', 'whack_color', 'fruit_ninja', 'mole_rush'],
         aim:     ['basketball', 'angry_birds', 'pool', 'bottle_flip'],
-        memory:  ['simon_says', 'memory_match', 'cup_shuffle', 'pattern_flash', 'story_recall', 'sound_sequence', 'color_memory'],
-        pattern: ['math_sprint', 'spot_imposter', 'sequence_completion', 'symbol_decoder', 'grid_logic', 'analogy_sprint', 'password_crack'],
+        memory:  ['simon_says', 'memory_match', 'cup_shuffle', 'story_recall', 'sound_sequence', 'color_memory'],
+        pattern: ['math_sprint', 'spot_imposter', 'sequence_completion', 'symbol_decoder', 'analogy_sprint', 'password_crack'],
         puzzle:  ['puzzle_lights_out', 'puzzle_sliding', 'puzzle_mastermind', 'puzzle_2048', 'puzzle_hanoi'],
     };
 })();

@@ -1485,7 +1485,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                 dialogueBox.style.display = 'block';
                 dialogueBox.style.transition = 'opacity 1s';
                 dialogueBox.style.opacity = '1';
-                document.getElementById('dialogue-text').innerHTML = "Five games. Win all of them. Or die.";
+                document.getElementById('dialogue-text').innerHTML = "Five games. Win four. Or die.";
                 setTimeout(() => {
                     dialogueBox.style.opacity = '0';
                     setTimeout(() => { dialogueBox.style.display = 'none'; }, 1100);
@@ -1557,8 +1557,47 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
 
             const endScreen = document.getElementById('end-screen'); const endText = document.getElementById('end-text'); const flash = document.getElementById('flash-overlay'); const restartBtn = document.getElementById('restart-btn');
             if (type === "FREE") {
-                endScreen.style.display = 'flex'; endScreen.style.backgroundColor = "#fff"; endText.style.color = "#000"; endText.innerText = "YOU SURVIVED.\nTHE ROPES LOOSEN.";
-                restartBtn.className = 'restart-win'; restartBtn.style.display = 'block'; setTimeout(() => { endScreen.style.opacity = 1; setTimeout(() => { restartBtn.style.opacity = 1; }, 2000); }, 100);
+                // Two-stage win cinematic. First: a sincere congratulation
+                // from MR. ASYLBI delivered through the dialogue box (kept
+                // visible deliberately for the win flow). Then: the survival
+                // end screen with the code prominently displayed.
+                const dialogueBox = document.getElementById('dialogue-box');
+                const kLabel = document.getElementById('kidnapper-label');
+                const dialogueText = document.getElementById('dialogue-text');
+                document.getElementById('ui-layer').style.display = 'flex';
+                dialogueBox.style.display = 'block';
+                dialogueBox.style.opacity = '1';
+                kLabel.innerText = 'MR. ASYLBI';
+                kLabel.style.color = '#3ae26a';
+                kLabel.style.borderColor = '#3ae26a';
+                dialogueBox.style.borderColor = '#3ae26a';
+                dialogueText.innerHTML = '';
+
+                const lines = [
+                    'You did it.',
+                    "I have to admit — you played well. Truly.",
+                    'Thank you for the games.',
+                    'The code is yours: TONYSTARKISIRONMAN.',
+                ];
+                let li = 0;
+                function nextLine() {
+                    if (li >= lines.length) {
+                        // Show the survival end screen with the code.
+                        endScreen.style.display = 'flex';
+                        endScreen.style.backgroundColor = '#fff';
+                        endText.style.color = '#000';
+                        endText.innerHTML = 'YOU SURVIVED.<br><br><span style="font-size:36px; color:#444;">THE CODE IS</span><br><span style="font-size:64px; color:#1a8a4a; letter-spacing:6px;">TONYSTARKISIRONMAN</span><br><br><span style="font-size:24px; color:#666;">Enter it on the games page to claim your points.</span>';
+                        restartBtn.className = 'restart-win';
+                        restartBtn.style.display = 'block';
+                        setTimeout(() => { endScreen.style.opacity = 1; setTimeout(() => { restartBtn.style.opacity = 1; }, 2000); }, 100);
+                        return;
+                    }
+                    typeWriterEffect(lines[li], () => {
+                        li++;
+                        setTimeout(nextLine, 1200);
+                    });
+                }
+                nextLine();
             } else if (type === "SHOT") {
                 if(trapInterval) clearInterval(trapInterval);
 
@@ -1831,9 +1870,9 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             return ctx;
         }
 
-        // Phase 3 constants — 5 games (one per category), MUST WIN ALL.
-        // No second chances, no margin for error, no failure budget.
-        const PHASE3_NEED = 5;
+        // Phase 3 constants — 5 games (one per category), need 4 wins.
+        // One miss is allowed; two = death.
+        const PHASE3_NEED = 4;
         const PHASE3_TOTAL = 5;
 
         function initPhase3() {
@@ -1871,7 +1910,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
 
             showIntro({
                 title: "PHASE 3",
-                desc: `Win all ${PHASE3_TOTAL} games. One loss = death.`,
+                desc: `Win ${PHASE3_NEED} of ${PHASE3_TOTAL} games. Two losses = death.`,
                 button: "BEGIN",
                 onClick: () => startNextGame(),
             });
