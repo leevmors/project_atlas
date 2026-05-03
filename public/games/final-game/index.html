@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>THE FINAL GAME — Deadman's Choice</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            color: #fff;
+            font-family: 'VT323', monospace;
+            overflow: hidden;
+            user-select: none;
+        }
+        .wrap {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            45%, 47% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        h1 {
+            font-size: clamp(40px, 9vw, 84px);
+            color: #ff2222;
+            letter-spacing: 4px;
+            margin: 0 0 8px;
+            text-shadow:
+                0 0 12px rgba(255, 0, 0, 0.5),
+                2px 4px 0 #550000;
+            animation: flicker 4s infinite ease-in-out;
+        }
+        h2 {
+            font-size: clamp(20px, 4vw, 36px);
+            color: #b09570;
+            letter-spacing: 3px;
+            margin: 0 0 28px;
+        }
+        p {
+            font-size: clamp(16px, 2.4vw, 22px);
+            color: #aaa;
+            max-width: 540px;
+            line-height: 1.5;
+            margin: 0 0 14px;
+        }
+        .label {
+            color: #555;
+            font-size: 14px;
+            letter-spacing: 2px;
+            margin-top: 28px;
+            animation: pulse 2s infinite;
+        }
+        .scanlines::after {
+            content: " ";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap scanlines">
+        <h1>FINAL GAME</h1>
+        <h2>Deadman's Choice</h2>
+        <p>The chair is being prepared.</p>
+        <p>Mr Asylbi will see you soon.</p>
+        <div class="label">[ AWAITING UPLOAD ]</div>
+    </div>
+</body>
+</html>
