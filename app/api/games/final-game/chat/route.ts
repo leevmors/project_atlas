@@ -45,6 +45,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // gemini-2.5-flash has built-in "thinking" tokens that consume the
+    // output budget before the visible reply is generated. With the
+    // default budget the model often spends the whole maxOutputTokens
+    // on internal reasoning and the user-facing reply gets truncated
+    // mid-sentence. Disable thinking and bump the cap.
     const upstream = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
@@ -54,7 +59,8 @@ export async function POST(req: NextRequest) {
           ...body,
           generationConfig: {
             temperature: 0.9,
-            maxOutputTokens: 800,
+            maxOutputTokens: 1024,
+            thinkingConfig: { thinkingBudget: 0 },
           },
         }),
       }
