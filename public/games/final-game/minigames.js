@@ -713,31 +713,38 @@
         }
     };
 
-    // 2. Piano Tiles
-    // Difficulty: starting speed 160 px/s, ramps +3.5 px/s²; survive 45s (45→320 px/s).
-    // Was +5 (45→385) which felt impossible at the end. Win = survive the timer with
-    // no missed tile and no blank-space tap.
+    // 2. Piano Tiles — now with BOMB tiles. Bombs look red and have an
+    // explicit warning marker; if you tap one, instant lose.
+    // Roughly 1 in 7 tiles is a bomb after the first 4-5 safe rows.
     M.piano_tiles = {
         title: 'PIANO TILES',
-        desc: 'Tap black tiles only. Survive 60 seconds.',
+        desc: 'Tap BLACK tiles only. RED tiles are bombs — DO NOT TAP. Survive 60s.',
         run(ctx) {
             const cols = 4; const colW = 800 / cols; const tileH = 110;
-            const tiles = []; // {x, y, col, hit}
-            let speed = 160; let t = 0; let lastSpawnRow = -1;
+            const tiles = []; // {y, col, hit, bomb}
+            let speed = 160; let t = 0;
             let dead = false;
             const cd = countdown(ctx, 60, 'TIME', () => { if (!dead) { dead = true; ctx.timeout(() => ctx.win(), 200); } });
             const { c, g } = mkCanvas(ctx);
-            for (let i = 0; i < 4; i++) tiles.push({ y: -tileH * (i+1), col: randInt(0, cols-1), hit: false });
+            // First 4 spawned tiles at the top — never bombs (warm-up).
+            for (let i = 0; i < 4; i++) tiles.push({ y: -tileH * (i+1), col: randInt(0, cols-1), hit: false, bomb: false });
+            let spawnCount = 4;
             ctx.on(c, 'pointerdown', (e) => {
                 if (dead) return;
                 const r = c.getBoundingClientRect();
                 const cx = (e.clientX - r.left) * (c.width / r.width);
                 const cy = (e.clientY - r.top) * (c.height / r.height);
-                // find lowest unhit tile in that column intersecting cy
                 for (let i = tiles.length - 1; i >= 0; i--) {
                     const tt = tiles[i];
                     if (tt.col !== Math.floor(cx / colW) || tt.hit) continue;
-                    if (cy >= tt.y && cy <= tt.y + tileH) { tt.hit = true; sfx.hit(); return; }
+                    if (cy >= tt.y && cy <= tt.y + tileH) {
+                        if (tt.bomb) {
+                            // Tapped a bomb — instant lose.
+                            tt.hit = true; sfx.lose(); dead = true; ctx.timeout(() => ctx.lose(), 300);
+                            return;
+                        }
+                        tt.hit = true; sfx.hit(); return;
+                    }
                 }
                 // tapped a blank space → fail
                 sfx.lose(); dead = true; ctx.timeout(() => ctx.lose(), 300);
@@ -746,28 +753,42 @@
                 if (dead) return;
                 t += dt; speed = 160 + t * 3.5;
                 for (const tt of tiles) tt.y += speed * dt;
-                // spawn new at top
                 while (tiles[tiles.length - 1].y > -tileH * 0.2) {
-                    tiles.push({ y: tiles[tiles.length - 1].y - tileH, col: randInt(0, cols-1), hit: false });
+                    spawnCount++;
+                    // After the 5th spawn, ~1/7 chance the new tile is a bomb.
+                    const isBomb = spawnCount > 5 && Math.random() < (1 / 7);
+                    tiles.push({ y: tiles[tiles.length - 1].y - tileH, col: randInt(0, cols-1), hit: false, bomb: isBomb });
                 }
-                // any unhit tile that fully exits the bottom = fail
+                // Unhit, NON-BOMB tile that exits the bottom = fail.
+                // Bombs sliding off the bottom is fine (they're meant to be ignored).
                 for (const tt of tiles) {
-                    if (!tt.hit && tt.y > ctx.H) { sfx.lose(); dead = true; ctx.timeout(() => ctx.lose(), 300); break; }
+                    if (!tt.hit && !tt.bomb && tt.y > ctx.H) { sfx.lose(); dead = true; ctx.timeout(() => ctx.lose(), 300); break; }
                 }
                 while (tiles.length && tiles[0].y > ctx.H + tileH) tiles.shift();
-                // draw — wood floor with chunky black tiles
                 drawBg(g, 'wood', ctx.W, ctx.H);
                 g.fillStyle = 'rgba(255,255,255,0.06)';
                 for (let i = 0; i < cols; i++) g.fillRect(i * colW + 4, 0, colW - 8, ctx.H);
                 g.strokeStyle = '#1a0c04'; g.lineWidth = 2;
                 for (let i = 1; i < cols; i++) { g.beginPath(); g.moveTo(i * colW, 0); g.lineTo(i * colW, ctx.H); g.stroke(); }
                 for (const tt of tiles) {
-                    // tile shadow
+                    // shadow
                     g.fillStyle = '#000'; g.fillRect(tt.col * colW + 7, tt.y + 3, colW - 8, tileH - 4);
-                    g.fillStyle = tt.hit ? '#444' : '#0a0a0a'; g.fillRect(tt.col * colW + 4, tt.y, colW - 8, tileH - 4);
-                    // top highlight
-                    g.fillStyle = tt.hit ? '#888' : '#2a2a2a'; g.fillRect(tt.col * colW + 4, tt.y, colW - 8, 4);
-                    if (tt.hit) { g.fillStyle = '#3ae26a'; g.fillRect(tt.col * colW + colW/2 - 6, tt.y + tileH/2 - 6, 12, 12); }
+                    if (tt.bomb) {
+                        // Red bomb tile — high contrast warning + ✕ glyph.
+                        g.fillStyle = tt.hit ? '#7a1010' : '#a02020';
+                        g.fillRect(tt.col * colW + 4, tt.y, colW - 8, tileH - 4);
+                        g.fillStyle = '#cc4040';
+                        g.fillRect(tt.col * colW + 4, tt.y, colW - 8, 6);
+                        g.fillStyle = '#fff'; g.font = 'bold 64px VT323, monospace';
+                        g.textAlign = 'center'; g.textBaseline = 'middle';
+                        g.fillText('✕', tt.col * colW + colW / 2, tt.y + tileH / 2);
+                    } else {
+                        g.fillStyle = tt.hit ? '#444' : '#0a0a0a';
+                        g.fillRect(tt.col * colW + 4, tt.y, colW - 8, tileH - 4);
+                        g.fillStyle = tt.hit ? '#888' : '#2a2a2a';
+                        g.fillRect(tt.col * colW + 4, tt.y, colW - 8, 4);
+                        if (tt.hit) { g.fillStyle = '#3ae26a'; g.fillRect(tt.col * colW + colW/2 - 6, tt.y + tileH/2 - 6, 12, 12); }
+                    }
                 }
                 ctx.setScore(`SPD ${Math.round(speed)}`);
             });
@@ -817,18 +838,20 @@
         }
     };
 
-    // 4. Fruit Ninja
-    // Difficulty: 45s, spawn 700ms (~64 items), 10% bombs (~58 fruits available).
-    // Need 22 (was 30). Bombs are insta-fail so threshold must allow misses. Bomb rate
-    // dropped from 12% to 10% to ease the doom-cooldown of repeated unlucky bomb spawns.
+    // 4. Fruit Ninja — speed ramps every 4 seconds. Fruits fly HIGH.
+    // Lose if 5 fruits fall un-sliced (off the bottom). Slicing a bomb
+    // is also an instant lose. Win at 28 sliced.
     M.fruit_ninja = {
         title: 'FRUIT NINJA',
-        desc: 'Slice 28 fruits in 40s. Avoid bombs.',
+        desc: 'Slice 28 fruits. Speed ramps. Miss 5 = lose. Bombs = lose.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
-            const items = []; // {x,y,vx,vy,kind,r,sliced}
+            const items = []; // {x,y,vx,vy,kind,r,sliced,counted}
             let score = 0; let need = 28; let dead = false;
-            ctx.setScore(`SLICED 0/${need}`);
+            let missed = 0; const missCap = 5;
+            // Speed multiplier — bumps every 4 seconds.
+            let speedMul = 1.0;
+            ctx.setScore(`SLICED 0/${need}  ·  MISS 0/${missCap}`);
             let lastP = null;
             ctx.on(c, 'pointermove', (e) => {
                 const r = c.getBoundingClientRect();
@@ -841,7 +864,7 @@
                         if (Math.hypot(dx, dy) < it.r + 6) {
                             it.sliced = true;
                             if (it.kind === 'bomb') { sfx.lose(); dead = true; ctx.timeout(() => ctx.lose(), 400); return; }
-                            score++; sfx.hit(); ctx.setScore(`SLICED ${score}/${need}`);
+                            score++; sfx.hit(); ctx.setScore(`SLICED ${score}/${need}  ·  MISS ${missed}/${missCap}`);
                             if (score >= need) { dead = true; ctx.timeout(() => ctx.win(), 200); return; }
                         }
                     }
@@ -852,16 +875,40 @@
             function spawn() {
                 if (dead) return;
                 const isBomb = Math.random() < 0.10;
-                items.push({ x: rand(80, ctx.W - 80), y: ctx.H + 30, vx: rand(-90, 90), vy: rand(-680, -540), kind: isBomb ? 'bomb' : pick(['apple','watermelon','lime','orange']), r: 28, sliced: false });
+                // Fly higher and faster. Initial vy more negative (further up),
+                // scaled by speedMul. Horizontal velocity also scales so they
+                // sweep wider.
+                const baseVy = rand(-820, -680);
+                const baseVx = rand(-110, 110);
+                items.push({
+                    x: rand(80, ctx.W - 80), y: ctx.H + 30,
+                    vx: baseVx * speedMul, vy: baseVy * speedMul,
+                    kind: isBomb ? 'bomb' : pick(['apple','watermelon','lime','orange']),
+                    r: 28, sliced: false, counted: false,
+                });
             }
+            // Ramp speed every 4 seconds (~+8% per ramp).
+            ctx.interval(() => { if (!dead) speedMul *= 1.08; }, 4000);
             ctx.interval(spawn, 600);
             countdown(ctx, 40, 'TIME', () => { if (!dead) { dead = true; ctx.timeout(() => score >= need ? ctx.win() : ctx.lose(), 200); } });
             ctx.loop((dt) => {
                 if (dead) return;
                 for (const it of items) { it.vy += 980 * dt; it.x += it.vx * dt; it.y += it.vy * dt; }
-                while (items.length && items[0].y > ctx.H + 60) items.shift();
+                // Off-screen sweep — count uncut FRUITS (not bombs) as misses.
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const it = items[i];
+                    if (it.y > ctx.H + 60) {
+                        if (!it.sliced && !it.counted && it.kind !== 'bomb') {
+                            it.counted = true; missed++;
+                            ctx.setScore(`SLICED ${score}/${need}  ·  MISS ${missed}/${missCap}`);
+                            if (missed >= missCap) {
+                                dead = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 400);
+                            }
+                        }
+                        items.splice(i, 1);
+                    }
+                }
                 drawBg(g, 'arena', ctx.W, ctx.H);
-                // dojo planks
                 g.fillStyle = '#1a0c04'; g.fillRect(0, ctx.H - 40, ctx.W, 40);
                 g.fillStyle = '#3a1a08'; for (let x = 0; x < ctx.W; x += 40) g.fillRect(x, ctx.H - 40, 38, 38);
                 for (const it of items) {
@@ -872,6 +919,7 @@
                         drawSpr(g, it.kind, it.x, it.y, it.kind === 'watermelon' ? 4 : 5, { rot: ang });
                     }
                 }
+                ctx.setTimer(`SPD ×${speedMul.toFixed(2)}`);
             });
         }
     };
@@ -916,52 +964,9 @@
 
     // (M.tap_number removed.)
 
-    // 10. Red Light / Green Light
-    // Difficulty: 10 rounds, single mistake = lose. Green window 0.9-2.2s, red 0.9-1.6s.
-    // Pure reflex/attention; threshold is binary and well-tuned.
-    M.red_green = {
-        title: 'RED / GREEN LIGHT',
-        desc: 'HOLD the screen on GREEN, RELEASE on RED. Survive 14 rounds.',
-        run(ctx) {
-            let round = 0; const total = 14; let phase = 'WAIT'; // WAIT | GREEN | RED | DONE
-            let holding = false; let dead = false;
-            ctx.stage.style.background = 'radial-gradient(ellipse at center, #1a1408 0%, #050200 100%)';
-            const light = ctx.el('div', { style: { position: 'absolute', top: '60px', left: '50%', transform: 'translateX(-50%)', width: '180px', height: '180px', borderRadius: '90px', background: '#222', border: '8px solid #444', boxShadow: 'inset 0 0 40px rgba(0,0,0,0.8), 0 0 30px rgba(255,255,255,0.05)' } });
-            const msg = ctx.el('div', { style: { position: 'absolute', top: '270px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '40px', letterSpacing: '4px' }, text: 'GET READY' });
-            const pad = ctx.el('div', { style: { position: 'absolute', bottom: '40px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '120px', background: '#1a1a1a', border: '4px solid #555', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontFamily: 'VT323, monospace', fontSize: '28px', cursor: 'pointer', userSelect: 'none', touchAction: 'none' }, text: 'HOLD' });
-            ctx.stage.appendChild(light); ctx.stage.appendChild(msg); ctx.stage.appendChild(pad);
-            ctx.setScore(`ROUND 0/${total}`);
-            ctx.on(pad, 'pointerdown', () => { holding = true; pad.style.background = '#2a2a2a'; check(); });
-            ctx.on(pad, 'pointerup', () => { holding = false; pad.style.background = '#1a1a1a'; check(); });
-            ctx.on(pad, 'pointerleave', () => { holding = false; pad.style.background = '#1a1a1a'; check(); });
-            function check() {
-                if (dead) return;
-                if (phase === 'GREEN' && !holding) { fail('LET GO ON GREEN'); return; }
-                if (phase === 'RED' && holding) { fail('HELD ON RED'); return; }
-            }
-            function fail(reason) { dead = true; phase = 'DONE'; light.style.background = '#5a1010'; msg.textContent = reason; sfx.lose(); ctx.timeout(() => ctx.lose(), 700); }
-            function nextRound() {
-                if (dead) return;
-                if (round >= total) { ctx.win(); return; }
-                round++; ctx.setScore(`ROUND ${round}/${total}`);
-                phase = 'GREEN'; light.style.background = '#3ae26a'; msg.textContent = 'GO!'; sfx.ok();
-                ctx.timeout(() => {
-                    if (dead) return;
-                    if (!holding) { fail('LET GO ON GREEN'); return; }
-                    phase = 'RED'; light.style.background = '#e23a3a'; msg.textContent = 'STOP!'; sfx.bad();
-                    ctx.timeout(() => {
-                        if (dead) return;
-                        if (holding) { fail('HELD ON RED'); return; }
-                        phase = 'WAIT'; light.style.background = '#222'; msg.textContent = 'WAIT...';
-                        ctx.timeout(nextRound, rand(400, 900));
-                    }, rand(900, 1600));
-                }, rand(900, 2200));
-            }
-            ctx.timeout(nextRound, 1000);
-        }
-    };
+    // (M.red_green removed.)
 
-    // -------------------- AIM / POWER (10) --------------------
+    // -------------------- AIM / POWER --------------------
 
     // 11. Basketball — angle slider + power meter, 5/10
     // Difficulty: aim guide visible, 10 shots, need 5. 50% hit rate is the target. Aim
@@ -972,7 +977,14 @@
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
             let shots = 0, scored = 0; const total = 10, need = 6;
+            // Hoop is mutable now — moves to a new x/y after every shot.
             const HOOP = { x: 640, y: 300, w: 72, h: 8 };
+            function moveHoop() {
+                // Right-side range so the trajectory math still works with
+                // the existing power/angle envelope.
+                HOOP.x = randInt(560, 700);
+                HOOP.y = randInt(240, 360);
+            }
 
             // Two-stage timing: ANGLE oscillates → tap to lock → POWER oscillates
             // → tap to fire. Both meters have narrow sweet zones. Sliders were
@@ -1051,10 +1063,12 @@
                         scored++; sfx.win(); ctx.setScore(`HITS ${scored}/${need}`); ball = null;
                         if (scored >= need) { ctx.timeout(() => ctx.win(), 600); return; }
                         if (shots >= total) { ctx.timeout(() => ctx.lose(), 600); return; }
+                        moveHoop();
                         phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
                     } else if (ball.y > 540 || ball.x > ctx.W + 40) {
                         sfx.bad(); ball = null;
                         if (shots >= total) { ctx.timeout(() => scored >= need ? ctx.win() : ctx.lose(), 600); return; }
+                        moveHoop();
                         phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
                     }
                 }
@@ -1140,193 +1154,15 @@
         }
     };
 
-    // 14. Paper Toss
-    // Difficulty: 8 shots, need 5; wind ±50 px/s² rerolled per shot. Drag-flick gives
-    // direct feel control. ~63% hit rate target — fair after a couple of calibrations.
-    M.paper_toss = {
-        title: 'PAPER TOSS',
-        desc: 'Time both meters. Compensate for wind. Land 5 of 8.',
-        run(ctx) {
-            const { c, g } = mkCanvas(ctx);
-            let shots = 8, hits = 0; let ball = null;
-            const wind = { v: rand(-50, 50) };
-            const bin = { x: 600, y: 470, w: 80, h: 60 };
-            const ANGLE_MIN = 25, ANGLE_MAX = 75;
-            const POWER_MIN = 350, POWER_MAX = 800;
-            let phase = 'angle';
-            let angleVal = 0, angleDir = 1;
-            let powerVal = 0, powerDir = 1;
-            let lockedAngle = 50, lockedPower = 600;
-            ctx.setScore(`HITS 0/5`);
-
-            const angleMeter = ctx.el('div', { style: { position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '24px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
-            const angleMark = ctx.el('div', { style: { position: 'absolute', top: '-4px', bottom: '-4px', width: '5px', background: '#ffd24a', left: '0%', boxShadow: '0 0 8px #ffd24a' } });
-            angleMeter.appendChild(angleMark);
-            ctx.stage.appendChild(angleMeter);
-
-            const powerMeter = ctx.el('div', { style: { position: 'absolute', right: '20px', top: '60px', width: '32px', height: '380px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
-            const powerMark = ctx.el('div', { style: { position: 'absolute', left: '-4px', right: '-4px', height: '5px', background: '#ff3a3a', bottom: '0%', boxShadow: '0 0 8px #ff3a3a' } });
-            powerMeter.appendChild(powerMark);
-            ctx.stage.appendChild(powerMeter);
-
-            const phaseLabel = ctx.el('div', { style: { position: 'absolute', top: '52px', left: '50%', transform: 'translateX(-50%)', color: '#ffd24a', fontFamily: 'VT323, monospace', fontSize: '22px', letterSpacing: '3px', textShadow: '0 0 8px #000' }, text: 'TAP TO LOCK ANGLE' });
-            ctx.stage.appendChild(phaseLabel);
-
-            ctx.on(c, 'pointerdown', () => {
-                if (ball || shots <= 0 || phase === 'firing') return;
-                if (phase === 'angle') {
-                    lockedAngle = ANGLE_MIN + (angleVal / 100) * (ANGLE_MAX - ANGLE_MIN);
-                    sfx.tick && sfx.tick(); phase = 'power';
-                    phaseLabel.textContent = 'TAP TO LOCK POWER'; phaseLabel.style.color = '#ff7a7a';
-                } else if (phase === 'power') {
-                    lockedPower = POWER_MIN + (powerVal / 100) * (POWER_MAX - POWER_MIN);
-                    sfx.tick && sfx.tick();
-                    const r = lockedAngle * Math.PI / 180;
-                    ball = { x: 200, y: 480, vx: Math.cos(r) * lockedPower, vy: -Math.sin(r) * lockedPower };
-                    shots--; phase = 'firing'; phaseLabel.textContent = '...';
-                }
-            });
-            ctx.loop((dt) => {
-                if (phase === 'angle') {
-                    angleVal += angleDir * 105 * dt;
-                    if (angleVal >= 100) { angleVal = 100; angleDir = -1; }
-                    if (angleVal <= 0) { angleVal = 0; angleDir = 1; }
-                } else if (phase === 'power') {
-                    powerVal += powerDir * 125 * dt;
-                    if (powerVal >= 100) { powerVal = 100; powerDir = -1; }
-                    if (powerVal <= 0) { powerVal = 0; powerDir = 1; }
-                }
-                angleMark.style.left = angleVal + '%';
-                powerMark.style.bottom = powerVal + '%';
-
-                if (ball) {
-                    ball.vy += 700 * dt; ball.vx += wind.v * dt; ball.x += ball.vx * dt; ball.y += ball.vy * dt;
-                    if (ball.y > bin.y && ball.x > bin.x + 6 && ball.x < bin.x + bin.w - 6 && ball.vy > 0) {
-                        hits++; sfx.win(); ball = null; ctx.setScore(`HITS ${hits}/5`);
-                        wind.v = rand(-60, 60);
-                        if (hits >= 5) { ctx.timeout(() => ctx.win(), 400); return; }
-                        if (shots <= 0) { ctx.timeout(() => ctx.lose(), 400); return; }
-                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
-                    } else if (ball && ball.y > 540) {
-                        sfx.bad(); ball = null;
-                        wind.v = rand(-60, 60);
-                        if (hits >= 5) { ctx.timeout(() => ctx.win(), 400); return; }
-                        if (shots <= 0) { ctx.timeout(() => ctx.lose(), 400); return; }
-                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
-                    }
-                }
-                drawBg(g, 'cell', ctx.W, ctx.H);
-                g.fillStyle = '#1a1208'; g.fillRect(0, 540, ctx.W, 30);
-                g.fillStyle = '#3a2a1a'; g.fillRect(0, 538, ctx.W, 4);
-                drawSpr(g, 'bin', bin.x + bin.w / 2, bin.y + bin.h / 2, 5);
-                drawSpr(g, 'paper', 200, 480, 2);
-                if (ball) { drawSpr(g, 'paper', ball.x, ball.y, 2, { rot: ball.x * 0.04 }); }
-                g.fillStyle = '#5fdf6a'; g.font = 'bold 22px VT323, monospace'; g.fillText(`WIND ${wind.v >= 0 ? '→' : '←'} ${Math.abs(Math.round(wind.v))}`, 20, 30);
-                ctx.setTimer(`SHOTS ${shots}`);
-            });
-        }
-    };
+    // (M.paper_toss removed.)
 
     // (M.cannon removed.)
 
-    // 16. Darts
-    // Difficulty: 6 darts, need 3, bullseye r=26 bouncing at (180, 110) px/s. 50% hit
-    // rate target. Well-tuned — was previously 5 darts which forced near-perfect aim.
-    M.darts = {
-        title: 'DARTS',
-        desc: 'Land 3 darts on the moving bullseye. Click to throw.',
-        run(ctx) {
-            const { c, g } = mkCanvas(ctx);
-            let darts = 6, hits = 0; const bull = { x: 400, y: 250, r: 26, vx: 180, vy: 110 };
-            ctx.setScore(`BULLS 0/3`);
-            ctx.on(c, 'pointerdown', (e) => {
-                if (darts <= 0) return;
-                darts--;
-                const r = c.getBoundingClientRect();
-                const cx = (e.clientX - r.left) * (c.width / r.width);
-                const cy = (e.clientY - r.top) * (c.height / r.height);
-                const d = Math.hypot(cx - bull.x, cy - bull.y);
-                const stick = ctx.el('div', { style: { position: 'absolute', left: (cx-3)+'px', top: (cy-3)+'px', width:'6px', height:'6px', background:'#ff3a3a' } });
-                ctx.stage.appendChild(stick);
-                if (d < bull.r) { hits++; sfx.win(); ctx.setScore(`BULLS ${hits}/3`); if (hits >= 3) { ctx.timeout(() => ctx.win(), 500); return; } }
-                else { sfx.bad(); }
-                if (darts <= 0) { ctx.timeout(() => hits >= 3 ? ctx.win() : ctx.lose(), 500); }
-            });
-            ctx.loop((dt) => {
-                bull.x += bull.vx * dt; bull.y += bull.vy * dt;
-                if (bull.x < bull.r + 30 || bull.x > ctx.W - bull.r - 30) bull.vx *= -1;
-                if (bull.y < bull.r + 60 || bull.y > ctx.H - bull.r - 30) bull.vy *= -1;
-                drawBg(g, 'wood', ctx.W, ctx.H);
-                drawSpr(g, 'target', bull.x, bull.y, 8);
-                ctx.setTimer(`DARTS ${darts}`);
-            });
-        }
-    };
+    // (M.darts removed.)
 
     // (M.penalty_kick removed.)
 
-    // 18. Bowling
-    // Difficulty: 3 frames, need 15+ pins of 30 (50%). Aim cursor sweeps L↔R, click to
-    // release. Center-aimed strikes knock 6-8; edge rolls usually 2-4. Fair target.
-    M.bowling = {
-        title: 'BOWLING',
-        desc: 'Aim and roll. 3 rolls. Knock down 8+ of the 10 pins.',
-        run(ctx) {
-            const { c, g } = mkCanvas(ctx);
-            let roll = 0; const totalRolls = 3; const need = 8;
-            let pins = []; // {x,y,alive}  — PERSISTENT across all 3 rolls
-            let aiming = true; let aimX = 400; let aimDir = 1; let ball = null;
-            function setupPins() {
-                pins = []; const baseX = 400, baseY = 100;
-                for (let r = 0; r < 4; r++) for (let i = 0; i <= r; i++) pins.push({ x: baseX - r * 22 + i * 44, y: baseY + r * 36, alive: true });
-            }
-            setupPins();
-            const knockedCount = () => pins.filter(p => !p.alive).length;
-            ctx.setScore(`PINS 0/10`);
-            ctx.on(c, 'pointerdown', () => {
-                if (!aiming || ball) return;
-                aiming = false; ball = { x: aimX, y: 540, vy: -700 };
-            });
-            ctx.loop((dt) => {
-                if (aiming) { aimX += aimDir * 240 * dt; if (aimX < 200 || aimX > 600) aimDir *= -1; }
-                if (ball) {
-                    ball.y += ball.vy * dt;
-                    for (const p of pins) {
-                        if (!p.alive) continue;
-                        if (Math.hypot(ball.x - p.x, ball.y - p.y) < 20) { p.alive = false; sfx.hit(); ball.vy *= 0.95; }
-                    }
-                    if (ball.y < 60) {
-                        const k = knockedCount();
-                        ctx.setScore(`PINS ${k}/10`); roll++;
-                        ball = null;
-                        // Early win if already at threshold.
-                        if (k >= need) { ctx.timeout(() => ctx.win(), 600); return; }
-                        // No more rolls left.
-                        if (roll >= totalRolls) { ctx.timeout(() => k >= need ? ctx.win() : ctx.lose(), 600); return; }
-                        // Otherwise: KEEP the pin state, just give the player
-                        // another roll. Real bowling style — leftover pins
-                        // matter for the next roll.
-                        ctx.timeout(() => { aiming = true; }, 800);
-                    }
-                }
-                drawBg(g, 'wood', ctx.W, ctx.H);
-                // lane
-                g.fillStyle = '#7a5028'; g.fillRect(180, 50, 440, 500);
-                g.fillStyle = '#5a3018'; g.fillRect(180, 50, 4, 500); g.fillRect(616, 50, 4, 500);
-                for (let yy = 50; yy < 550; yy += 20) { g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(184, yy, 432, 2); }
-                // gutters
-                g.fillStyle = '#1a0c04'; g.fillRect(140, 50, 40, 500); g.fillRect(620, 50, 40, 500);
-                for (const p of pins) if (p.alive) { drawSpr(g, 'pin', p.x, p.y, 2); }
-                if (aiming) {
-                    g.strokeStyle = '#3ae26a'; g.lineWidth = 2; g.setLineDash([6, 6]);
-                    g.beginPath(); g.moveTo(aimX, 540); g.lineTo(aimX, 60); g.stroke(); g.setLineDash([]);
-                    drawSpr(g, 'bball', aimX, 548, 2);
-                }
-                if (ball) { drawSpr(g, 'bball', ball.x, ball.y, 2, { rot: ball.y * 0.05 }); }
-                ctx.setTimer(`ROLL ${Math.min(roll+1, totalRolls)}/${totalRolls}`);
-            });
-        }
-    };
+    // (M.bowling removed.)
 
     // 19. Pool
     // Difficulty: 6 object balls, need 3 sunk in 5 shots. Hardest aim/power game in the
@@ -1568,17 +1404,24 @@
         }
     };
 
-    // 22. Memory Match (4x4)
-    // Difficulty: 8 pairs in 60s, classic concentration. ~1-2 wrong-pair turns per match
-    // is normal; 60s is comfortable for an attentive player.
+    // 22. Memory Match (4x4) — 6 lives total.
+    // Each WRONG pair (mismatched flip) costs 1 life. 0 lives = lose.
+    // Match all 8 pairs to win. Time pressure removed in favor of the
+    // lives mechanic — every careless flip hurts.
     M.memory_match = {
         title: 'MEMORY MATCH',
-        desc: 'Match all 8 pairs in 40 seconds.',
+        desc: 'Match all 8 pairs. 6 lives — every wrong pair costs 1.',
         run(ctx) {
             const symbols = ['◆','▲','●','★','♥','♣','■','✚'];
             const deck = shuffle([...symbols, ...symbols]);
-            const grid = ctx.el('div', { style: { position: 'absolute', inset: '40px 100px', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gridTemplateRows: 'repeat(4,1fr)', gap: '10px' } });
+            const grid = ctx.el('div', { style: { position: 'absolute', inset: '50px 100px 60px', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gridTemplateRows: 'repeat(4,1fr)', gap: '10px' } });
             const cards = []; let first = null; let lock = false; let matches = 0;
+            let lives = 6; let done = false;
+            // Lives row drawn as red hearts at the top.
+            const livesEl = ctx.el('div', { style: { position: 'absolute', top: '12px', left: '50%', transform: 'translateX(-50%)', color: '#ff3a3a', fontFamily: 'VT323, monospace', fontSize: '28px', letterSpacing: '6px' } });
+            ctx.stage.appendChild(livesEl);
+            const refreshLives = () => { livesEl.textContent = '♥'.repeat(lives) + '♡'.repeat(6 - lives); };
+            refreshLives();
             for (let i = 0; i < 16; i++) {
                 const card = ctx.el('button', { style: { background: '#3a3a8a', color: '#3a3a8a', border: '3px solid #555', fontFamily: 'VT323, monospace', fontSize: '40px', cursor: 'pointer', backgroundImage: `url(${sprURL('skull', 3)})`, backgroundSize: '40px', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', imageRendering: 'pixelated', boxShadow: 'inset 0 0 0 2px #1a1a4a, 0 4px 0 #000' }, text: deck[i], onclick: () => flip(i) });
                 cards.push({ el: card, sym: deck[i], matched: false, shown: false });
@@ -1588,7 +1431,7 @@
             ctx.setScore(`MATCHES 0/8`);
             function show(c, on) { c.shown = on; c.el.style.color = on ? '#fff' : '#3a3a8a'; c.el.style.background = on ? '#1a1a4a' : '#3a3a8a'; c.el.style.backgroundImage = on ? 'none' : `url(${sprURL('skull', 3)})`; c.el.style.backgroundSize = '40px'; c.el.style.backgroundRepeat = 'no-repeat'; c.el.style.backgroundPosition = 'center'; }
             function flip(i) {
-                if (lock) return;
+                if (lock || done) return;
                 const c = cards[i]; if (c.matched || c.shown) return;
                 show(c, true); sfx.tick();
                 if (!first) { first = c; return; }
@@ -1596,49 +1439,22 @@
                     first.matched = true; c.matched = true; sfx.win();
                     matches++; ctx.setScore(`MATCHES ${matches}/8`);
                     first = null;
-                    if (matches >= 8) ctx.timeout(() => ctx.win(), 400);
+                    if (matches >= 8) { done = true; ctx.timeout(() => ctx.win(), 400); }
                 } else {
                     lock = true;
-                    ctx.timeout(() => { show(first, false); show(c, false); first = null; lock = false; }, 700);
+                    lives--; sfx.bad(); refreshLives();
+                    if (lives <= 0) {
+                        done = true;
+                        ctx.timeout(() => { show(first, false); show(c, false); ctx.lose(); }, 700);
+                    } else {
+                        ctx.timeout(() => { show(first, false); show(c, false); first = null; lock = false; }, 700);
+                    }
                 }
             }
-            countdown(ctx, 40, 'TIME', () => matches >= 8 ? ctx.win() : ctx.lose());
         }
     };
 
-    // 23. Sequence Recall — flash digits, type back
-    // Difficulty: 7 digits in 6s (was 10 in 5s — well above 7±2 working-memory limit and
-    // half a second per digit was too fast to read). 7 digits is the textbook span; 6s
-    // gives ~0.85s per digit to encode. Single typo = lose, no retries.
-    M.sequence_recall = {
-        title: 'SEQUENCE RECALL',
-        desc: 'Memorize 7 digits in 6 seconds. Type them back.',
-        run(ctx) {
-            const seq = Array.from({ length: 7 }, () => randInt(0, 9));
-            const display = ctx.el('div', { style: { position: 'absolute', top: '90px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '72px', letterSpacing: '12px' }, text: seq.join(' ') });
-            ctx.stage.appendChild(display);
-            ctx.setScore('STUDY');
-            ctx.timeout(() => {
-                display.textContent = '';
-                ctx.setScore('TYPE IT');
-                const input = ctx.el('div', { style: { position: 'absolute', top: '90px', width: '100%', textAlign: 'center', color: '#3ae26a', fontFamily: 'VT323, monospace', fontSize: '64px', letterSpacing: '12px', minHeight: '70px' } });
-                const pad = ctx.el('div', { style: { position: 'absolute', bottom: '40px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: 'repeat(5,80px)', gap: '8px' } });
-                ctx.stage.appendChild(input); ctx.stage.appendChild(pad);
-                let entered = '';
-                for (let n = 1; n <= 10; n++) {
-                    const num = n % 10; // 1..9, then 0
-                    const b = pxBtn(String(num), () => {
-                        if (entered.length >= 7) return;
-                        entered += num; input.textContent = entered.split('').join(' '); sfx.tick();
-                        if (entered.length === 7) {
-                            if (entered === seq.join('')) ctx.win(); else ctx.lose();
-                        }
-                    });
-                    b.style.fontSize = '32px'; pad.appendChild(b);
-                }
-            }, 6000);
-        }
-    };
+    // (M.sequence_recall removed.)
 
     // 24. Cup Shuffle
     // 5 rounds, each round faster. Cup count grows by 1 every other round:
@@ -1729,48 +1545,95 @@
         }
     };
 
-    // 25. Pattern Flash — 3x3 lit pattern, reproduce, 10 rounds
-    // Difficulty: lit cells = clamp(3 + round/2, 3, 6) — capped at 6 (was 7). Show time
-    // 1600 - round*120 ms (down to 700ms). 6 cells of 9 is hard but doable; 7 was rough.
+    // 25. Pattern Flash — 3x3 lit pattern, reproduce, 7 rounds with REPRODUCE timer.
+    // Difficulty per round (lit cells / show time / reproduce time):
+    //   R1: 3 / 1500ms / 6.5s
+    //   R2: 3 / 1300ms / 5.5s
+    //   R3: 4 / 1100ms / 5.5s
+    //   R4: 4 /  950ms / 4.5s
+    //   R5: 5 /  850ms / 4.5s
+    //   R6: 6 /  750ms / 4.0s
+    //   R7: 6 /  650ms / 3.5s
     M.pattern_flash = {
         title: 'PATTERN FLASH',
-        desc: 'Reproduce the lit 3x3 pattern. 10 rounds, increasing complexity.',
+        desc: 'Reproduce the lit 3x3 pattern. 7 rounds. Reproduce timer per round.',
         run(ctx) {
-            let round = 0; const total = 10;
-            const grid = ctx.el('div', { style: { position: 'absolute', inset: '60px 220px 80px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gridTemplateRows: 'repeat(3,1fr)', gap: '10px' } });
-            const status = ctx.el('div', { style: { position: 'absolute', top: '15px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '32px' }, text: 'WATCH' });
+            const ROUND_CFG = [
+                { n: 3, show: 1500, repro: 6500 },
+                { n: 3, show: 1300, repro: 5500 },
+                { n: 4, show: 1100, repro: 5500 },
+                { n: 4, show:  950, repro: 4500 },
+                { n: 5, show:  850, repro: 4500 },
+                { n: 6, show:  750, repro: 4000 },
+                { n: 6, show:  650, repro: 3500 },
+            ];
+            let round = 0; const total = ROUND_CFG.length;
+            let done = false;
+            const grid = ctx.el('div', { style: { position: 'absolute', inset: '90px 220px 110px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gridTemplateRows: 'repeat(3,1fr)', gap: '10px' } });
+            const status = ctx.el('div', { style: { position: 'absolute', top: '20px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '32px' }, text: 'WATCH' });
+            // Reproduce-phase countdown bar.
+            const tBar = ctx.el('div', { style: { position: 'absolute', top: '60px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '10px', background: '#1a1a1a', border: '2px solid #555' } });
+            const tFill = ctx.el('div', { style: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#3ae26a', width: '0%' } });
+            tBar.appendChild(tFill);
             const cells = [];
             for (let i = 0; i < 9; i++) {
                 const c = ctx.el('button', { style: { background: '#1a1a1a', border: '4px solid #555', cursor: 'pointer', boxShadow: 'inset 0 0 12px #000, inset 0 -6px 0 rgba(0,0,0,0.5)' }, onclick: () => onTap(i) });
                 cells.push(c); grid.appendChild(c);
             }
-            ctx.stage.appendChild(grid); ctx.stage.appendChild(status);
+            ctx.stage.appendChild(grid); ctx.stage.appendChild(status); ctx.stage.appendChild(tBar);
             const submitBtn = pxBtn('SUBMIT', () => check());
             submitBtn.style.cssText += 'position:absolute;bottom:20px;left:50%;transform:translateX(-50%)';
             ctx.stage.appendChild(submitBtn);
             ctx.setScore(`ROUND 0/${total}`);
             let target = []; let user = []; let watching = true;
+            let reproEnd = 0; let reproTimer = null;
+            function stopReproTimer() { if (reproTimer) { ctx.clearInterval(reproTimer); reproTimer = null; } tFill.style.width = '0%'; }
+            function startReproTimer(ms) {
+                stopReproTimer();
+                reproEnd = performance.now() + ms;
+                tFill.style.width = '100%';
+                tFill.style.background = '#3ae26a';
+                reproTimer = ctx.interval(() => {
+                    const remain = Math.max(0, reproEnd - performance.now());
+                    const pct = (remain / ms) * 100;
+                    tFill.style.width = pct + '%';
+                    if (pct < 30) tFill.style.background = '#e2c83a';
+                    if (pct < 12) tFill.style.background = '#e23a3a';
+                    if (remain <= 0) {
+                        stopReproTimer();
+                        if (!done) { done = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 300); }
+                    }
+                }, 100);
+            }
             function show() {
+                if (done) return;
+                stopReproTimer();
+                const cfg = ROUND_CFG[round];
                 target = []; user = [];
-                const n = clamp(3 + Math.floor(round / 2), 3, 6);
-                while (target.length < n) { const i = randInt(0, 8); if (!target.includes(i)) target.push(i); }
+                while (target.length < cfg.n) { const i = randInt(0, 8); if (!target.includes(i)) target.push(i); }
                 cells.forEach(c => c.style.background = '#1a1a1a');
                 target.forEach(i => cells[i].style.background = '#3ae26a');
                 watching = true; status.textContent = 'WATCH';
-                ctx.timeout(() => { cells.forEach(c => c.style.background = '#1a1a1a'); watching = false; status.textContent = 'REPRODUCE'; }, Math.max(700, 1600 - round * 120));
+                ctx.timeout(() => {
+                    if (done) return;
+                    cells.forEach(c => c.style.background = '#1a1a1a');
+                    watching = false; status.textContent = 'REPRODUCE';
+                    startReproTimer(cfg.repro);
+                }, cfg.show);
             }
             function onTap(i) {
-                if (watching) return;
+                if (done || watching) return;
                 if (user.includes(i)) { user = user.filter(x => x !== i); cells[i].style.background = '#1a1a1a'; }
                 else { user.push(i); cells[i].style.background = '#3ae26a'; sfx.tick(); }
             }
             function check() {
-                if (watching) return;
+                if (done || watching) return;
+                stopReproTimer();
                 if (user.length === target.length && target.every(i => user.includes(i))) {
                     sfx.win(); round++; ctx.setScore(`ROUND ${round}/${total}`);
-                    if (round >= total) { ctx.timeout(() => ctx.win(), 400); return; }
-                    ctx.timeout(show, 600);
-                } else { sfx.lose(); ctx.timeout(() => ctx.lose(), 400); }
+                    if (round >= total) { done = true; ctx.timeout(() => ctx.win(), 400); return; }
+                    ctx.timeout(show, 500);
+                } else { done = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 400); }
             }
             show();
         }
@@ -2042,88 +1905,91 @@
         }
     };
 
-    // 30. Word Recall
-    // Difficulty: 12 words in 14s study (was 10s — under 1s per word). Need 7 of 12
-    // correct picks (was 8). Random guessing ≈ 6 correct, so 7 still requires real
-    // recall. 14s gives ~1.2s per word for chunking strategies.
-    M.word_recall = {
-        title: 'WORD RECALL',
-        desc: 'Memorize 12 words in 14 seconds. Pick at least 7 from a 24-word grid.',
-        run(ctx) {
-            const all = ['BREAD','ANCHOR','PRISM','MEADOW','LANTERN','WHISPER','MARBLE','HARBOR','THUNDER','CIPHER','ORCHID','VELVET','PEBBLE','HORIZON','MIRROR','EMBER','RIVER','SHADOW','COMPASS','FROST','CRIMSON','SPIRAL','MOSAIC','LATTICE','PEPPER','BISON','CACTUS','DAGGER','EAGLE','FOREST'];
-            shuffle(all);
-            const target = all.slice(0, 12); const distract = all.slice(12, 24);
-            const display = ctx.el('div', { style: { position: 'absolute', inset: '40px 60px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', alignContent: 'center' } });
-            target.forEach(w => display.appendChild(ctx.el('div', { style: { color: '#3ae26a', fontFamily: 'VT323, monospace', fontSize: '34px', textAlign: 'center', padding: '8px', background: '#1a2418', border: '2px solid #2a4a2a' }, text: w })));
-            ctx.stage.appendChild(display);
-            ctx.setScore('STUDY');
-            let t = 14; ctx.setTimer(`TIME ${t}`);
-            const id = ctx.interval(() => { t--; ctx.setTimer(`TIME ${Math.max(0,t)}`); if (t <= 0) { ctx.clearInterval(id); pick(); } }, 1000);
-            function pick() {
-                ctx.stage.innerHTML = '';
-                ctx.setScore('PICKED 0/12 (NEED 7)');
-                const all24 = shuffle([...target, ...distract]);
-                const grid = ctx.el('div', { style: { position: 'absolute', inset: '20px 30px 70px', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gridTemplateRows: 'repeat(6,1fr)', gap: '6px' } });
-                const picked = new Set();
-                all24.forEach(w => {
-                    const b = ctx.el('button', { style: { background: '#1a1a1a', color: '#fff', border: '2px solid #555', fontFamily: 'VT323, monospace', fontSize: '20px', cursor: 'pointer' }, text: w, onclick: () => {
-                        if (picked.has(w)) { picked.delete(w); b.style.background = '#1a1a1a'; b.style.borderColor = '#555'; }
-                        else { picked.add(w); b.style.background = '#1a3a1a'; b.style.borderColor = '#3ae26a'; }
-                        ctx.setScore(`PICKED ${picked.size}/12 (NEED 7)`);
-                    } });
-                    grid.appendChild(b);
-                });
-                ctx.stage.appendChild(grid);
-                const submit = pxBtn('SUBMIT', () => {
-                    let correct = 0; for (const w of picked) if (target.includes(w)) correct++;
-                    const wrong = picked.size - correct;
-                    // Win only if you picked at least 7 target words AND
-                    // didn't pick any distractors. Previously the player
-                    // could pick everything (24/24) and win on raw correct
-                    // count alone.
-                    if (correct >= 7 && wrong === 0) ctx.win();
-                    else ctx.lose();
-                });
-                submit.style.cssText += 'position:absolute;bottom:15px;left:50%;transform:translateX(-50%)';
-                ctx.stage.appendChild(submit);
-            }
-        }
-    };
+    // (M.word_recall removed.)
 
     // -------------------- PATTERN RECOGNITION (9) --------------------
 
     // (M.color_rules removed per design — replaced by the remaining 9
     // pattern entries.)
 
-    // 32. Math Sprint
-    // Difficulty: 15 problems in 60s = 4s/problem. Wrong = -3s (forgiving — does not
-    // end the game). Multiplication tops out at 12×12. Well-tuned.
+    // 32. Math Sprint — harder. Larger numbers, division, two-step problems.
+    // Wrong = -5 seconds (was -3). Need 15 problems in 60s.
     M.math_sprint = {
         title: 'MATH SPRINT',
-        desc: 'Solve 15 problems in 60 seconds. Wrong = -3 seconds.',
+        desc: 'Solve 15 problems in 60 seconds. Two-digit ops, division, mixed. Wrong = -5s.',
         run(ctx) {
             let score = 0; const need = 15;
-            const probEl = ctx.el('div', { style: { position: 'absolute', top: '120px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '72px' } });
+            const probEl = ctx.el('div', { style: { position: 'absolute', top: '120px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '64px' } });
             const opts = ctx.el('div', { style: { position: 'absolute', top: '280px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '20px' } });
             ctx.stage.appendChild(probEl); ctx.stage.appendChild(opts);
             ctx.setScore(`SOLVED 0/${need}`);
             const cd = countdown(ctx, 60, 'TIME', () => score >= need ? ctx.win() : ctx.lose());
+
+            // Problem generator. Five operation types with non-trivial ranges:
+            //   +    : two-digit + two-digit  (15..99 + 15..99)
+            //   -    : large minuend, may go into hundreds
+            //   ×    : up to 15 × 15 (tighter than 12×12 with bigger numbers)
+            //   ÷    : exact division, dividend up to 144
+            //   2step: a OP b OP c, where OPs respect order-of-ops
+            function genProblem() {
+                const t = pick(['+','-','×','÷','2step']);
+                let q, ans;
+                if (t === '+') {
+                    const a = randInt(15, 99), b = randInt(15, 99);
+                    q = `${a} + ${b}`; ans = a + b;
+                } else if (t === '-') {
+                    const a = randInt(40, 180), b = randInt(15, a - 5);
+                    q = `${a} − ${b}`; ans = a - b;
+                } else if (t === '×') {
+                    const a = randInt(3, 15), b = randInt(3, 15);
+                    q = `${a} × ${b}`; ans = a * b;
+                } else if (t === '÷') {
+                    const b = randInt(3, 12); const ansV = randInt(3, 12);
+                    const a = b * ansV;
+                    q = `${a} ÷ ${b}`; ans = ansV;
+                } else {
+                    // Two-step. Build from a result so the answer stays in
+                    // a sane integer range. Forms: (a × b) + c, (a × b) − c,
+                    //                            (a + b) × c, (a − b) × c.
+                    const form = pick(['mxp','mxm','axm','smm']);
+                    if (form === 'mxp') {
+                        const a = randInt(3, 9), b = randInt(3, 9), c = randInt(5, 30);
+                        q = `${a} × ${b} + ${c}`; ans = a * b + c;
+                    } else if (form === 'mxm') {
+                        const a = randInt(3, 9), b = randInt(3, 9), c = randInt(2, 12);
+                        q = `${a} × ${b} − ${c}`; ans = a * b - c;
+                    } else if (form === 'axm') {
+                        const c = randInt(3, 8); const a = randInt(2, 10), b = randInt(2, 10);
+                        q = `(${a} + ${b}) × ${c}`; ans = (a + b) * c;
+                    } else {
+                        const c = randInt(3, 8); const a = randInt(8, 18), b = randInt(2, a - 2);
+                        q = `(${a} − ${b}) × ${c}`; ans = (a - b) * c;
+                    }
+                }
+                return { q, ans };
+            }
+
             function next() {
                 if (score >= need) { ctx.timeout(() => ctx.win(), 400); return; }
-                const op = pick(['+','-','×']);
-                let a, b, ans;
-                if (op === '+') { a = randInt(2, 50); b = randInt(2, 50); ans = a + b; }
-                else if (op === '-') { a = randInt(20, 80); b = randInt(2, a - 1); ans = a - b; }
-                else { a = randInt(2, 12); b = randInt(2, 12); ans = a * b; }
-                probEl.textContent = `${a} ${op} ${b}`;
+                const { q, ans } = genProblem();
+                probEl.textContent = q;
+                // Wrong distractors: closer to the correct answer for harder
+                // discrimination (±15% range, distinct values).
                 const wrong = new Set();
-                while (wrong.size < 3) { const d = randInt(-8, 8); if (d === 0) continue; const v = ans + d; if (v < 0 || v === ans) continue; wrong.add(v); }
+                const spread = Math.max(3, Math.floor(Math.abs(ans) * 0.18));
+                while (wrong.size < 3) {
+                    const d = randInt(-spread, spread);
+                    if (d === 0) continue;
+                    const v = ans + d;
+                    if (v < 0 || v === ans) continue;
+                    wrong.add(v);
+                }
                 const choices = shuffle([ans, ...wrong]);
                 opts.innerHTML = '';
                 choices.forEach(v => {
                     const b = pxBtn(String(v), () => {
                         if (v === ans) { score++; sfx.hit(); ctx.setScore(`SOLVED ${score}/${need}`); next(); }
-                        else { cd.add(-3); sfx.bad(); }
+                        else { cd.add(-5); sfx.bad(); }
                     });
                     b.style.fontSize = '28px';
                     opts.appendChild(b);
@@ -2133,22 +1999,46 @@
         }
     };
 
-    // 33. Spot the Imposter — 20 icons grid, find odd one
-    // Difficulty: 5 rounds, 10s each. Color contrast between odd and base is significant
-    // (e.g. red vs deeper red), so it's a moderately easy scan. Wrong tap = lose.
+    // 33. Spot the Imposter — 20 icons grid, find odd one.
+    // Round 1 is obvious (high contrast colors). Round 2+ uses VERY subtle
+    // differences: same hex shifted by ±10-20 RGB units instead of using a
+    // sibling color. By round 5 the difference is ~5-10 units.
     M.spot_imposter = {
         title: 'SPOT THE IMPOSTER',
-        desc: 'One icon differs from the other 19. 5 rounds, 5 seconds each.',
+        desc: 'Find the odd icon. 5 rounds, 5s each. Round 1 obvious — they get subtle FAST.',
         run(ctx) {
             let round = 0; const total = 5; const PER_ROUND = 5;
             const grid = ctx.el('div', { style: { position: 'absolute', inset: '60px 80px 40px', display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gridTemplateRows: 'repeat(4,1fr)', gap: '8px' } });
             ctx.stage.appendChild(grid);
             ctx.setScore(`ROUND 0/${total}`);
             let roundCd = null;
+            // RGB nudge — shifts each channel of `hex` by ±delta, returns hex.
+            function shiftHex(hex, delta) {
+                const m = hex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+                if (!m) return hex;
+                const r = parseInt(m[1], 16), gC = parseInt(m[2], 16), b = parseInt(m[3], 16);
+                // Brighten or darken depending on baseline luminance, so the
+                // imposter stays a different shade rather than overflowing.
+                const lum = (r + gC + b) / 3;
+                const dir = lum > 128 ? -1 : 1;
+                const clamp255 = v => Math.max(0, Math.min(255, v));
+                const nr = clamp255(r + dir * delta);
+                const ng = clamp255(gC + dir * delta);
+                const nb = clamp255(b + dir * delta);
+                return '#' + [nr, ng, nb].map(v => v.toString(16).padStart(2, '0')).join('');
+            }
             function start() {
                 grid.innerHTML = '';
                 const baseColor = pick(['#e23a3a','#3a72e2','#3ae26a','#e2c83a','#cc3aee']);
-                const altColor = baseColor === '#e23a3a' ? '#cc2828' : '#e23a3a';
+                // Round 1: very obvious. Round 2+: subtle. Round 5: brutal.
+                let altColor;
+                if (round === 0) {
+                    altColor = baseColor === '#e23a3a' ? '#cc2828' : '#e23a3a';
+                } else {
+                    // Delta shrinks: round 1 → 28, round 2 → 18, round 3 → 12, round 4 → 8.
+                    const delta = Math.max(6, 32 - round * 8);
+                    altColor = shiftHex(baseColor, delta);
+                }
                 const oddIdx = randInt(0, 19);
                 let answered = false;
                 for (let i = 0; i < 20; i++) {
@@ -2166,7 +2056,7 @@
                     } });
                     grid.appendChild(c);
                 }
-                // Per-round 10s timer; timeout = lose this round = lose game.
+                // Per-round timer; timeout = lose this round = lose game.
                 roundCd = countdown(ctx, PER_ROUND, `R${round+1} TIME`, () => {
                     if (answered) return; answered = true;
                     sfx.lose(); ctx.timeout(() => ctx.lose(), 300);
@@ -2223,24 +2113,39 @@
         }
     };
 
-    // 35. Symbol Decoder
-    // Difficulty: 3 messages, need 2 correct (was need-all-3, wrong=instant-lose). Now a
-    // wrong answer just doesn't increment, and the round still advances. 4 distractors
-    // share 2-3 letters with the answer so it requires real decoding.
+    // 35. Symbol Decoder — every option starts with the SAME letter so
+    // the player can't first-letter cheese. They have to actually decode
+    // the rest of the symbols. 5 messages in 35s, all must be correct.
     M.symbol_decoder = {
         title: 'SYMBOL DECODER',
-        desc: 'Decode 5 messages in 35 seconds. ALL 5 must be correct.',
+        desc: 'Decode 5 messages in 35s. All 4 options share the FIRST letter — read every symbol.',
         run(ctx) {
             const symbols = ['▲','●','■','◆','★','♥','♣','✚','◀','▶','◐','◑'];
-            // Build random key A..L → symbols (12 letters now to cover the
-            // longer message pool).
             const letters = ['A','B','C','D','E','F','G','H','I','J','K','L'];
             shuffle(symbols);
             const key = {}; letters.forEach((l, i) => key[l] = symbols[i]);
-            const messages = ['CABBAGE','DEADHEAD','FACELIFT','HEADACHE','BEDLAMITE','HIDEFILE','HACKLE','FADEAWAY','GADFLY','BACKLIFE','LEAFCAKE','JADELIKE','IDEALIZE','KEELHAUL'];
-            shuffle(messages);
-            const targets = messages.slice(0, 5);
-            let i = 0; let ok = 0;
+
+            // Pool of A-L only words, grouped by first letter. Every group
+            // has at least 4 entries so we can always show 4 options that
+            // share the first letter.
+            const wordsByFirst = {
+                A: ['ABACK', 'ABLE', 'ACID', 'ACIDIC', 'AGED', 'AGILE', 'ALIKE', 'AHEAD'],
+                B: ['BABBLE', 'BACKED', 'BADGE', 'BAFFLE', 'BAGGAGE', 'BIBLE', 'BAILED'],
+                C: ['CABBAGE', 'CABLE', 'CAGED', 'CALLED', 'CHILD', 'CHILLED', 'CICADA'],
+                D: ['DABBLE', 'DECAF', 'DEADHEAD', 'DECADE', 'DEFACED', 'DIDDLE', 'DICE'],
+                F: ['FABLE', 'FABLED', 'FACADE', 'FAILED', 'FALLBACK', 'FECAL', 'FEEDBACK', 'FIDDLE', 'FIELD'],
+                H: ['HACKED', 'HACKLE', 'HAGGLE', 'HALFLIFE', 'HEAD', 'HEADACHE', 'HECKLE'],
+                I: ['ICED', 'IDEAL', 'IDLE', 'IDLED', 'ILLEGAL'],
+                J: ['JABBED', 'JADE', 'JADED', 'JAIL', 'JAILED', 'JIGGLE'],
+                K: ['KICKED', 'KEEL', 'KICK', 'KIDDED', 'KILLED'],
+                L: ['LABEL', 'LABELED', 'LACE', 'LAID', 'LAKE', 'LIKED', 'LIKABLE'],
+            };
+            const firstLetters = Object.keys(wordsByFirst);
+            // Pick 5 distinct first-letters for the 5 rounds.
+            shuffle(firstLetters);
+            const roundLetters = firstLetters.slice(0, 5);
+
+            let roundIdx = 0; let ok = 0;
             const keyEl = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '10px', right: '10px', display: 'grid', gridTemplateColumns: 'repeat(12,1fr)', gap: '3px', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '20px', textAlign: 'center' } });
             for (const l of letters) keyEl.appendChild(ctx.el('div', { style: { padding: '4px', background: '#1a1a1a', border: '2px solid #444' }, html: `${l}<br/>${key[l]}` }));
             ctx.stage.appendChild(keyEl);
@@ -2251,14 +2156,15 @@
             let locked = false; let done = false;
             function next() {
                 if (done) return;
-                if (i >= 5) { done = true; ok >= 5 ? ctx.win() : ctx.lose(); return; }
-                const m = targets[i]; i++;
+                if (roundIdx >= 5) { done = true; ok >= 5 ? ctx.win() : ctx.lose(); return; }
+                const letter = roundLetters[roundIdx];
+                const pool = wordsByFirst[letter].slice();
+                shuffle(pool);
+                const m = pool[0];
+                const distractors = pool.slice(1, 4);
+                roundIdx++;
                 probEl.textContent = m.split('').map(l => key[l]).join(' ');
-                // 4 choices: 1 correct + 3 distractors. Wrong = lose
-                // immediately (must get all 5).
-                const distractors = messages.filter(x => x !== m);
-                shuffle(distractors);
-                const choices = shuffle([m, ...distractors.slice(0, 3)]);
+                const choices = shuffle([m, ...distractors]);
                 opts.innerHTML = ''; locked = false;
                 choices.forEach(v => {
                     const b = pxBtn(v, () => {
@@ -2885,9 +2791,9 @@
     // Category map — used by initPhase3() to pick exactly one game per
     // category so every run tests reflex + aim + memory + pattern + puzzle.
     window.MINIGAME_CATEGORIES = {
-        reflex:  ['flappy_bird', 'piano_tiles', 'whack_color', 'fruit_ninja', 'mole_rush', 'red_green'],
-        aim:     ['basketball', 'angry_birds', 'paper_toss', 'darts', 'bowling', 'pool', 'bottle_flip'],
-        memory:  ['simon_says', 'memory_match', 'sequence_recall', 'cup_shuffle', 'pattern_flash', 'story_recall', 'sound_sequence', 'color_memory', 'word_recall'],
+        reflex:  ['flappy_bird', 'piano_tiles', 'whack_color', 'fruit_ninja', 'mole_rush'],
+        aim:     ['basketball', 'angry_birds', 'pool', 'bottle_flip'],
+        memory:  ['simon_says', 'memory_match', 'cup_shuffle', 'pattern_flash', 'story_recall', 'sound_sequence', 'color_memory'],
         pattern: ['math_sprint', 'spot_imposter', 'sequence_completion', 'symbol_decoder', 'grid_logic', 'analogy_sprint', 'password_crack'],
         puzzle:  ['puzzle_lights_out', 'puzzle_sliding', 'puzzle_mastermind', 'puzzle_2048', 'puzzle_hanoi'],
     };
