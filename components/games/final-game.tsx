@@ -65,7 +65,7 @@ export function FinalGame({ gameId, isAdmin }: FinalGameProps) {
     try {
       const res = await submitGameAnswer(gameId, finalInput.trim());
       if (res.correct) {
-        setProgress((p) => (p ? { ...p, bonusAwarded: game?.bonusPoints ?? 200 } : p));
+        setProgress((p) => (p ? { ...p, bonusAwarded: game?.bonusPoints ?? 50 } : p));
         setGame((g) => (g ? { ...g, status: 'completed' } : g));
       } else {
         setFinalAttemptsLeft(res.attemptsRemaining);
@@ -124,7 +124,7 @@ export function FinalGame({ gameId, isAdmin }: FinalGameProps) {
         <Trophy className="w-12 h-12 text-amber-500 mx-auto mb-3 animate-bounce" />
         <h3 className="text-xl font-bold text-slate-800 mb-1">YOU SURVIVED!</h3>
         <p className="text-slate-500">
-          Your team earned <strong className="text-amber-600">+{game?.bonusPoints ?? 200}</strong> bonus points!
+          Your team earned <strong className="text-amber-600">+{game?.bonusPoints ?? 50}</strong> bonus points!
         </p>
       </div>
     );
