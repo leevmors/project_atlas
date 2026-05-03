@@ -437,6 +437,51 @@
     <button id="give-up-btn" class="hud-btn">[ GIVE UP ]</button>
     <button id="view-toggle-btn" class="hud-btn">[ VIEW: NORMAL ]</button>
 
+    <!-- ADMIN PASSWORD GATE (only shows when ?admin in URL and before unlocked) -->
+    <div id="admin-gate" style="display:none; position:absolute; inset:0; z-index:200;
+        background:rgba(0,0,0,0.92); justify-content:center; align-items:center;
+        flex-direction:column; gap:20px; font-family:'VT323',monospace;">
+        <h2 style="color:#ff3333; font-size:36px; letter-spacing:3px; text-shadow:2px 2px 0 #000; margin:0;">[ ADMIN ACCESS ]</h2>
+        <p style="color:#aaa; font-size:20px;">Enter password to unlock dev controls.</p>
+        <input id="admin-password" type="password" autocomplete="off" placeholder="PASSWORD"
+            style="background:rgba(20,15,10,0.8); border:2px solid #554433; color:#fff;
+                font-family:'VT323',monospace; font-size:26px; padding:10px 20px;
+                text-align:center; outline:none; width:300px; text-shadow:2px 2px #000;">
+        <div style="display:flex; gap:14px;">
+            <button id="admin-submit"
+                style="background:transparent; border:2px solid #e0caaa; color:#e0caaa;
+                    font-family:'VT323',monospace; font-size:24px; padding:8px 22px; cursor:pointer;">[ UNLOCK ]</button>
+            <button id="admin-cancel"
+                style="background:transparent; border:2px solid #554433; color:#887766;
+                    font-family:'VT323',monospace; font-size:24px; padding:8px 22px; cursor:pointer;">[ CANCEL ]</button>
+        </div>
+        <p id="admin-error" style="color:#ff3333; font-size:18px; height:20px; margin:0;"></p>
+    </div>
+
+    <!-- ADMIN DEV PANEL (only shows after admin unlocked) -->
+    <div id="admin-panel" style="display:none; position:absolute; bottom:20px; left:20px;
+        z-index:60; background:rgba(10,5,0,0.85); border:1px solid #554433; padding:12px;
+        font-family:'VT323',monospace; min-width:200px;">
+        <div style="color:#ff3333; font-size:18px; letter-spacing:2px; text-align:center;
+            border-bottom:1px solid #554433; padding-bottom:6px; margin-bottom:10px;">DEV CONTROLS</div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+            <button class="adm-btn" data-action="phase2">SKIP TO PHASE 2</button>
+            <button class="adm-btn" data-action="phase3">SKIP TO PHASE 3</button>
+            <button class="adm-btn" data-action="next-q">FORCE NEXT QUESTION</button>
+            <button class="adm-btn" data-action="win">TRIGGER WIN (FREE)</button>
+            <button class="adm-btn" data-action="lose">TRIGGER LOSE (SHOT)</button>
+            <button class="adm-btn" data-action="reset">RESET GAME</button>
+        </div>
+    </div>
+    <style>
+        .adm-btn {
+            background:transparent; border:1px solid #554433; color:#e0caaa;
+            font-family:'VT323',monospace; font-size:18px; padding:6px 10px;
+            cursor:pointer; text-align:left; transition:all 0.2s;
+        }
+        .adm-btn:hover { background:#554433; color:#fff; border-color:#e0caaa; }
+    </style>
+
     <div id="flash-overlay"></div>
 
     <div id="ui-layer" style="display: none;">
@@ -1082,6 +1127,14 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                     else if (aiText.includes("[NEXT_Q]")) { gameState = "NEXT_Q"; aiText = aiText.replace("[NEXT_Q]", "").trim(); } 
                     else if (aiText.includes("[CONTINUE]")) { aiText = aiText.replace("[CONTINUE]", "").trim(); }
 
+                    // Reset label back to the kidnapper before rendering his line
+                    // (the input handler flips it to "You" when the player types).
+                    const kLabel = document.getElementById('kidnapper-label');
+                    kLabel.innerText = "MR. ASYLBI";
+                    kLabel.style.color = "#ff3333";
+                    kLabel.style.borderColor = "#555";
+                    document.getElementById('dialogue-box').style.borderColor = "#555";
+
                     await new Promise(res => typeWriterEffect(aiText, res));
                     if (gameState === "TRAP") startTrap(trapData); else handleGameState(gameState);
                 } else throw new Error();
@@ -1374,7 +1427,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                     handleGameState("LOSE"); 
                 } 
                 else { 
-                    callGemini(`[SYSTEM: The game has just started. The player (Name: ${playerName}) wakes up tied to a chair in the dark. YOU MUST SPEAK FIRST. Introduce yourself briefly and ask the first Phase 1 profiling question based on YOUR NEXT ACTION. Do not wait for them to speak. Limit to 2 sentences.]`); 
+                    callGemini(`[SYSTEM: The game has just started. The player (Name: ${playerName}) wakes up tied to a chair in the dark. YOU MUST SPEAK FIRST. DO NOT INTRODUCE YOURSELF. DO NOT GREET THEM. DO NOT SAY YOUR NAME. Skip all preamble. Immediately ask the first Phase 1 profiling question based on YOUR NEXT ACTION. Limit to 2 sentences.]`);
                 }
             }, 1000);
         });
@@ -1418,6 +1471,79 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
         document.getElementById('give-up-btn').addEventListener('click', () => { document.getElementById('give-up-btn').style.display = 'none'; inputContainer.style.display = 'none'; playerInput.disabled = true; typeWriterEffect("Coward.", () => { triggerEnding("SHOT"); }); });
         document.getElementById('restart-btn').addEventListener('click', () => { location.reload(); });
         window.addEventListener('beforeunload', () => { if (db && userId) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)); });
+
+        // --- ADMIN MODE ---
+        // The admin route loads this iframe with ?admin in the query string.
+        // We gate access with a password and expose phase-skip dev controls.
+        // NOTE: this is a play-test convenience, not security. The "real" admin
+        // protection is the parent app's session (only logged-in admins can
+        // reach /games/final-game/admin in the first place).
+        (function setupAdminMode() {
+            const params = new URLSearchParams(window.location.search);
+            if (!params.has('admin')) return;
+
+            const ADMIN_PASSWORD = "mrasylbirules";
+            const gate = document.getElementById('admin-gate');
+            const pwInput = document.getElementById('admin-password');
+            const submit = document.getElementById('admin-submit');
+            const cancel = document.getElementById('admin-cancel');
+            const errEl = document.getElementById('admin-error');
+            const panel = document.getElementById('admin-panel');
+
+            gate.style.display = 'flex';
+            setTimeout(() => pwInput.focus(), 50);
+
+            function tryUnlock() {
+                if (pwInput.value === ADMIN_PASSWORD) {
+                    gate.style.display = 'none';
+                    panel.style.display = 'block';
+                } else {
+                    errEl.innerText = "WRONG PASSWORD";
+                    pwInput.value = '';
+                    pwInput.focus();
+                }
+            }
+            submit.addEventListener('click', tryUnlock);
+            cancel.addEventListener('click', () => { gate.style.display = 'none'; });
+            pwInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+
+            panel.addEventListener('click', (e) => {
+                const btn = e.target.closest('.adm-btn');
+                if (!btn) return;
+                const action = btn.dataset.action;
+
+                // Most actions need the game to be running. Bootstrap a minimal
+                // run if the start screen is still up so admin can jump straight in.
+                const startScreen = document.getElementById('start-screen');
+                if (startScreen.style.display !== 'none') {
+                    playerName = playerName || "ADMIN";
+                    startScreen.style.display = 'none';
+                    document.getElementById('ui-layer').style.display = 'flex';
+                    document.getElementById('timer-container').style.display = 'block';
+                    document.getElementById('irritation-container').style.display = 'block';
+                    document.getElementById('give-up-btn').style.display = 'block';
+                    document.getElementById('view-toggle-btn').style.display = 'block';
+                    initAudio();
+                    setupNextTargetQuestion();
+                    animate();
+                    setInterval(updateTimer, 1000);
+                }
+
+                if (action === 'phase2') {
+                    handleGameState("PHASE2");
+                } else if (action === 'phase3') {
+                    handleGameState("PHASE3");
+                } else if (action === 'next-q') {
+                    handleGameState("NEXT_Q");
+                } else if (action === 'win') {
+                    triggerEnding("FREE");
+                } else if (action === 'lose') {
+                    triggerEnding("SHOT");
+                } else if (action === 'reset') {
+                    location.reload();
+                }
+            });
+        })();
 
     </script>
 </body>
