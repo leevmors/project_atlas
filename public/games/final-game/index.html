@@ -2312,6 +2312,11 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
             }
             window.__livePlayerClientId = cid;
             const safeName = (name || 'Anonymous').toString().slice(0, 32);
+            // Make sure the container is visible — admin bootstrap paths
+            // and the normal wake-up path both rely on this so the panel
+            // shows regardless of how Phase 3 was entered.
+            const container = document.getElementById('live-players-container');
+            if (container) container.style.display = 'block';
             // Initial heartbeat + first poll, then intervals.
             const heartbeat = () => {
                 fetch('/api/games/final-game/players', {
@@ -2451,10 +2456,14 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
                     document.getElementById('irritation-container').style.display = 'block';
                     document.getElementById('give-up-btn').style.display = 'block';
                     document.getElementById('view-toggle-btn').style.display = 'block';
+                    document.getElementById('live-players-container').style.display = 'block';
                     initAudio();
                     setupNextTargetQuestion();
                     animate();
                     setInterval(updateTimer, 1000);
+                    // Start heartbeating so the admin shows up in the panel
+                    // (and so the panel populates with anyone else playing).
+                    try { startLivePlayers(playerName); } catch (e) {}
                 }
 
                 if (action === 'lock') {
