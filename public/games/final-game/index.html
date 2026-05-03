@@ -1930,10 +1930,13 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             // to overwrite.
             currentRunningId = id;
             currentRunningIsAdminTest = !!isAdminTest;
-            updateAdminStripVisibility();
 
             const ctx = buildGameCtx((success) => { activeGameCtx = null; currentRunningId = null; updateAdminStripVisibility(); completeGame(success, isAdminTest); });
             activeGameCtx = ctx;
+            // Visibility check must happen AFTER activeGameCtx is set,
+            // otherwise updateAdminStripVisibility sees a null ctx and
+            // keeps the strip hidden.
+            updateAdminStripVisibility();
             try { game.run(ctx); }
             catch (e) {
                 console.error('Minigame crashed:', id, e);
