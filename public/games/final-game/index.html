@@ -1381,13 +1381,23 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                     chatHistory.push({ role: "model", parts: [{ text: aiText }] });
 
                     let gameState = "CONTINUE"; let trapData = null;
-                    if (aiText.includes("[TRAP]")) { gameState = "TRAP"; trapData = aiText.substring(aiText.indexOf("[TRAP]") + 6).split("|").map(s => s.trim()); aiText = aiText.substring(0, aiText.indexOf("[TRAP]")).trim(); } 
-                    else if (aiText.includes("[LOSE]")) { gameState = "LOSE"; aiText = aiText.replace("[LOSE]", "").trim(); } 
-                    else if (aiText.includes("[IRRITATE]")) { gameState = "IRRITATED"; aiText = aiText.replace("[IRRITATE]", "").trim(); } 
-                    else if (aiText.includes("[PHASE2]")) { gameState = "PHASE2"; aiText = aiText.replace("[PHASE2]", "").trim(); } 
-                    else if (aiText.includes("[PHASE3]")) { gameState = "PHASE3"; aiText = aiText.replace("[PHASE3]", "").trim(); } 
-                    else if (aiText.includes("[NEXT_Q]")) { gameState = "NEXT_Q"; aiText = aiText.replace("[NEXT_Q]", "").trim(); } 
-                    else if (aiText.includes("[CONTINUE]")) { aiText = aiText.replace("[CONTINUE]", "").trim(); }
+                    if (aiText.includes("[TRAP]")) {
+                        gameState = "TRAP";
+                        trapData = aiText.substring(aiText.indexOf("[TRAP]") + 6).split("|").map(s => s.trim());
+                        aiText = aiText.substring(0, aiText.indexOf("[TRAP]")).trim();
+                    }
+                    else if (aiText.includes("[LOSE]")) gameState = "LOSE";
+                    else if (aiText.includes("[IRRITATE]")) gameState = "IRRITATED";
+                    else if (aiText.includes("[PHASE2]")) gameState = "PHASE2";
+                    else if (aiText.includes("[PHASE3]")) gameState = "PHASE3";
+                    else if (aiText.includes("[NEXT_Q]")) gameState = "NEXT_Q";
+
+                    // Defensive sweep — strip every [TAG] from the visible
+                    // text. The if/else above only handled the FIRST tag it
+                    // matched, so a response containing both [NEXT_Q] and a
+                    // stray [CONTINUE] would leak the second one onto screen
+                    // (e.g. "[CONTINUE] That's a start, leev...").
+                    aiText = aiText.replace(/\[[A-Z0-9_]+\]/g, '').replace(/\s+/g, ' ').trim();
 
                     // Reset label back to the kidnapper before rendering his line
                     // (the input handler flips it to "You" when the player types).
