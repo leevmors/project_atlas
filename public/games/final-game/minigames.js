@@ -68,14 +68,16 @@
 
     // Countdown helper. Calls opts.onZero when it hits 0.
     function countdown(ctx, secs, label = 'TIME', onZero) {
-        let t = secs;
+        let t = secs; let done = false;
         ctx.setTimer(`${label} ${t}`);
+        function fire() { if (done) return; done = true; ctx.clearInterval(id); if (onZero) onZero(); }
         const id = ctx.interval(() => {
+            if (done) return;
             t--;
             ctx.setTimer(`${label} ${Math.max(0, t)}`);
-            if (t <= 0) { ctx.clearInterval(id); if (onZero) onZero(); }
+            if (t <= 0) fire();
         }, 1000);
-        return { add: (s) => { t += s; }, get: () => t, stop: () => ctx.clearInterval(id) };
+        return { add: (s) => { if (done) return; t += s; ctx.setTimer(`${label} ${Math.max(0, t)}`); if (t <= 0) fire(); }, get: () => t, stop: () => { done = true; ctx.clearInterval(id); }, isDone: () => done };
     }
 
     // Centered text blob inside the stage.
@@ -655,9 +657,12 @@
     // -------------------- REFLEX (10) --------------------
 
     // 1. Flappy Bird
+    // Difficulty: pipe gap 180 (forgiving), spawn 1.6s, speed 200 px/s; need 12 in 60s.
+    // 60s / 1.6s spawn = ~37 pipes spawned; needing 12 = ~32% pass rate. Beatable but
+    // requires steady rhythm. Lowered from 20 (felt brutal: instant fail = whole run lost).
     M.flappy_bird = {
         title: 'FLAPPY BIRD',
-        desc: 'Score 20+ in 60 seconds. TAP / SPACE to flap.',
+        desc: 'Score 12+ in 60 seconds. TAP / SPACE to flap.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
             let by = 200, vy = 0, gravity = 900, jump = -340;
@@ -669,37 +674,37 @@
             ctx.on(ctx.stage, 'pointerdown', flap);
             ctx.on(window, 'keydown', (e) => { if (e.code === 'Space') flap(); });
             function spawnPipe() {
-                const gap = 160; const top = randInt(60, ctx.H - gap - 60);
+                const gap = 180; const top = randInt(60, ctx.H - gap - 60);
                 pipes.push({ x: ctx.W + 20, top, w: 70 });
             }
             function finish() {
                 dead = true;
                 cd.stop();
-                ctx.timeout(() => { score >= 20 ? ctx.win() : ctx.lose(); }, 400);
+                ctx.timeout(() => { score >= 12 ? ctx.win() : ctx.lose(); }, 400);
             }
             ctx.loop((dt) => {
                 if (dead) return;
                 vy += gravity * dt; by += vy * dt;
-                spawnT -= dt; if (spawnT <= 0) { spawnPipe(); spawnT = 1.4; }
+                spawnT -= dt; if (spawnT <= 0) { spawnPipe(); spawnT = 1.6; }
                 // move pipes
-                for (const p of pipes) p.x -= 220 * dt;
+                for (const p of pipes) p.x -= 200 * dt;
                 while (pipes.length && pipes[0].x + pipes[0].w < 0) { pipes.shift(); score++; ctx.setScore(`SCORE ${score}`); sfx.hit(); }
                 // collide
                 if (by < 0 || by > ctx.H - 20) { sfx.lose(); finish(); }
                 for (const p of pipes) {
-                    if (180 + 20 > p.x && 180 < p.x + p.w && (by < p.top || by + 20 > p.top + 160)) { sfx.lose(); finish(); break; }
+                    if (180 + 20 > p.x && 180 < p.x + p.w && (by < p.top || by + 20 > p.top + 180)) { sfx.lose(); finish(); break; }
                 }
                 // draw
                 drawBg(g, 'sky', ctx.W, ctx.H);
                 // pipes (chunky pixel with shadow + cap)
                 for (const p of pipes) {
                     g.fillStyle = '#1a4a1a'; g.fillRect(p.x - 2, 0, p.w + 4, p.top);
-                    g.fillRect(p.x - 2, p.top + 160, p.w + 4, ctx.H - p.top - 160);
+                    g.fillRect(p.x - 2, p.top + 180, p.w + 4, ctx.H - p.top - 180);
                     g.fillStyle = '#3aa84a'; g.fillRect(p.x, 0, p.w, p.top);
-                    g.fillRect(p.x, p.top + 160, p.w, ctx.H - p.top - 160);
-                    g.fillStyle = '#5fdf6a'; g.fillRect(p.x + 4, 0, 4, p.top); g.fillRect(p.x + 4, p.top + 160, 4, ctx.H - p.top - 160);
-                    g.fillStyle = '#2a7a36'; g.fillRect(p.x - 4, p.top - 18, p.w + 8, 18); g.fillRect(p.x - 4, p.top + 160, p.w + 8, 18);
-                    g.fillStyle = '#1a4a1a'; g.fillRect(p.x - 4, p.top - 4, p.w + 8, 4); g.fillRect(p.x - 4, p.top + 160 + 14, p.w + 8, 4);
+                    g.fillRect(p.x, p.top + 180, p.w, ctx.H - p.top - 180);
+                    g.fillStyle = '#5fdf6a'; g.fillRect(p.x + 4, 0, 4, p.top); g.fillRect(p.x + 4, p.top + 180, 4, ctx.H - p.top - 180);
+                    g.fillStyle = '#2a7a36'; g.fillRect(p.x - 4, p.top - 18, p.w + 8, 18); g.fillRect(p.x - 4, p.top + 180, p.w + 8, 18);
+                    g.fillStyle = '#1a4a1a'; g.fillRect(p.x - 4, p.top - 4, p.w + 8, 4); g.fillRect(p.x - 4, p.top + 180 + 14, p.w + 8, 4);
                 }
                 // bird sprite (tilt with velocity)
                 drawSpr(g, 'bird', 190, by + 10, 2, { rot: clamp(vy / 600, -0.5, 0.8) });
@@ -708,6 +713,9 @@
     };
 
     // 2. Piano Tiles
+    // Difficulty: starting speed 160 px/s, ramps +3.5 px/s²; survive 45s (45→320 px/s).
+    // Was +5 (45→385) which felt impossible at the end. Win = survive the timer with
+    // no missed tile and no blank-space tap.
     M.piano_tiles = {
         title: 'PIANO TILES',
         desc: 'Tap black tiles only. Survive 45 seconds.',
@@ -735,7 +743,7 @@
             });
             ctx.loop((dt) => {
                 if (dead) return;
-                t += dt; speed = 160 + t * 5;
+                t += dt; speed = 160 + t * 3.5;
                 for (const tt of tiles) tt.y += speed * dt;
                 // spawn new at top
                 while (tiles[tiles.length - 1].y > -tileH * 0.2) {
@@ -766,9 +774,12 @@
     };
 
     // 3. Whack-a-Mole with color rules
+    // Difficulty: 60s, spawn every 700ms (~85 spawns), 25% match target = ~21 valid hits.
+    // Need 10 hits (was 12). Wrong color = -1. Rule shifts every 12s (was 10s) so player
+    // has more time to adapt. Tuned down because rule-shift mid-tap was a frequent fail.
     M.whack_color = {
         title: 'COLOR WHACK',
-        desc: '60s. Hit only the AI-called color. Rules shift every 10s.',
+        desc: '60s. Hit only the AI-called color. Rules shift every 12s.',
         run(ctx) {
             const colors = [
                 { id: 'r', hex: '#e23a3a', name: 'RED' },
@@ -777,7 +788,7 @@
                 { id: 'y', hex: '#e2c83a', name: 'YELLOW' },
             ];
             let target = pick(colors);
-            let score = 0; let need = 12;
+            let score = 0; let need = 10;
             const callout = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '32px', fontFamily: 'VT323, monospace', letterSpacing: '4px' }, text: `HIT ${target.name}` });
             ctx.stage.appendChild(callout);
             ctx.setScore(`HITS 0/${need}`);
@@ -800,19 +811,22 @@
             }
             spawn();
             ctx.interval(spawn, 700);
-            ctx.interval(() => { target = pick(colors); callout.textContent = `HIT ${target.name}`; callout.style.color = target.hex; }, 10000);
+            ctx.interval(() => { target = pick(colors); callout.textContent = `HIT ${target.name}`; callout.style.color = target.hex; }, 12000);
             countdown(ctx, 60, 'TIME', () => { score >= need ? ctx.win() : ctx.lose(); });
         }
     };
 
     // 4. Fruit Ninja
+    // Difficulty: 45s, spawn 700ms (~64 items), 10% bombs (~58 fruits available).
+    // Need 22 (was 30). Bombs are insta-fail so threshold must allow misses. Bomb rate
+    // dropped from 12% to 10% to ease the doom-cooldown of repeated unlucky bomb spawns.
     M.fruit_ninja = {
         title: 'FRUIT NINJA',
-        desc: 'Slice 30 fruits in 45s. Avoid bombs.',
+        desc: 'Slice 22 fruits in 45s. Avoid bombs.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
             const items = []; // {x,y,vx,vy,kind,r,sliced}
-            let score = 0; let need = 30; let dead = false;
+            let score = 0; let need = 22; let dead = false;
             ctx.setScore(`SLICED 0/${need}`);
             let lastP = null;
             ctx.on(c, 'pointermove', (e) => {
@@ -836,7 +850,7 @@
             ctx.on(c, 'pointerup', () => { lastP = null; });
             function spawn() {
                 if (dead) return;
-                const isBomb = Math.random() < 0.12;
+                const isBomb = Math.random() < 0.10;
                 items.push({ x: rand(80, ctx.W - 80), y: ctx.H + 30, vx: rand(-90, 90), vy: rand(-680, -540), kind: isBomb ? 'bomb' : pick(['apple','watermelon','lime','orange']), r: 28, sliced: false });
             }
             ctx.interval(spawn, 700);
@@ -862,12 +876,15 @@
     };
 
     // 5. Mole Rush — fast tap (replaces old reflex_tap)
+    // Difficulty: 25 moles in 20s = 1.25/s required, spawn every 420ms (~47 spawns).
+    // Lowered to 18 (was 25) — old target demanded near-perfect tap rate. 18/47 = 38%
+    // hit rate, achievable with a couple of misses.
     M.mole_rush = {
         title: 'MOLE RUSH',
-        desc: 'Smash 25 moles in 20 seconds.',
+        desc: 'Smash 18 moles in 20 seconds.',
         run(ctx) {
             let score = 0;
-            ctx.setScore(`SCORE 0/25`);
+            ctx.setScore(`SCORE 0/18`);
             const grid = ctx.el('div', { style: { position: 'absolute', inset: '40px 100px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gridTemplateRows: 'repeat(3,1fr)', gap: '12px' } });
             const cells = []; for (let i = 0; i < 9; i++) { const cell = ctx.el('div', { style: { background: 'radial-gradient(ellipse at center, #1a0a04 30%, #000)', border: '4px solid #2a1f10', position: 'relative', boxShadow: 'inset 0 6px 16px #000' } }); cells.push(cell); grid.appendChild(cell); }
             ctx.stage.appendChild(grid);
@@ -878,19 +895,22 @@
                 activeIdx = i;
                 mole = ctx.el('button', { style: { position: 'absolute', inset: '10%', background: 'transparent', border: 'none', cursor: 'pointer', backgroundImage: `url(${sprURL('mole', 8)})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center bottom', imageRendering: 'pixelated' }, onclick: () => {
                     if (mole.dataset.hit) return; mole.dataset.hit = '1';
-                    score++; sfx.hit(); ctx.setScore(`SCORE ${score}/25`);
-                    if (score >= 25) { ctx.win(); return; }
+                    score++; sfx.hit(); ctx.setScore(`SCORE ${score}/18`);
+                    if (score >= 18) { ctx.win(); return; }
                     if (mole) mole.remove(); mole = null;
                 } });
                 cells[i].appendChild(mole);
             }
             spawn();
             const spawner = ctx.interval(spawn, 420);
-            countdown(ctx, 20, 'TIME', () => { ctx.clearInterval(spawner); score >= 25 ? ctx.win() : ctx.lose(); });
+            countdown(ctx, 20, 'TIME', () => { ctx.clearInterval(spawner); score >= 18 ? ctx.win() : ctx.lose(); });
         }
     };
 
     // 6. Falling Blocks — survive 45s, blocks must not stack to ceiling
+    // Difficulty: 8 cols, blocks spawn 600ms, 45s = ~75 blocks total.
+    // Stack capacity per col ~15 blocks (540/36), 8 cols = 120 capacity. With even
+    // distribution this is easily survivable; worst-case clustering is the failure mode.
     M.falling_blocks = {
         title: 'FALLING BLOCKS',
         desc: 'Tap blocks before they stack to the top. Survive 45 seconds.',
@@ -947,6 +967,8 @@
     };
 
     // 7. Bug Smash — 20 bugs cross L→R, smash before any escape
+    // Difficulty: 20 bugs, spawn 700ms, speed rand(50-110). Slowest bug crosses 800px in
+    // ~16s; spawn period totals 14s. Player has buffer to catch them. ANY escape = lose.
     M.bug_smash = {
         title: 'BUG SMASH',
         desc: 'Smash all 20 bugs before any reach the right side.',
@@ -991,6 +1013,9 @@
     };
 
     // 8. Balloon Pop
+    // Difficulty: 20 balloons; speed = rand(60-110) + spawned*2 (was *4 — late balloons
+    // were rocket-fast and unhittable). Now last balloon caps near 150 px/s = 4s travel.
+    // Any escape = lose, so threshold remains all-or-nothing but pacing is fairer.
     M.balloon_pop = {
         title: 'BALLOON POP',
         desc: 'Pop all 20 balloons before any escape the top.',
@@ -1015,7 +1040,7 @@
             let interval = 900;
             const sp = ctx.interval(() => {
                 if (spawned >= total) { ctx.clearInterval(sp); return; }
-                balloons.push({ x: rand(60, ctx.W - 60), y: ctx.H + 40, v: rand(60, 110) + spawned * 4, color: pick(['#e23a3a','#3a72e2','#3ae26a','#e2c83a','#cc3aee']) });
+                balloons.push({ x: rand(60, ctx.W - 60), y: ctx.H + 40, v: rand(60, 110) + spawned * 2, color: pick(['#e23a3a','#3a72e2','#3ae26a','#e2c83a','#cc3aee']) });
                 spawned++;
             }, interval);
             ctx.loop((dt) => {
@@ -1040,6 +1065,9 @@
     };
 
     // 9. Tap the Number
+    // Difficulty: 20 numbers in 45s (was 30s) with hard reset on wrong tap. The reset
+    // mechanic is harsh enough that the timer needed slack. Searching the next number
+    // visually takes ~1-1.5s per tap so 30s was effectively impossible.
     M.tap_number = {
         title: 'TAP THE NUMBER',
         desc: 'Tap numbers 1 to 20 in order. Out-of-order tap RESETS your streak.',
@@ -1080,11 +1108,13 @@
                 } });
                 btns.push(b); ctx.stage.appendChild(b);
             }
-            countdown(ctx, 30, 'TIME', () => ctx.lose());
+            countdown(ctx, 45, 'TIME', () => ctx.lose());
         }
     };
 
     // 10. Red Light / Green Light
+    // Difficulty: 10 rounds, single mistake = lose. Green window 0.9-2.2s, red 0.9-1.6s.
+    // Pure reflex/attention; threshold is binary and well-tuned.
     M.red_green = {
         title: 'RED / GREEN LIGHT',
         desc: 'HOLD the screen on GREEN, RELEASE on RED. Survive 10 rounds.',
@@ -1130,6 +1160,8 @@
     // -------------------- AIM / POWER (10) --------------------
 
     // 11. Basketball — angle slider + power meter, 5/10
+    // Difficulty: aim guide visible, 10 shots, need 5. 50% hit rate is the target. Aim
+    // guide makes calibration possible after 1-2 shots. Well-tuned.
     M.basketball = {
         title: 'BASKETBALL',
         desc: 'Adjust angle and power. Score 5 of 10 shots.',
@@ -1189,6 +1221,8 @@
     };
 
     // 12. Archery — moving target, hit 3/5
+    // Difficulty: target r=36 oscillating vertically at 130 px/s; 5 arrows, need 3.
+    // Click position determines arrow trajectory. 60% hit rate target, achievable.
     M.archery = {
         title: 'ARCHERY',
         desc: 'Hit the moving target 3 of 5 times. Click to shoot.',
@@ -1232,6 +1266,9 @@
     };
 
     // 13. Angry Birds — slingshot, knock all blocks in 3 shots
+    // Difficulty: pyramid reduced from 4 tiers (10 blocks) to 3 tiers (6 blocks) — old
+    // version required clearing a 10-block stack in 3 shots which was effectively
+    // impossible without a perfect topple chain. 6 blocks ≈ 2 per shot, achievable.
     M.angry_birds = {
         title: 'ANGRY BIRDS',
         desc: 'Drag back to aim. Knock down all blocks in 3 shots.',
@@ -1240,10 +1277,10 @@
             const sling = { x: 110, y: 460 };
             let bird = null, shots = 3;
             const blocks = []; // {x,y,w,h,alive}
-            // pyramid
+            // pyramid (3 tiers = 6 blocks; tuned down from 4 tiers / 10 blocks)
             const baseX = 620, baseY = 510;
-            for (let r = 0; r < 4; r++) for (let i = 0; i <= r; i++) {
-                blocks.push({ x: baseX - r * 22 + i * 44, y: baseY - (3 - r) * 44, w: 40, h: 40, alive: true });
+            for (let r = 0; r < 3; r++) for (let i = 0; i <= r; i++) {
+                blocks.push({ x: baseX - r * 22 + i * 44, y: baseY - (2 - r) * 44, w: 40, h: 40, alive: true });
             }
             let dragging = false; let dragV = { x: 0, y: 0 };
             ctx.setScore(`SHOTS ${shots}`);
@@ -1300,6 +1337,8 @@
     };
 
     // 14. Paper Toss
+    // Difficulty: 8 shots, need 5; wind ±50 px/s² rerolled per shot. Drag-flick gives
+    // direct feel control. ~63% hit rate target — fair after a couple of calibrations.
     M.paper_toss = {
         title: 'PAPER TOSS',
         desc: 'Flick paper into the bin. Land 5 of 8.',
@@ -1354,6 +1393,9 @@
     };
 
     // 15. Cannon
+    // Difficulty: 5 shots, need 3 on a small (50x50) randomly-placed target. Sliders
+    // give precise control. Target jumps to a new random spot after each hit, so prior
+    // calibration only partly carries over. 60% hit rate is fair.
     M.cannon = {
         title: 'CANNON',
         desc: 'Hit the small target across the screen, 3 of 5.',
@@ -1397,6 +1439,8 @@
     };
 
     // 16. Darts
+    // Difficulty: 6 darts, need 3, bullseye r=26 bouncing at (180, 110) px/s. 50% hit
+    // rate target. Well-tuned — was previously 5 darts which forced near-perfect aim.
     M.darts = {
         title: 'DARTS',
         desc: 'Land 3 darts on the moving bullseye. Click to throw.',
@@ -1429,9 +1473,12 @@
     };
 
     // 17. Penalty Kick
+    // Difficulty: keeper picks uniformly random of 3 sides → 2/3 score chance per shot.
+    // Need raised from 3/5 to 4/5: P(≥4 of 5 at p=2/3) = C(5,4)(2/3)⁴(1/3) + (2/3)⁵
+    // ≈ 46%, landing in the 40-60% target band.
     M.penalty_kick = {
         title: 'PENALTY KICK',
-        desc: 'Pick a side and power. Score 3 of 5. The keeper guesses random.',
+        desc: 'Pick a side and power. Score 4 of 5. The keeper guesses random.',
         run(ctx) {
             let shots = 5, scored = 0;
             const stage = ctx.stage;
@@ -1459,8 +1506,8 @@
                 ctx.timeout(() => {
                     if (dir === keeperDir) { sfx.bad(); }
                     else { scored++; sfx.win(); ctx.setScore(`SCORED ${scored}/${shots+scored}`); }
-                    if (scored >= 3) { ctx.timeout(() => ctx.win(), 400); return; }
-                    if (shots <= 0) { ctx.timeout(() => scored >= 3 ? ctx.win() : ctx.lose(), 400); return; }
+                    if (scored >= 4) { ctx.timeout(() => ctx.win(), 400); return; }
+                    if (shots <= 0) { ctx.timeout(() => scored >= 4 ? ctx.win() : ctx.lose(), 400); return; }
                     ball.style.transition = 'none';
                     ball.style.left = '380px'; ball.style.bottom = '40px';
                     ctx.timeout(() => { ball.style.transition = 'all 0.4s'; }, 50);
@@ -1470,6 +1517,8 @@
     };
 
     // 18. Bowling
+    // Difficulty: 3 frames, need 15+ pins of 30 (50%). Aim cursor sweeps L↔R, click to
+    // release. Center-aimed strikes knock 6-8; edge rolls usually 2-4. Fair target.
     M.bowling = {
         title: 'BOWLING',
         desc: 'Aim and roll. Knock 15+ pins across 3 frames.',
@@ -1524,6 +1573,9 @@
     };
 
     // 19. Pool
+    // Difficulty: 6 object balls, need 3 sunk in 5 shots. Hardest aim/power game in the
+    // set — physics + chain reactions can sink 0 or 3 in a single shot. Skews toward
+    // hard but a full break-style first shot can carry it.
     M.pool = {
         title: 'POOL',
         desc: 'Sink 3 balls in 5 shots. Drag from the cue ball to aim & power.',
@@ -1601,6 +1653,8 @@
     };
 
     // 20. Bottle Flip
+    // Difficulty: upright tolerance widened to ±0.6 rad (was ±0.45 rad ≈ ±26°).
+    // 0.6 rad ≈ ±34°, still requires a deliberate flick. Need 3 of 5 = 60%.
     M.bottle_flip = {
         title: 'BOTTLE FLIP',
         desc: 'Flick up to flip the bottle. Land upright 3 of 5.',
@@ -1632,7 +1686,7 @@
                         bottle.y = 480; bottle.vy = 0; bottle.settled = true;
                         // Normalize rotation to 0..2π
                         const r = ((bottle.rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-                        const upright = r < 0.45 || r > Math.PI * 2 - 0.45;
+                        const upright = r < 0.6 || r > Math.PI * 2 - 0.6;
                         if (upright) { ok++; sfx.win(); ctx.setScore(`UPRIGHT ${ok}/3`); }
                         else { sfx.bad(); }
                         bottle.rot = upright ? 0 : Math.PI;
@@ -1653,6 +1707,8 @@
     // -------------------- MEMORY (10) --------------------
 
     // 21. Simon Says (extended to length 8)
+    // Difficulty: target length 8 — within working-memory limit (7±2). Single mistake at
+    // any length resets entire game. Risky but standard for the genre.
     M.simon_says = {
         title: 'SIMON SAYS',
         desc: 'Watch the sequence, then repeat. Reach length 8.',
@@ -1693,6 +1749,8 @@
     };
 
     // 22. Memory Match (4x4)
+    // Difficulty: 8 pairs in 60s, classic concentration. ~1-2 wrong-pair turns per match
+    // is normal; 60s is comfortable for an attentive player.
     M.memory_match = {
         title: 'MEMORY MATCH',
         desc: 'Match all 8 pairs in 60 seconds.',
@@ -1728,12 +1786,15 @@
         }
     };
 
-    // 23. Sequence Recall — flash 10 digits, type back
+    // 23. Sequence Recall — flash digits, type back
+    // Difficulty: 7 digits in 6s (was 10 in 5s — well above 7±2 working-memory limit and
+    // half a second per digit was too fast to read). 7 digits is the textbook span; 6s
+    // gives ~0.85s per digit to encode. Single typo = lose, no retries.
     M.sequence_recall = {
         title: 'SEQUENCE RECALL',
-        desc: 'Memorize 10 digits in 5 seconds. Type them back.',
+        desc: 'Memorize 7 digits in 6 seconds. Type them back.',
         run(ctx) {
-            const seq = Array.from({ length: 10 }, () => randInt(0, 9));
+            const seq = Array.from({ length: 7 }, () => randInt(0, 9));
             const display = ctx.el('div', { style: { position: 'absolute', top: '90px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '72px', letterSpacing: '12px' }, text: seq.join(' ') });
             ctx.stage.appendChild(display);
             ctx.setScore('STUDY');
@@ -1747,19 +1808,21 @@
                 for (let n = 1; n <= 10; n++) {
                     const num = n % 10; // 1..9, then 0
                     const b = pxBtn(String(num), () => {
-                        if (entered.length >= 10) return;
+                        if (entered.length >= 7) return;
                         entered += num; input.textContent = entered.split('').join(' '); sfx.tick();
-                        if (entered.length === 10) {
+                        if (entered.length === 7) {
                             if (entered === seq.join('')) ctx.win(); else ctx.lose();
                         }
                     });
                     b.style.fontSize = '32px'; pad.appendChild(b);
                 }
-            }, 5000);
+            }, 6000);
         }
     };
 
     // 24. Cup Shuffle
+    // Difficulty: 5 rounds; swap count = 6 + round*2 (8→14), speed 380 - round*50 ms
+    // (380→180 ms). Round 5 is hard but trackable. Single wrong pick = lose.
     M.cup_shuffle = {
         title: 'CUP SHUFFLE',
         desc: 'Watch where the ball goes. 5 rounds, each faster.',
@@ -1831,6 +1894,8 @@
     };
 
     // 25. Pattern Flash — 3x3 lit pattern, reproduce, 10 rounds
+    // Difficulty: lit cells = clamp(3 + round/2, 3, 6) — capped at 6 (was 7). Show time
+    // 1600 - round*120 ms (down to 700ms). 6 cells of 9 is hard but doable; 7 was rough.
     M.pattern_flash = {
         title: 'PATTERN FLASH',
         desc: 'Reproduce the lit 3x3 pattern. 10 rounds, increasing complexity.',
@@ -1851,7 +1916,7 @@
             let target = []; let user = []; let watching = true;
             function show() {
                 target = []; user = [];
-                const n = clamp(3 + Math.floor(round / 2), 3, 7);
+                const n = clamp(3 + Math.floor(round / 2), 3, 6);
                 while (target.length < n) { const i = randInt(0, 8); if (!target.includes(i)) target.push(i); }
                 cells.forEach(c => c.style.background = '#1a1a1a');
                 target.forEach(i => cells[i].style.background = '#3ae26a');
@@ -1876,9 +1941,12 @@
     };
 
     // 26. Odd One Out
+    // Difficulty: tightened from 3s → 1.8s per round (5 rounds, all needed). The bright
+    // star is still salient but at <2s scan time the player must commit quickly. Misclick
+    // outside the star wastes time but doesn't penalize. Estimate ~50% win at 1.8s.
     M.odd_one_out = {
         title: 'ODD ONE OUT',
-        desc: 'Spot the difference between two images. 5 rounds, 3s each.',
+        desc: 'Spot the difference between two images. 5 rounds, 1.8s each.',
         run(ctx) {
             let round = 0; const total = 5;
             const wrap = ctx.el('div', { style: { position: 'absolute', inset: '60px 40px 60px', display: 'flex', gap: '20px' } });
@@ -1909,13 +1977,15 @@
             }
             function start() {
                 buildSide(left, true); buildSide(right, false);
-                timer = ctx.timeout(() => { sfx.lose(); ctx.lose(); }, 3000);
+                timer = ctx.timeout(() => { sfx.lose(); ctx.lose(); }, 1800);
             }
             start();
         }
     };
 
     // 27. Story Recall
+    // Difficulty: 30s read time, 5 questions, need 4+. ALL-CAPS keywords prime memory.
+    // Threshold of 4/5 is the sweet spot — 5/5 would be too punishing for one slip.
     M.story_recall = {
         title: 'STORY RECALL',
         desc: 'Read the story carefully. You have 30 seconds. Then answer 5 questions (need 4+).',
@@ -1960,6 +2030,8 @@
     };
 
     // 28. Sound Sequence — beeps + buttons
+    // Difficulty: 5 tones (well within 7±2). Pitches map to button positions visually
+    // (low→high left→right). Attentive players reliably solve; single mistake = lose.
     M.sound_sequence = {
         title: 'SOUND SEQUENCE',
         desc: 'Listen to 5 tones. Reproduce by tapping the numbered keys.',
@@ -1993,9 +2065,12 @@
     };
 
     // 29. Color Memory
+    // Difficulty: sequence shortened to 6 colors (was 8 — exceeded working-memory span
+    // since each color flashes only 400ms with no positional anchor). Also slowed flash
+    // interval from 700ms to 850ms for clearer encoding.
     M.color_memory = {
         title: 'COLOR MEMORY',
-        desc: 'Watch 8 colors, reproduce them in exact order.',
+        desc: 'Watch 6 colors, reproduce them in exact order.',
         run(ctx) {
             const palette = [
                 { id: 0, hex: '#e23a3a', name: 'RED' },
@@ -2005,16 +2080,16 @@
                 { id: 4, hex: '#cc3aee', name: 'PURPLE' },
                 { id: 5, hex: '#ff9933', name: 'ORANGE' },
             ];
-            const seq = Array.from({ length: 8 }, () => randInt(0, palette.length - 1));
+            const seq = Array.from({ length: 6 }, () => randInt(0, palette.length - 1));
             const status = ctx.el('div', { style: { position: 'absolute', top: '40px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '40px' }, text: 'WATCH' });
             const big = ctx.el('div', { style: { position: 'absolute', top: '110px', left: '50%', transform: 'translateX(-50%)', width: '240px', height: '240px', background: '#222', border: '6px solid #555' } });
             ctx.stage.appendChild(status); ctx.stage.appendChild(big);
-            ctx.setScore(`STEP 0/8`);
+            ctx.setScore(`STEP 0/6`);
             let i = 0;
             const id = ctx.interval(() => {
-                if (i < seq.length) { big.style.background = palette[seq[i]].hex; ctx.timeout(() => { big.style.background = '#222'; }, 400); i++; }
+                if (i < seq.length) { big.style.background = palette[seq[i]].hex; ctx.timeout(() => { big.style.background = '#222'; }, 450); i++; }
                 else { ctx.clearInterval(id); ctx.timeout(repeat, 600); }
-            }, 700);
+            }, 850);
             let p = 0;
             function repeat() {
                 status.textContent = 'TAP IN ORDER'; big.remove();
@@ -2026,16 +2101,19 @@
                 ctx.stage.appendChild(grid);
             }
             function onTap(c) {
-                if (c === seq[p]) { p++; ctx.setScore(`STEP ${p}/8`); sfx.tick(); if (p >= seq.length) ctx.timeout(() => ctx.win(), 400); }
+                if (c === seq[p]) { p++; ctx.setScore(`STEP ${p}/6`); sfx.tick(); if (p >= seq.length) ctx.timeout(() => ctx.win(), 400); }
                 else { sfx.lose(); ctx.timeout(() => ctx.lose(), 400); }
             }
         }
     };
 
     // 30. Word Recall
+    // Difficulty: 12 words in 14s study (was 10s — under 1s per word). Need 7 of 12
+    // correct picks (was 8). Random guessing ≈ 6 correct, so 7 still requires real
+    // recall. 14s gives ~1.2s per word for chunking strategies.
     M.word_recall = {
         title: 'WORD RECALL',
-        desc: 'Memorize 12 words in 10 seconds. Pick at least 8 from a 24-word grid.',
+        desc: 'Memorize 12 words in 14 seconds. Pick at least 7 from a 24-word grid.',
         run(ctx) {
             const all = ['BREAD','ANCHOR','PRISM','MEADOW','LANTERN','WHISPER','MARBLE','HARBOR','THUNDER','CIPHER','ORCHID','VELVET','PEBBLE','HORIZON','MIRROR','EMBER','RIVER','SHADOW','COMPASS','FROST','CRIMSON','SPIRAL','MOSAIC','LATTICE','PEPPER','BISON','CACTUS','DAGGER','EAGLE','FOREST'];
             shuffle(all);
@@ -2044,11 +2122,11 @@
             target.forEach(w => display.appendChild(ctx.el('div', { style: { color: '#3ae26a', fontFamily: 'VT323, monospace', fontSize: '34px', textAlign: 'center', padding: '8px', background: '#1a2418', border: '2px solid #2a4a2a' }, text: w })));
             ctx.stage.appendChild(display);
             ctx.setScore('STUDY');
-            let t = 10; ctx.setTimer(`TIME ${t}`);
+            let t = 14; ctx.setTimer(`TIME ${t}`);
             const id = ctx.interval(() => { t--; ctx.setTimer(`TIME ${Math.max(0,t)}`); if (t <= 0) { ctx.clearInterval(id); pick(); } }, 1000);
             function pick() {
                 ctx.stage.innerHTML = '';
-                ctx.setScore('PICKED 0/12');
+                ctx.setScore('PICKED 0/12 (NEED 7)');
                 const all24 = shuffle([...target, ...distract]);
                 const grid = ctx.el('div', { style: { position: 'absolute', inset: '20px 30px 70px', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gridTemplateRows: 'repeat(6,1fr)', gap: '6px' } });
                 const picked = new Set();
@@ -2056,14 +2134,14 @@
                     const b = ctx.el('button', { style: { background: '#1a1a1a', color: '#fff', border: '2px solid #555', fontFamily: 'VT323, monospace', fontSize: '20px', cursor: 'pointer' }, text: w, onclick: () => {
                         if (picked.has(w)) { picked.delete(w); b.style.background = '#1a1a1a'; b.style.borderColor = '#555'; }
                         else { picked.add(w); b.style.background = '#1a3a1a'; b.style.borderColor = '#3ae26a'; }
-                        ctx.setScore(`PICKED ${picked.size}/12`);
+                        ctx.setScore(`PICKED ${picked.size}/12 (NEED 7)`);
                     } });
                     grid.appendChild(b);
                 });
                 ctx.stage.appendChild(grid);
                 const submit = pxBtn('SUBMIT', () => {
                     let correct = 0; for (const w of picked) if (target.includes(w)) correct++;
-                    correct >= 8 ? ctx.win() : ctx.lose();
+                    correct >= 7 ? ctx.win() : ctx.lose();
                 });
                 submit.style.cssText += 'position:absolute;bottom:15px;left:50%;transform:translateX(-50%)';
                 ctx.stage.appendChild(submit);
@@ -2074,6 +2152,8 @@
     // -------------------- PATTERN RECOGNITION (10) --------------------
 
     // 31. Color Rules — tap shapes that match shifting rule
+    // Difficulty: 15 hits in 60s, rule shifts every 5 hits. Wrong tap = lose-game (harsh
+    // but rule is unambiguous and posted at top). 12 shapes per refresh, ~3-4 match.
     M.color_rules = {
         title: 'COLOR RULES',
         desc: 'Tap shapes matching the current rule. Rule shifts after every 5 hits.',
@@ -2116,6 +2196,8 @@
     };
 
     // 32. Math Sprint
+    // Difficulty: 15 problems in 60s = 4s/problem. Wrong = -3s (forgiving — does not
+    // end the game). Multiplication tops out at 12×12. Well-tuned.
     M.math_sprint = {
         title: 'MATH SPRINT',
         desc: 'Solve 15 problems in 60 seconds. Wrong = -3 seconds.',
@@ -2152,6 +2234,8 @@
     };
 
     // 33. Spot the Imposter — 20 icons grid, find odd one
+    // Difficulty: 5 rounds, 10s each. Color contrast between odd and base is significant
+    // (e.g. red vs deeper red), so it's a moderately easy scan. Wrong tap = lose.
     M.spot_imposter = {
         title: 'SPOT THE IMPOSTER',
         desc: 'One icon differs from the other 19. 5 rounds, 10 seconds each.',
@@ -2193,9 +2277,12 @@
     };
 
     // 34. Sequence Completion
+    // Difficulty: solve 5 of 8 sequences in 90s. Wrong answer no longer ends the game —
+    // it deducts 10s and advances to the next problem. With 8 problems and need 5, you
+    // can get 3 wrong and still win if you're fast enough.
     M.sequence_completion = {
         title: 'SEQUENCE COMPLETION',
-        desc: 'Pick the next term. 5 sequences in 90s.',
+        desc: 'Pick the next term. Solve 5 in 90s. Wrong = -10s.',
         run(ctx) {
             const probs = [
                 { seq: '2 4 6 8 ?', ans: '10', wrong: ['9','12','14','16'] },
@@ -2213,18 +2300,21 @@
             const probEl = ctx.el('div', { style: { position: 'absolute', top: '120px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '56px', letterSpacing: '8px' } });
             const opts = ctx.el('div', { style: { position: 'absolute', top: '270px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '14px' } });
             ctx.stage.appendChild(probEl); ctx.stage.appendChild(opts);
-            countdown(ctx, 90, 'TIME', () => ok >= need ? ctx.win() : ctx.lose());
+            const cd = countdown(ctx, 90, 'TIME', () => ok >= need ? ctx.win() : ctx.lose());
             function next() {
                 if (ok >= need) { ctx.timeout(() => ctx.win(), 400); return; }
-                if (i >= probs.length) { ctx.timeout(() => ctx.lose(), 400); return; }
+                if (i >= probs.length) { ctx.timeout(() => ok >= need ? ctx.win() : ctx.lose(), 400); return; }
                 const p = probs[i]; i++;
                 probEl.textContent = p.seq;
                 const choices = shuffle([p.ans, ...p.wrong.slice(0, 3)]);
                 opts.innerHTML = '';
                 choices.forEach(v => {
                     const b = pxBtn(v, () => {
-                        if (v === p.ans) { ok++; sfx.win(); ctx.setScore(`SOLVED ${ok}/${need}`); next(); }
-                        else { sfx.bad(); ctx.timeout(() => ctx.lose(), 400); }
+                        if (b.disabled) return;
+                        opts.querySelectorAll('button').forEach(x => x.disabled = true);
+                        if (v === p.ans) { ok++; sfx.win(); ctx.setScore(`SOLVED ${ok}/${need}`); }
+                        else { sfx.bad(); cd.add(-10); }
+                        if (!cd.isDone()) next();
                     });
                     b.style.fontSize = '28px'; opts.appendChild(b);
                 });
@@ -2234,9 +2324,12 @@
     };
 
     // 35. Symbol Decoder
+    // Difficulty: 3 messages, need 2 correct (was need-all-3, wrong=instant-lose). Now a
+    // wrong answer just doesn't increment, and the round still advances. 4 distractors
+    // share 2-3 letters with the answer so it requires real decoding.
     M.symbol_decoder = {
         title: 'SYMBOL DECODER',
-        desc: 'Use the key to decode 3 short messages.',
+        desc: 'Use the key to decode 3 short messages. Get 2 right.',
         run(ctx) {
             const symbols = ['▲','●','■','◆','★','♥','♣','✚','◀','▶'];
             // Build random key A..J → symbols
@@ -2253,15 +2346,16 @@
             const probEl = ctx.el('div', { style: { position: 'absolute', top: '180px', width: '100%', textAlign: 'center', color: '#3ae26a', fontFamily: 'VT323, monospace', fontSize: '64px', letterSpacing: '14px' } });
             const opts = ctx.el('div', { style: { position: 'absolute', top: '300px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' } });
             ctx.stage.appendChild(probEl); ctx.stage.appendChild(opts);
-            ctx.setScore(`DECODED 0/3`);
+            ctx.setScore(`DECODED 0/3 (NEED 2)`);
+            let locked = false;
             function next() {
-                if (i >= 3) { ok >= 3 ? ctx.win() : ctx.lose(); return; }
+                if (i >= 3) { ok >= 2 ? ctx.win() : ctx.lose(); return; }
                 const m = targets[i]; i++;
                 probEl.textContent = m.split('').map(l => key[l]).join(' ');
                 const choices = shuffle([m, ...messages.filter(x => x !== m).slice(0, 3)]);
-                opts.innerHTML = '';
+                opts.innerHTML = ''; locked = false;
                 choices.forEach(v => {
-                    const b = pxBtn(v, () => { if (v === m) { ok++; sfx.win(); ctx.setScore(`DECODED ${ok}/3`); next(); } else { sfx.bad(); ctx.timeout(() => ctx.lose(), 400); } });
+                    const b = pxBtn(v, () => { if (locked) return; locked = true; opts.querySelectorAll('button').forEach(x => x.disabled = true); if (v === m) { ok++; sfx.win(); ctx.setScore(`DECODED ${ok}/3 (NEED 2)`); } else { sfx.bad(); } ctx.timeout(next, 400); });
                     b.style.fontSize = '28px'; opts.appendChild(b);
                 });
             }
@@ -2270,12 +2364,16 @@
     };
 
     // 36. Sorting — falling items into 3 bins
+    // Difficulty: need 18 (was 25), spawn 1000ms (was 900ms), starting fall speed 50.
+    // Sort wrong = instant lose. With 60s and 1s spawn = ~60 items, need 18 correct
+    // sorts in a row. Tunable: lowering fall speed or raising spawn-spacing prevents
+    // pile-up.
     M.sorting = {
         title: 'SORTING',
-        desc: 'Tap each falling item with its matching colored bin button. 60s, 25 needed.',
+        desc: 'Tap each falling item with its matching colored bin button. 60s, 18 needed.',
         run(ctx) {
             const colors = [{n:'R',h:'#e23a3a'},{n:'B',h:'#3a72e2'},{n:'G',h:'#3ae26a'}];
-            const items = []; let score = 0; const need = 25; let speed = 60; let dead = false;
+            const items = []; let score = 0; const need = 18; let speed = 50; let dead = false;
             ctx.setScore(`SORTED 0/${need}`);
             const board = ctx.el('div', { style: { position: 'absolute', inset: '0 0 80px 0', overflow: 'hidden', backgroundImage: `linear-gradient(180deg, #0a0500 0%, #1a1408 100%)` } });
             ctx.stage.appendChild(board);
@@ -2300,7 +2398,7 @@
                 const el = ctx.el('div', { style: { position: 'absolute', left: x+'px', top: '-40px', width: '40px', height: '40px', background: c.h, border: '3px solid #000', boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.4), 0 4px 0 rgba(0,0,0,0.6)' } });
                 board.appendChild(el);
                 items.push({ el, col: c.n, x, y: -40 });
-            }, 900);
+            }, 1000);
             countdown(ctx, 60, 'TIME', () => score >= need ? ctx.win() : ctx.lose());
             ctx.loop((dt) => {
                 if (dead) return;
@@ -2312,6 +2410,9 @@
     };
 
     // 37. Flow Connect — drag colored dots to pair, no crossing
+    // Difficulty: 5 puzzles in 90s, 3 colored pairs each, randomly placed. Random
+    // placement occasionally produces puzzles where the obvious path is blocked, but
+    // the canvas is large enough to route around. ~18s/puzzle is a comfortable budget.
     M.flow_connect = {
         title: 'FLOW CONNECT',
         desc: 'Drag from each dot to its same-color pair. No crossing lines. 5 puzzles.',
@@ -2416,16 +2517,19 @@
     };
 
     // 38. Grid Logic — 4x4 Latin square
+    // Difficulty: 75s (was 60s), 50% cells given (was 40%). Wrong submission resets the
+    // game which is harsh, but the higher given-rate constrains the puzzle enough that
+    // a deductive player can finish in well under the timer.
     M.grid_logic = {
         title: 'GRID LOGIC',
-        desc: 'Fill the 4x4 grid: numbers 1-4, no repeats per row or column. 60s.',
+        desc: 'Fill the 4x4 grid: numbers 1-4, no repeats per row or column. 75s.',
         run(ctx) {
             // Generate solved Latin square
             const sol = [[1,2,3,4],[2,1,4,3],[3,4,1,2],[4,3,2,1]];
             shuffle(sol); // shuffle rows
             const cols = [0,1,2,3]; shuffle(cols);
             const arr = sol.map(r => cols.map(c => r[c]));
-            const given = arr.map(r => r.map(v => Math.random() < 0.4 ? v : 0));
+            const given = arr.map(r => r.map(v => Math.random() < 0.5 ? v : 0));
             const grid = ctx.el('div', { style: { position: 'absolute', top: '40px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: 'repeat(4,80px)', gap: '4px' } });
             const cells = []; let selected = null;
             for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
@@ -2458,14 +2562,17 @@
             pad.appendChild(submit);
             ctx.stage.appendChild(pad);
             ctx.setScore('LATIN SQUARE');
-            countdown(ctx, 60, 'TIME', () => ctx.lose());
+            countdown(ctx, 75, 'TIME', () => ctx.lose());
         }
     };
 
     // 39. Analogy Sprint — 10 analogies in 60s
+    // Difficulty: 12-problem pool, need 6 correct (was 8) in 60s. Wrong answer no longer
+    // ends the game — just doesn't count and advances. With easier need + non-fatal
+    // mistakes, this is now achievable for a reasonably literate player.
     M.analogy_sprint = {
         title: 'ANALOGY SPRINT',
-        desc: 'Solve 10 analogies in 60 seconds.',
+        desc: 'Solve 6 analogies in 60 seconds. Wrong = next.',
         run(ctx) {
             const probs = [
                 { q: 'CAT : KITTEN :: DOG : ?', a: 'PUPPY', w: ['HORSE','PONY','CALF'] },
@@ -2482,7 +2589,7 @@
                 { q: 'PAGE : BOOK :: SCENE : ?', a: 'PLAY', w: ['SHOW','SCRIPT','ACT'] },
             ];
             shuffle(probs);
-            let i = 0, ok = 0; const need = 8;
+            let i = 0, ok = 0; const need = 6;
             ctx.setScore(`SOLVED 0/${need}`);
             const probEl = ctx.el('div', { style: { position: 'absolute', top: '110px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '32px' } });
             const opts = ctx.el('div', { style: { position: 'absolute', top: '230px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' } });
@@ -2490,15 +2597,18 @@
             countdown(ctx, 60, 'TIME', () => ok >= need ? ctx.win() : ctx.lose());
             function next() {
                 if (ok >= need) { ctx.timeout(() => ctx.win(), 400); return; }
-                if (i >= probs.length) { ctx.timeout(() => ctx.lose(), 400); return; }
+                if (i >= probs.length) { ctx.timeout(() => ok >= need ? ctx.win() : ctx.lose(), 400); return; }
                 const p = probs[i]; i++;
                 probEl.textContent = p.q;
                 const choices = shuffle([p.a, ...p.w.slice(0, 3)]);
                 opts.innerHTML = '';
                 choices.forEach(v => {
                     const b = pxBtn(v, () => {
-                        if (v === p.a) { ok++; sfx.hit(); ctx.setScore(`SOLVED ${ok}/${need}`); next(); }
-                        else { sfx.bad(); ctx.timeout(() => ctx.lose(), 400); }
+                        if (b.disabled) return;
+                        opts.querySelectorAll('button').forEach(x => x.disabled = true);
+                        if (v === p.a) { ok++; sfx.hit(); ctx.setScore(`SOLVED ${ok}/${need}`); }
+                        else { sfx.bad(); }
+                        ctx.timeout(next, 200);
                     });
                     b.style.fontSize = '24px'; opts.appendChild(b);
                 });
@@ -2508,11 +2618,14 @@
     };
 
     // 40. Password Crack — Mastermind
+    // Difficulty: 4 tries (was 3) for a 4-digit code, 0-9 with repeats. Hot/Warm/Cold
+    // feedback uses sum of |digit diff| (max 36), so HOT (≤4) is a strong signal but
+    // doesn't pinpoint which digits. With 4 tries, deductive players can converge.
     M.password_crack = {
         title: 'PASSWORD CRACK',
-        desc: 'Guess the 4-digit code in 3 tries. Feedback: HOT (very close) / WARM / COLD.',
+        desc: 'Guess the 4-digit code in 4 tries. Feedback: HOT (very close) / WARM / COLD.',
         run(ctx) {
-            const MAX_TRIES = 3;
+            const MAX_TRIES = 4;
             // 4-digit code, digits 0-9, may repeat (true 4-digit deduction).
             const code = []; for (let i = 0; i < 4; i++) code.push(randInt(0, 9));
             const guesses = [];
@@ -2568,6 +2681,9 @@
     // Reflex Tap — 10 hits in 10 seconds. Each new mole spawns at a
     // random location guaranteed to be at least 120 px from the previous
     // spawn so the player must actually move the cursor each time.
+    // Difficulty: 1 hit per second average. The 120-px min-distance rule keeps it from
+    // being a degenerate "click in one place" game while still leaving enough buffer
+    // time. Well-tuned.
     M.reflex_tap = {
         title: 'REFLEX TAP',
         desc: 'Tap 10 moles in 10 seconds. They jump to fresh spots.',
