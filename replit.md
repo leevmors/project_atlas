@@ -60,3 +60,61 @@ Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment variables (Replit Secrets)
 ## Running
 
 The app starts automatically via the "Start application" workflow using `npm run dev`.
+
+## Final Game (Deadman's Choice) — Phase 3 Mini-Games
+
+The Final Game lives in `public/games/final-game/` and is loaded by
+`app/games/final-game/page.tsx`. Phase 3 (the in-cabin tablet) randomly
+picks **3 of 43 mini-games** for each run.
+
+### Architecture
+
+- `index.html` owns the shared chrome:
+  - `#mg-stage` (800×570) — every game renders inside this single element
+  - `#mg-hud-time`, `#mg-hud-score`, `#mg-banner`, `#mg-intro` — shared HUD
+  - Pixel-art CSS utilities (`.px-bg/fg/btn/tile/flash/shake`) and
+    `image-rendering: pixelated` for crunchy pixel look
+- `index.html` runtime helpers:
+  - `buildGameCtx(onEnd)` — gives each game a `ctx` with `setTimer`,
+    `setScore`, `interval`, `timeout`, `clearInterval/Timeout`, `raf`,
+    `loop(dt)`, `on(target,type,fn)`, `el(tag,attrs,...children)`,
+    `banner(text,kind,ms)`, `win()`, `lose()`. The ctx tracks every
+    interval/timeout/RAF/listener and tears them down on `_abort()`.
+  - `initPhase3` shuffles `Object.keys(window.MINIGAMES)` and picks 3.
+  - `launchGame(id, game, isAdminTest)` runs a game; `completeGame()`
+    advances the run (or bounces back to the menu in admin test mode).
+  - Unknown game ids fail safely as a lost round (never auto-win).
+- `minigames.js` defines `window.MINIGAMES`, a registry of 43 games:
+  - **Reflex (10)**: flappy_bird, piano_tiles, whack_color, fruit_ninja,
+    mole_rush, falling_blocks, bug_smash, balloon_pop, tap_number, red_green
+  - **Aim/Power (10)**: basketball, archery, angry_birds, paper_toss,
+    cannon, darts, penalty_kick, bowling, pool, bottle_flip
+  - **Memory (10)**: simon_says, memory_match, sequence_recall,
+    cup_shuffle, pattern_flash, odd_one_out, story_recall, sound_sequence,
+    color_memory, word_recall
+  - **Pattern (10)**: color_rules, math_sprint, spot_imposter,
+    sequence_completion, symbol_decoder, sorting, flow_connect, grid_logic,
+    analogy_sprint, password_crack
+  - **Legacy classics (3)**: reflex_tap, math_sprint_classic,
+    simon_says_classic — preserved versions of the original three games
+
+### Adding a new mini-game
+
+In `public/games/final-game/minigames.js` add an entry to `M`:
+
+```js
+M.my_game = {
+  title: 'MY GAME',
+  desc: 'One-line description shown on the intro card.',
+  run(ctx) {
+    // build UI inside ctx.stage using ctx.el / ctx.on / etc.
+    // call ctx.win() or ctx.lose() exactly once.
+  }
+};
+```
+
+Helpers available in the file's outer scope: `mkCanvas`, `countdown`,
+`pxBtn`, `sfx.{hit,ok,bad,tick,win,lose}`, `rand/randInt/pick/shuffle/clamp`.
+Pure DOM/Canvas — no new dependencies. The game is automatically eligible
+for random selection in Phase 3 and shows up in the admin "TEST MINIGAME"
+dropdown after a refresh.

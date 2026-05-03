@@ -1401,9 +1401,14 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                 [pool[i], pool[j]] = [pool[j], pool[i]];
             }
             selectedGames = pool.slice(0, 3);
-            // Fallback: if registry hasn't loaded yet, the player still sees
-            // an intro card but BEGIN will retry by re-shuffling.
-            if (selectedGames.length === 0) selectedGames = ['reflex_tap'];
+            // If registry hasn't loaded yet, fail safe and free the player
+            // rather than soft-locking the tablet.
+            if (selectedGames.length === 0) {
+                console.warn('MINIGAMES registry empty — auto-FREE');
+                document.getElementById('tablet-overlay').style.display = 'none';
+                handleGameState('FREE');
+                return;
+            }
 
             showIntro({
                 title: "PHASE 3",
@@ -1440,8 +1445,11 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
             const id = selectedGames[currentGameIndex];
             const game = (window.MINIGAMES || {})[id];
             if (!game) {
-                // Skip unknown game (defensive — shouldn't happen).
-                currentGameIndex++; gamesWon++; startNextGame(); return;
+                // Unknown game id — fail safely (treat as a lost round) so the
+                // player can't be auto-advanced to WIN by a registry typo.
+                console.error('Unknown minigame id:', id);
+                completeGame(false, false);
+                return;
             }
             launchGame(id, game, /*isAdminTest*/ false);
         }
