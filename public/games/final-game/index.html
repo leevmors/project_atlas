@@ -354,11 +354,18 @@
             background: rgba(0,0,0,0.85); z-index: 80; display: none;
             justify-content: center; align-items: center; flex-direction: column;
         }
+        #tablet-scaler {
+            width: 830px; height: 630px;
+            transform-origin: center center;
+            transform: scale(var(--tablet-scale, 1));
+            display: flex; justify-content: center; align-items: center;
+        }
         #tablet-screen-ui {
             width: 800px; height: 600px; background: #0a0a0a; border: 15px solid #222;
             border-radius: 20px; position: relative; box-shadow: 0 0 30px #000;
             overflow: hidden;
             image-rendering: pixelated; image-rendering: crisp-edges;
+            flex: 0 0 auto;
         }
         #tablet-screen-ui * { image-rendering: pixelated; image-rendering: crisp-edges; }
         #tablet-screen-ui canvas, #tablet-screen-ui img { image-rendering: pixelated; image-rendering: crisp-edges; }
@@ -553,25 +560,45 @@
 
     <!-- PHASE 3 TABLET UI -->
     <div id="tablet-overlay">
-        <div id="tablet-screen-ui">
-            <div class="tablet-header">ASYLBI_OS v3.0</div>
+        <div id="tablet-scaler">
+            <div id="tablet-screen-ui">
+                <div class="tablet-header">ASYLBI_OS v3.0</div>
 
-            <!-- Shared HUD -->
-            <div id="mg-hud-time" class="mg-hidden">TIME 0</div>
-            <div id="mg-hud-score" class="mg-hidden">SCORE 0</div>
-            <div id="mg-banner"></div>
+                <!-- Shared HUD -->
+                <div id="mg-hud-time" class="mg-hidden">TIME 0</div>
+                <div id="mg-hud-score" class="mg-hidden">SCORE 0</div>
+                <div id="mg-banner"></div>
 
-            <!-- Stage — every minigame mounts here -->
-            <div id="mg-stage" class="mg-hidden"></div>
+                <!-- Stage — every minigame mounts here -->
+                <div id="mg-stage" class="mg-hidden"></div>
 
-            <!-- Intro card (shown between games) -->
-            <div id="mg-intro">
-                <h1 id="mg-title" class="minigame-title">PHASE 3</h1>
-                <p id="mg-desc" class="minigame-desc">Win 3 games to survive.</p>
-                <button id="mg-start" class="mg-start-btn">BEGIN</button>
+                <!-- Intro card (shown between games) -->
+                <div id="mg-intro">
+                    <h1 id="mg-title" class="minigame-title">PHASE 3</h1>
+                    <p id="mg-desc" class="minigame-desc">Win 3 games to survive.</p>
+                    <button id="mg-start" class="mg-start-btn">BEGIN</button>
+                </div>
             </div>
         </div>
     </div>
+
+    <script>
+        (function() {
+            // Tablet is 830x630 (800x600 screen + 15px border each side).
+            // Scale to fit viewport with letterboxing, but never above 1.
+            const TABLET_W = 830, TABLET_H = 630;
+            function updateTabletScale() {
+                const margin = 20;
+                const availW = Math.max(200, window.innerWidth - margin * 2);
+                const availH = Math.max(200, window.innerHeight - margin * 2);
+                const scale = Math.min(1, availW / TABLET_W, availH / TABLET_H);
+                document.documentElement.style.setProperty('--tablet-scale', scale.toFixed(4));
+            }
+            window.addEventListener('resize', updateTabletScale);
+            window.addEventListener('orientationchange', updateTabletScale);
+            updateTabletScale();
+        })();
+    </script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="minigames.js"></script>
