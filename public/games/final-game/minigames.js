@@ -1164,59 +1164,96 @@
     // guide makes calibration possible after 1-2 shots. Well-tuned.
     M.basketball = {
         title: 'BASKETBALL',
-        desc: 'Adjust angle and power. Score 6 of 10 shots.',
+        desc: 'Time both meters. Tap to lock angle, then power. Score 6 of 10.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
             let shots = 0, scored = 0; const total = 10, need = 6;
-            // Hoop position calibrated so that with the 400-900 power slider
-            // and 20-80° angle range, sane shots (power 700-850, angle 50-65)
-            // can land cleanly. Original (700, 240) was mathematically out of
-            // range with the available power.
             const HOOP = { x: 640, y: 300, w: 72, h: 8 };
-            let angle = 50, power = 600;
+
+            // Two-stage timing: ANGLE oscillates → tap to lock → POWER oscillates
+            // → tap to fire. Both meters have narrow sweet zones. Sliders were
+            // too easy because you could perfectly calibrate before each shot.
+            const ANGLE_MIN = 25, ANGLE_MAX = 80;
+            const POWER_MIN = 450, POWER_MAX = 1000;
+            let phase = 'angle'; // 'angle' | 'power' | 'firing'
+            let angleVal = 0, angleDir = 1;
+            let powerVal = 0, powerDir = 1;
+            let lockedAngle = 55, lockedPower = 800;
             let ball = null;
             ctx.setScore(`HITS 0/${need}`);
-            const ui = ctx.el('div', { style: { position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '12px', alignItems: 'center', background: 'rgba(0,0,0,0.5)', padding: '8px 14px', borderRadius: '4px', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '20px' }, html: `ANGLE <input id="ang" type="range" min="20" max="80" value="50" style="width:140px"> POWER <input id="pwr" type="range" min="400" max="900" value="600" style="width:140px"> <button class="px-btn" style="font-size:18px;padding:4px 12px">SHOOT</button>` });
-            ctx.stage.appendChild(ui);
-            ctx.on(ui.querySelector('#ang'), 'input', (e) => { angle = +e.target.value; });
-            ctx.on(ui.querySelector('#pwr'), 'input', (e) => { power = +e.target.value; });
-            ctx.on(ui.querySelector('button'), 'click', () => {
-                if (ball || shots >= total) return;
-                const rad = angle * Math.PI / 180;
-                ball = { x: 100, y: 480, vx: Math.cos(rad) * power, vy: -Math.sin(rad) * power };
-                shots++;
+
+            // Angle meter — horizontal across the bottom.
+            const angleMeter = ctx.el('div', { style: { position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '26px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
+            const angleSweet = ctx.el('div', { style: { position: 'absolute', top: 0, bottom: 0, left: '45%', width: '22%', background: 'rgba(74,255,122,0.28)', borderLeft: '2px solid #4eff7a', borderRight: '2px solid #4eff7a' } });
+            const angleMark = ctx.el('div', { style: { position: 'absolute', top: '-4px', bottom: '-4px', width: '5px', background: '#ffd24a', left: '0%', boxShadow: '0 0 8px #ffd24a' } });
+            angleMeter.appendChild(angleSweet); angleMeter.appendChild(angleMark);
+            ctx.stage.appendChild(angleMeter);
+            const angleLabel = ctx.el('div', { style: { position: 'absolute', bottom: '46px', left: '50%', transform: 'translateX(-50%)', color: '#ffd24a', fontFamily: 'VT323, monospace', fontSize: '14px', letterSpacing: '2px' }, text: 'ANGLE' });
+            ctx.stage.appendChild(angleLabel);
+
+            // Power meter — vertical on right edge.
+            const powerMeter = ctx.el('div', { style: { position: 'absolute', right: '20px', top: '60px', width: '34px', height: '380px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
+            const powerSweet = ctx.el('div', { style: { position: 'absolute', left: 0, right: 0, bottom: '60%', height: '22%', background: 'rgba(74,255,122,0.28)', borderTop: '2px solid #4eff7a', borderBottom: '2px solid #4eff7a' } });
+            const powerMark = ctx.el('div', { style: { position: 'absolute', left: '-4px', right: '-4px', height: '5px', background: '#ff3a3a', bottom: '0%', boxShadow: '0 0 8px #ff3a3a' } });
+            powerMeter.appendChild(powerSweet); powerMeter.appendChild(powerMark);
+            ctx.stage.appendChild(powerMeter);
+            const powerLabel = ctx.el('div', { style: { position: 'absolute', right: '20px', top: '34px', width: '34px', textAlign: 'center', color: '#ff7a7a', fontFamily: 'VT323, monospace', fontSize: '14px' }, text: 'PWR' });
+            ctx.stage.appendChild(powerLabel);
+
+            const phaseLabel = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', color: '#ffd24a', fontFamily: 'VT323, monospace', fontSize: '24px', letterSpacing: '3px', textShadow: '0 0 8px #000' }, text: 'TAP TO LOCK ANGLE' });
+            ctx.stage.appendChild(phaseLabel);
+
+            ctx.on(c, 'pointerdown', () => {
+                if (ball || shots >= total || phase === 'firing') return;
+                if (phase === 'angle') {
+                    lockedAngle = ANGLE_MIN + (angleVal / 100) * (ANGLE_MAX - ANGLE_MIN);
+                    sfx.tick && sfx.tick();
+                    phase = 'power';
+                    phaseLabel.textContent = 'TAP TO LOCK POWER';
+                    phaseLabel.style.color = '#ff7a7a';
+                } else if (phase === 'power') {
+                    lockedPower = POWER_MIN + (powerVal / 100) * (POWER_MAX - POWER_MIN);
+                    sfx.tick && sfx.tick();
+                    const r = lockedAngle * Math.PI / 180;
+                    ball = { x: 100, y: 480, vx: Math.cos(r) * lockedPower, vy: -Math.sin(r) * lockedPower };
+                    shots++; phase = 'firing';
+                    phaseLabel.textContent = '...';
+                }
             });
             ctx.loop((dt) => {
+                if (phase === 'angle') {
+                    angleVal += angleDir * 95 * dt;
+                    if (angleVal >= 100) { angleVal = 100; angleDir = -1; }
+                    if (angleVal <= 0) { angleVal = 0; angleDir = 1; }
+                } else if (phase === 'power') {
+                    powerVal += powerDir * 120 * dt;
+                    if (powerVal >= 100) { powerVal = 100; powerDir = -1; }
+                    if (powerVal <= 0) { powerVal = 0; powerDir = 1; }
+                }
+                angleMark.style.left = angleVal + '%';
+                powerMark.style.bottom = powerVal + '%';
+
                 drawBg(g, 'court', ctx.W, ctx.H);
-                // backboard
                 g.fillStyle = '#fff'; g.fillRect(HOOP.x + HOOP.w - 4, HOOP.y - 60, 4, 60);
                 g.fillStyle = '#1a1a1a'; g.fillRect(HOOP.x + HOOP.w - 4, HOOP.y - 30, 4, 30);
                 g.fillStyle = '#3a3a3a'; g.fillRect(HOOP.x + HOOP.w, HOOP.y - 60, 4, 80);
-                // hoop rim + net
                 g.fillStyle = '#cc5500'; g.fillRect(HOOP.x - 2, HOOP.y - 2, HOOP.w + 4, 4);
                 g.fillStyle = '#ff9933'; g.fillRect(HOOP.x, HOOP.y, HOOP.w, 2);
                 g.strokeStyle = '#aaa'; g.lineWidth = 1;
-                for (let nx = 0; nx < 8; nx++) { g.beginPath(); g.moveTo(HOOP.x + nx * 8, HOOP.y + 2); g.lineTo(HOOP.x + nx * 8 + 4, HOOP.y + 24); g.stroke(); }
-                // aim guide
-                if (!ball) {
-                    g.strokeStyle = 'rgba(255,255,255,0.3)'; g.lineWidth = 2; g.setLineDash([6,6]);
-                    g.beginPath(); g.moveTo(100, 480);
-                    let tx = 100, ty = 480, tvx = Math.cos(angle * Math.PI / 180) * power, tvy = -Math.sin(angle * Math.PI / 180) * power;
-                    for (let i = 0; i < 30; i++) { tvy += 980 * 0.05; tx += tvx * 0.05; ty += tvy * 0.05; if (ty > 510) break; g.lineTo(tx, ty); }
-                    g.stroke(); g.setLineDash([]);
-                    drawSpr(g, 'bball', 100, 480, 2);
-                }
+                for (let nx = 0; nx < 8; nx++) { g.beginPath(); g.moveTo(HOOP.x + nx * 9, HOOP.y + 2); g.lineTo(HOOP.x + nx * 9 + 4, HOOP.y + 24); g.stroke(); }
+                if (!ball) drawSpr(g, 'bball', 100, 480, 2);
                 if (ball) {
                     ball.vy += 980 * dt; ball.x += ball.vx * dt; ball.y += ball.vy * dt;
                     drawSpr(g, 'bball', ball.x, ball.y, 2, { rot: ball.x * 0.05 });
-                    // hoop check (passing through above the rim)
                     if (ball.x >= HOOP.x && ball.x <= HOOP.x + HOOP.w && ball.y >= HOOP.y && ball.y <= HOOP.y + 18 && ball.vy > 0) {
                         scored++; sfx.win(); ctx.setScore(`HITS ${scored}/${need}`); ball = null;
                         if (scored >= need) { ctx.timeout(() => ctx.win(), 600); return; }
                         if (shots >= total) { ctx.timeout(() => ctx.lose(), 600); return; }
-                    } else if (ball && (ball.y > 540 || ball.x > ctx.W + 40)) {
+                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
+                    } else if (ball.y > 540 || ball.x > ctx.W + 40) {
                         sfx.bad(); ball = null;
                         if (shots >= total) { ctx.timeout(() => scored >= need ? ctx.win() : ctx.lose(), 600); return; }
+                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
                     }
                 }
                 ctx.setTimer(`SHOT ${shots}/${total}`);
@@ -1345,43 +1382,76 @@
     // direct feel control. ~63% hit rate target — fair after a couple of calibrations.
     M.paper_toss = {
         title: 'PAPER TOSS',
-        desc: 'Flick paper into the bin. Land 5 of 8.',
+        desc: 'Time both meters. Compensate for wind. Land 5 of 8.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
-            let shots = 8, hits = 0; let ball = null; let dragging = false; let drag = { x: 0, y: 0 };
-            const wind = { v: rand(-40, 40) };
+            let shots = 8, hits = 0; let ball = null;
+            const wind = { v: rand(-50, 50) };
             const bin = { x: 600, y: 470, w: 80, h: 60 };
+            const ANGLE_MIN = 25, ANGLE_MAX = 75;
+            const POWER_MIN = 350, POWER_MAX = 800;
+            let phase = 'angle';
+            let angleVal = 0, angleDir = 1;
+            let powerVal = 0, powerDir = 1;
+            let lockedAngle = 50, lockedPower = 600;
             ctx.setScore(`HITS 0/5`);
-            ctx.on(c, 'pointerdown', (e) => {
-                if (ball || shots <= 0) return;
-                const r = c.getBoundingClientRect();
-                drag = { x: (e.clientX - r.left) * (c.width / r.width), y: (e.clientY - r.top) * (c.height / r.height) };
-                dragging = true;
-            });
-            ctx.on(c, 'pointermove', (e) => {
-                if (!dragging) return;
-                const r = c.getBoundingClientRect();
-                drag.cx = (e.clientX - r.left) * (c.width / r.width);
-                drag.cy = (e.clientY - r.top) * (c.height / r.height);
-            });
-            ctx.on(c, 'pointerup', () => {
-                if (!dragging) return; dragging = false;
-                if (drag.cx == null) return;
-                const dx = drag.cx - drag.x, dy = drag.cy - drag.y;
-                ball = { x: 200, y: 480, vx: dx * 4, vy: dy * 4 };
-                shots--; wind.v = rand(-50, 50);
+
+            const angleMeter = ctx.el('div', { style: { position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '24px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
+            const angleSweet = ctx.el('div', { style: { position: 'absolute', top: 0, bottom: 0, left: '40%', width: '22%', background: 'rgba(74,255,122,0.28)', borderLeft: '2px solid #4eff7a', borderRight: '2px solid #4eff7a' } });
+            const angleMark = ctx.el('div', { style: { position: 'absolute', top: '-4px', bottom: '-4px', width: '5px', background: '#ffd24a', left: '0%', boxShadow: '0 0 8px #ffd24a' } });
+            angleMeter.appendChild(angleSweet); angleMeter.appendChild(angleMark);
+            ctx.stage.appendChild(angleMeter);
+
+            const powerMeter = ctx.el('div', { style: { position: 'absolute', right: '20px', top: '60px', width: '32px', height: '380px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
+            const powerSweet = ctx.el('div', { style: { position: 'absolute', left: 0, right: 0, bottom: '52%', height: '22%', background: 'rgba(74,255,122,0.28)', borderTop: '2px solid #4eff7a', borderBottom: '2px solid #4eff7a' } });
+            const powerMark = ctx.el('div', { style: { position: 'absolute', left: '-4px', right: '-4px', height: '5px', background: '#ff3a3a', bottom: '0%', boxShadow: '0 0 8px #ff3a3a' } });
+            powerMeter.appendChild(powerSweet); powerMeter.appendChild(powerMark);
+            ctx.stage.appendChild(powerMeter);
+
+            const phaseLabel = ctx.el('div', { style: { position: 'absolute', top: '52px', left: '50%', transform: 'translateX(-50%)', color: '#ffd24a', fontFamily: 'VT323, monospace', fontSize: '22px', letterSpacing: '3px', textShadow: '0 0 8px #000' }, text: 'TAP TO LOCK ANGLE' });
+            ctx.stage.appendChild(phaseLabel);
+
+            ctx.on(c, 'pointerdown', () => {
+                if (ball || shots <= 0 || phase === 'firing') return;
+                if (phase === 'angle') {
+                    lockedAngle = ANGLE_MIN + (angleVal / 100) * (ANGLE_MAX - ANGLE_MIN);
+                    sfx.tick && sfx.tick(); phase = 'power';
+                    phaseLabel.textContent = 'TAP TO LOCK POWER'; phaseLabel.style.color = '#ff7a7a';
+                } else if (phase === 'power') {
+                    lockedPower = POWER_MIN + (powerVal / 100) * (POWER_MAX - POWER_MIN);
+                    sfx.tick && sfx.tick();
+                    const r = lockedAngle * Math.PI / 180;
+                    ball = { x: 200, y: 480, vx: Math.cos(r) * lockedPower, vy: -Math.sin(r) * lockedPower };
+                    shots--; phase = 'firing'; phaseLabel.textContent = '...';
+                }
             });
             ctx.loop((dt) => {
+                if (phase === 'angle') {
+                    angleVal += angleDir * 105 * dt;
+                    if (angleVal >= 100) { angleVal = 100; angleDir = -1; }
+                    if (angleVal <= 0) { angleVal = 0; angleDir = 1; }
+                } else if (phase === 'power') {
+                    powerVal += powerDir * 125 * dt;
+                    if (powerVal >= 100) { powerVal = 100; powerDir = -1; }
+                    if (powerVal <= 0) { powerVal = 0; powerDir = 1; }
+                }
+                angleMark.style.left = angleVal + '%';
+                powerMark.style.bottom = powerVal + '%';
+
                 if (ball) {
                     ball.vy += 700 * dt; ball.vx += wind.v * dt; ball.x += ball.vx * dt; ball.y += ball.vy * dt;
                     if (ball.y > bin.y && ball.x > bin.x + 6 && ball.x < bin.x + bin.w - 6 && ball.vy > 0) {
                         hits++; sfx.win(); ball = null; ctx.setScore(`HITS ${hits}/5`);
+                        wind.v = rand(-60, 60);
                         if (hits >= 5) { ctx.timeout(() => ctx.win(), 400); return; }
                         if (shots <= 0) { ctx.timeout(() => ctx.lose(), 400); return; }
+                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
                     } else if (ball && ball.y > 540) {
                         sfx.bad(); ball = null;
+                        wind.v = rand(-60, 60);
                         if (hits >= 5) { ctx.timeout(() => ctx.win(), 400); return; }
                         if (shots <= 0) { ctx.timeout(() => ctx.lose(), 400); return; }
+                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
                     }
                 }
                 drawBg(g, 'cell', ctx.W, ctx.H);
@@ -1402,23 +1472,61 @@
     // calibration only partly carries over. 60% hit rate is fair.
     M.cannon = {
         title: 'CANNON',
-        desc: 'Hit the small target across the screen, 3 of 5.',
+        desc: 'Time both meters: angle, then power. Hit the target 3 of 5.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
-            let shots = 5, hits = 0; let ball = null; let angle = 45, power = 700;
+            let shots = 5, hits = 0; let ball = null;
             const tgt = { x: rand(550, 720), y: rand(150, 480), w: 50, h: 50 };
+            const ANGLE_MIN = 15, ANGLE_MAX = 80;
+            const POWER_MIN = 500, POWER_MAX = 1050;
+            let phase = 'angle';
+            let angleVal = 0, angleDir = 1;
+            let powerVal = 0, powerDir = 1;
+            let lockedAngle = 45, lockedPower = 750;
             ctx.setScore(`HITS 0/3`);
-            const ui = ctx.el('div', { style: { position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '12px', alignItems: 'center', background: 'rgba(0,0,0,0.5)', padding: '8px 14px', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '20px' }, html: `ANGLE <input id="a" type="range" min="10" max="80" value="45" style="width:120px"> POWER <input id="p" type="range" min="500" max="950" value="700" style="width:120px"> <button class="px-btn" style="font-size:18px;padding:4px 12px">FIRE</button>` });
-            ctx.stage.appendChild(ui);
-            ctx.on(ui.querySelector('#a'), 'input', e => angle = +e.target.value);
-            ctx.on(ui.querySelector('#p'), 'input', e => power = +e.target.value);
-            ctx.on(ui.querySelector('button'), 'click', () => {
-                if (ball || shots <= 0) return;
-                const r = angle * Math.PI / 180;
-                ball = { x: 80, y: 510, vx: Math.cos(r) * power, vy: -Math.sin(r) * power };
-                shots--;
+
+            const angleMeter = ctx.el('div', { style: { position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)', width: '320px', height: '24px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
+            const angleSweet = ctx.el('div', { style: { position: 'absolute', top: 0, bottom: 0, left: '40%', width: '20%', background: 'rgba(74,255,122,0.28)', borderLeft: '2px solid #4eff7a', borderRight: '2px solid #4eff7a' } });
+            const angleMark = ctx.el('div', { style: { position: 'absolute', top: '-4px', bottom: '-4px', width: '5px', background: '#ffd24a', left: '0%', boxShadow: '0 0 8px #ffd24a' } });
+            angleMeter.appendChild(angleSweet); angleMeter.appendChild(angleMark);
+            ctx.stage.appendChild(angleMeter);
+
+            const powerMeter = ctx.el('div', { style: { position: 'absolute', right: '20px', top: '60px', width: '32px', height: '380px', background: '#1a1a1a', border: '3px solid #555', boxShadow: 'inset 0 0 6px #000' } });
+            const powerSweet = ctx.el('div', { style: { position: 'absolute', left: 0, right: 0, bottom: '50%', height: '24%', background: 'rgba(74,255,122,0.28)', borderTop: '2px solid #4eff7a', borderBottom: '2px solid #4eff7a' } });
+            const powerMark = ctx.el('div', { style: { position: 'absolute', left: '-4px', right: '-4px', height: '5px', background: '#ff3a3a', bottom: '0%', boxShadow: '0 0 8px #ff3a3a' } });
+            powerMeter.appendChild(powerSweet); powerMeter.appendChild(powerMark);
+            ctx.stage.appendChild(powerMeter);
+
+            const phaseLabel = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', color: '#ffd24a', fontFamily: 'VT323, monospace', fontSize: '22px', letterSpacing: '3px', textShadow: '0 0 8px #000' }, text: 'TAP TO LOCK ANGLE' });
+            ctx.stage.appendChild(phaseLabel);
+
+            ctx.on(c, 'pointerdown', () => {
+                if (ball || shots <= 0 || phase === 'firing') return;
+                if (phase === 'angle') {
+                    lockedAngle = ANGLE_MIN + (angleVal / 100) * (ANGLE_MAX - ANGLE_MIN);
+                    sfx.tick && sfx.tick(); phase = 'power';
+                    phaseLabel.textContent = 'TAP TO LOCK POWER'; phaseLabel.style.color = '#ff7a7a';
+                } else if (phase === 'power') {
+                    lockedPower = POWER_MIN + (powerVal / 100) * (POWER_MAX - POWER_MIN);
+                    sfx.tick && sfx.tick();
+                    const r = lockedAngle * Math.PI / 180;
+                    ball = { x: 80, y: 510, vx: Math.cos(r) * lockedPower, vy: -Math.sin(r) * lockedPower };
+                    shots--; phase = 'firing'; phaseLabel.textContent = '...';
+                }
             });
             ctx.loop((dt) => {
+                if (phase === 'angle') {
+                    angleVal += angleDir * 100 * dt;
+                    if (angleVal >= 100) { angleVal = 100; angleDir = -1; }
+                    if (angleVal <= 0) { angleVal = 0; angleDir = 1; }
+                } else if (phase === 'power') {
+                    powerVal += powerDir * 130 * dt;
+                    if (powerVal >= 100) { powerVal = 100; powerDir = -1; }
+                    if (powerVal <= 0) { powerVal = 0; powerDir = 1; }
+                }
+                angleMark.style.left = angleVal + '%';
+                powerMark.style.bottom = powerVal + '%';
+
                 if (ball) {
                     ball.vy += 980 * dt; ball.x += ball.vx * dt; ball.y += ball.vy * dt;
                     if (ball.x > tgt.x && ball.x < tgt.x + tgt.w && ball.y > tgt.y && ball.y < tgt.y + tgt.h) {
@@ -1426,15 +1534,17 @@
                         tgt.x = rand(550, 720); tgt.y = rand(150, 480);
                         if (hits >= 3) { ctx.timeout(() => ctx.win(), 400); return; }
                         if (shots <= 0) { ctx.timeout(() => ctx.lose(), 400); return; }
+                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
                     } else if (ball && (ball.y > 530 || ball.x > ctx.W)) {
                         sfx.bad(); ball = null;
                         if (shots <= 0) { ctx.timeout(() => hits >= 3 ? ctx.win() : ctx.lose(), 400); return; }
+                        phase = 'angle'; phaseLabel.textContent = 'TAP TO LOCK ANGLE'; phaseLabel.style.color = '#ffd24a';
                     }
                 }
                 drawBg(g, 'night', ctx.W, ctx.H);
                 g.fillStyle = '#1a1408'; g.fillRect(0, 530, ctx.W, 40);
                 g.fillStyle = '#3a2a1a'; g.fillRect(0, 528, ctx.W, 4);
-                drawSpr(g, 'cannon', 80, 510, 2, { rot: -angle * Math.PI / 180 });
+                drawSpr(g, 'cannon', 80, 510, 2, { rot: -lockedAngle * Math.PI / 180 });
                 drawSpr(g, 'target', tgt.x + tgt.w/2, tgt.y + tgt.h/2, 4);
                 if (ball) { drawSpr(g, 'cball', ball.x, ball.y, 2); }
                 ctx.setTimer(`SHOTS ${shots}`);
