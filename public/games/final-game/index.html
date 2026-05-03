@@ -749,6 +749,63 @@
         ];
         const studentListString = studentDatabase.map(s => `${s.n} (${s.g})`).join("; ");
 
+        // ---- Student name matching ----
+        // Names on the roster are Kazakh Cyrillic; players may type their
+        // names in Latin (Alikhan, Alixan, Älikhan, Aikhan...) or English-style
+        // shortenings. The original matcher did a literal Latin-substring
+        // check against Cyrillic strings — it could never match anything that
+        // wasn't already in the same alphabet. Fix: transliterate Cyrillic to
+        // Latin, normalize accents, and compare on the consonant skeleton so
+        // vowel-spelling differences don't break the match.
+        const CYR_LAT_MAP = {
+            'а':'a','ә':'a','б':'b','в':'v','г':'g','ғ':'g','д':'d','е':'e','ё':'e',
+            'ж':'zh','з':'z','и':'i','й':'i','к':'k','қ':'k','л':'l','м':'m','н':'n','ң':'n',
+            'о':'o','ө':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ұ':'u','ү':'u',
+            'ф':'f','х':'h','һ':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'',
+            'ы':'y','і':'i','ь':'','э':'e','ю':'yu','я':'ya'
+        };
+        function cyrToLat(s) {
+            let out = '';
+            for (const ch of s.toLowerCase()) {
+                out += (CYR_LAT_MAP[ch] !== undefined) ? CYR_LAT_MAP[ch] : ch;
+            }
+            return out;
+        }
+        // Strip every vowel + non-letter so e.g. "Alikhan" → "lkhn" and
+        // "Әлихан"→"alihan"→"lhn" — close enough that one is contained in
+        // the other for substring matching. Some Latin transliterations of
+        // х/қ use "kh"/"q" (Alixan vs Alikhan), so we map "kh" → "h" first.
+        function nameFingerprint(s) {
+            let out = cyrToLat(s).replace(/kh/g, 'h').replace(/x/g, 'h').replace(/q/g, 'k');
+            out = out.replace(/[^a-z]/g, '').replace(/[aeiou]/g, '');
+            return out;
+        }
+        function matchStudent(typedName, roster) {
+            const trimmed = typedName.trim();
+            if (trimmed.length < 3) return null;
+            const inputParts = trimmed.split(/\s+/).filter(p => p.length >= 2);
+            // Require fingerprints to be at least 3 consonants long so single
+            // 1-2 letter ones (e.g. "hn") don't match the entire roster.
+            const inputFps = inputParts.map(nameFingerprint).filter(fp => fp.length >= 3);
+            if (inputFps.length === 0) return null;
+            // Score each roster entry. Every typed token's fingerprint must
+            // appear as a substring of some student-name token's fingerprint
+            // (or vice versa). The mutual containment makes "Alikhan" (lhn)
+            // match "Әлихан" (lhn), "Alixan", "Aikhan" etc.
+            for (const s of roster) {
+                const studentParts = s.n.toLowerCase().split(/\s+/);
+                const studentFps = studentParts.map(nameFingerprint).filter(fp => fp.length >= 3);
+                if (studentFps.length === 0) continue;
+                const allMatched = inputFps.every(ifp =>
+                    studentFps.some(sfp =>
+                        sfp.includes(ifp) || ifp.includes(sfp)
+                    )
+                );
+                if (allMatched) return s;
+            }
+            return null;
+        }
+
         function setupNextTargetQuestion() {
             if (currentPhase === 1) {
                 let pool;
@@ -1829,8 +1886,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             const cleanName = playerName.toLowerCase().replace(/[\s\.]/g, '');
             const isForbidden = ["asylbi", "mrasylbi", "асылби", "биасыл"].includes(cleanName);
             if (!isForbidden) {
-                const parts = playerName.toLowerCase().split(/\s+/);
-                studentInfo = studentDatabase.find(s => parts.every(p => s.n.toLowerCase().includes(p)));
+                studentInfo = matchStudent(playerName, studentDatabase);
             }
             
             const authSuccess = await initAuth();
