@@ -641,6 +641,22 @@
                 border:2px solid #cc5566; font-family:'VT323',monospace; font-size:16px;
                 padding:6px 14px; cursor:pointer; letter-spacing:1px;">✕ EXIT</button>
         </div>
+        <!-- Picker overlay — opened by REPLACE. Lists every minigame, grouped
+             by category. Click one to abort the current run and launch that
+             game instead. -->
+        <div id="mg-admin-picker" style="display:none; position:absolute; inset:0;
+            z-index:95; background:rgba(0,0,0,0.92); justify-content:center; align-items:center;
+            font-family:'VT323',monospace; padding:24px; box-sizing:border-box;">
+            <div style="background:#0a0a0a; border:3px solid #5566cc; padding:18px 22px;
+                max-width:760px; max-height:92%; overflow-y:auto; box-shadow:0 0 30px rgba(85,102,204,0.4);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="color:#aabaff; font-size:22px; letter-spacing:2px;">REPLACE WITH —</div>
+                    <button id="mg-picker-close" style="background:transparent; color:#ff7a7a; border:2px solid #cc5566;
+                        font-family:'VT323',monospace; font-size:14px; padding:4px 10px; cursor:pointer;">✕ CANCEL</button>
+                </div>
+                <div id="mg-picker-body" style="display:flex; flex-direction:column; gap:10px;"></div>
+            </div>
+        </div>
         <div id="tablet-scaler">
             <div id="tablet-screen-ui">
                 <div class="tablet-header">ASYLBI_OS v3.0</div>
@@ -1964,7 +1980,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             return null;
         }
 
-        function abortCurrentMinigame({ replace } = {}) {
+        function abortCurrentMinigame({ replace, replaceWith } = {}) {
             if (!activeGameCtx) return;
             const wasAdminTest = currentRunningIsAdminTest;
             const oldId = currentRunningId;
@@ -1981,17 +1997,20 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             document.getElementById('mg-hud-score').classList.add('mg-hidden');
 
             if (replace) {
-                // Pick a different game from the same category and re-launch.
-                const cat = findCategoryForGameId(oldId);
-                let nextId = null;
-                if (cat) {
-                    const candidates = cat.ids.filter(x => x !== oldId && window.MINIGAMES && window.MINIGAMES[x]);
-                    if (candidates.length > 0) nextId = candidates[Math.floor(Math.random() * candidates.length)];
-                }
+                // If a specific game id was provided (admin picked from the
+                // REPLACE list), use it. Otherwise fall back to a random
+                // pick from the same category.
+                let nextId = (replaceWith && window.MINIGAMES && window.MINIGAMES[replaceWith]) ? replaceWith : null;
                 if (!nextId) {
-                    // Fallback — pick anything not equal to oldId.
-                    const allIds = Object.keys(window.MINIGAMES || {}).filter(x => x !== oldId);
-                    nextId = allIds[Math.floor(Math.random() * allIds.length)];
+                    const cat = findCategoryForGameId(oldId);
+                    if (cat) {
+                        const candidates = cat.ids.filter(x => x !== oldId && window.MINIGAMES && window.MINIGAMES[x]);
+                        if (candidates.length > 0) nextId = candidates[Math.floor(Math.random() * candidates.length)];
+                    }
+                    if (!nextId) {
+                        const allIds = Object.keys(window.MINIGAMES || {}).filter(x => x !== oldId);
+                        nextId = allIds[Math.floor(Math.random() * allIds.length)];
+                    }
                 }
                 if (!nextId) return;
                 // For the regular Phase 3 run, overwrite the slot so future
@@ -2015,6 +2034,42 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                     onClick: () => startNextGame(),
                 });
             }
+        }
+
+        // Build and show the picker overlay listing every minigame, grouped
+        // by category. Click any → swap the running game for that one.
+        function openAdminPicker() {
+            const picker = document.getElementById('mg-admin-picker');
+            const body = document.getElementById('mg-picker-body');
+            if (!picker || !body || !window.MINIGAMES) return;
+            body.innerHTML = '';
+            const cats = window.MINIGAME_CATEGORIES || {};
+            const oldId = currentRunningId;
+            for (const [name, ids] of Object.entries(cats)) {
+                const heading = document.createElement('div');
+                heading.style.cssText = 'color:#7a8aff; font-size:16px; letter-spacing:2px; margin-top:8px; padding-bottom:4px; border-bottom:1px dashed #334;';
+                heading.textContent = name.toUpperCase();
+                body.appendChild(heading);
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; padding:6px 0 4px;';
+                for (const id of ids) {
+                    if (!window.MINIGAMES[id]) continue;
+                    const isCurrent = id === oldId;
+                    const btn = document.createElement('button');
+                    btn.style.cssText = `background:${isCurrent ? '#1a1a40' : '#0a0a0a'}; color:${isCurrent ? '#7a8aff' : '#fff'};
+                        border:2px solid ${isCurrent ? '#5566cc' : '#3a3a5a'}; font-family:'VT323',monospace; font-size:14px;
+                        padding:5px 10px; cursor:${isCurrent ? 'not-allowed' : 'pointer'}; letter-spacing:1px;`;
+                    btn.textContent = (window.MINIGAMES[id].title || id).slice(0, 24) + (isCurrent ? ' (now)' : '');
+                    btn.disabled = isCurrent;
+                    btn.onclick = () => {
+                        picker.style.display = 'none';
+                        abortCurrentMinigame({ replace: true, replaceWith: id });
+                    };
+                    row.appendChild(btn);
+                }
+                body.appendChild(row);
+            }
+            picker.style.display = 'flex';
         }
 
         function completeGame(success, isAdminTest) {
@@ -2218,8 +2273,12 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
             // Wire the in-tablet admin strip (EXIT / REPLACE current minigame).
             const exitBtn = document.getElementById('mg-admin-exit');
             const replaceBtn = document.getElementById('mg-admin-replace');
+            const pickerCloseBtn = document.getElementById('mg-picker-close');
             if (exitBtn) exitBtn.addEventListener('click', () => abortCurrentMinigame({ replace: false }));
-            if (replaceBtn) replaceBtn.addEventListener('click', () => abortCurrentMinigame({ replace: true }));
+            if (replaceBtn) replaceBtn.addEventListener('click', () => openAdminPicker());
+            if (pickerCloseBtn) pickerCloseBtn.addEventListener('click', () => {
+                document.getElementById('mg-admin-picker').style.display = 'none';
+            });
 
             // Persist the unlock — admins shouldn't have to re-type the
             // password on every reload while they're testing.
