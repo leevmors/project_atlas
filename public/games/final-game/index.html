@@ -1968,7 +1968,14 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                     handleGameState("LOSE"); 
                 } 
                 else { 
-                    callGemini(`[SYSTEM: The game has just started. The player (Name: ${playerName}) wakes up tied to a chair in the dark. YOU MUST SPEAK FIRST. DO NOT INTRODUCE YOURSELF. DO NOT GREET THEM. DO NOT SAY YOUR NAME. Skip all preamble. Immediately ask the first Phase 1 profiling question based on YOUR NEXT ACTION. Limit to 2 sentences.]`);
+                    callGemini(`[SYSTEM: The game has just started. The player (Name: ${playerName}) wakes up tied to a chair in the dark. YOU MUST SPEAK FIRST. DO NOT introduce yourself, greet them, or say your name.
+${studentInfo
+    ? `RECOGNITION FIRST: This player IS one of your students — '${studentInfo.n}' from group '${studentInfo.g}'. Your FIRST sentence must be a suspicious recognition line, e.g. "Wait... ${playerName}? Are you actually ${studentInfo.n} from my ${studentInfo.g} group?" — DO NOT ask the profiling question yet. Output [CONTINUE].`
+    : `THREAT FIRST: This player is NOT on your student roster. Your FIRST sentence MUST be a cold menacing line implying the game just got harder for them — pick one or improvise in the same key:
+   * "You're not one of mine. That's worse for you. I'll make this harder."
+   * "Not on my roster. The questions get nastier when I don't know your face."
+   * "Stranger. The room treats strangers worse."
+After that ONE menacing sentence, immediately ask the first Phase 1 profiling question per YOUR NEXT ACTION. Output [NEXT_Q]. Total length: 2-3 sentences max.`}]`);
                 }
             }, 1000);
         });
