@@ -1151,6 +1151,10 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                 if (trapInterval) { clearInterval(trapInterval); trapInterval = null; }
                 inTrap = false;
                 playerInput.dataset.card = '';
+                // Restore dialogue box if Phase 3 hid it (admin can skip backward).
+                const dialogueBox = document.getElementById('dialogue-box');
+                dialogueBox.style.display = 'block';
+                dialogueBox.style.opacity = '1';
                 tableSpotLight.color.setHex(0xffaa55); tableSpotLight.intensity = 2.5; ambientLight.color.setHex(0x1a1510);
                 showPhase2Cards(); enableInput();
             }
@@ -1164,7 +1168,23 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                 inputContainer.style.display = 'none';
                 playerInput.dataset.card = '';
                 tabletScreen.material.color.setHex(0x334455); // Screen turns on
-                document.getElementById('dialogue-text').innerHTML = "Click the tablet. Win 3 games, or die.";
+
+                // Final line from the kidnapper, then the dialogue box goes
+                // away — Phase 3 is the tablet alone.
+                const dialogueBox = document.getElementById('dialogue-box');
+                const kLabel = document.getElementById('kidnapper-label');
+                kLabel.innerText = "MR. ASYLBI";
+                kLabel.style.color = "#ff3333";
+                kLabel.style.borderColor = "#555";
+                dialogueBox.style.borderColor = "#555";
+                dialogueBox.style.display = 'block';
+                dialogueBox.style.transition = 'opacity 1s';
+                dialogueBox.style.opacity = '1';
+                document.getElementById('dialogue-text').innerHTML = "Play the games.";
+                setTimeout(() => {
+                    dialogueBox.style.opacity = '0';
+                    setTimeout(() => { dialogueBox.style.display = 'none'; }, 1100);
+                }, 2500);
             }
             else if (state === "IRRITATED") {
                 irritationLevel++;
@@ -1540,9 +1560,18 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
             }
         });
 
-        document.body.addEventListener('click', () => {
+        document.body.addEventListener('click', (e) => {
             if (document.getElementById('start-screen').style.display !== 'none') return;
-            
+
+            // Don't process clicks that originated inside a UI overlay — they
+            // have their own handlers. Without this, clicking BEGIN inside
+            // the tablet overlay would bubble here, the raycaster would still
+            // see the 3D tablet behind the overlay, and initPhase3() would
+            // re-fire and reset the round that BEGIN just started.
+            if (e.target.closest('#tablet-overlay') ||
+                e.target.closest('#admin-panel') ||
+                e.target.closest('#admin-gate')) return;
+
             if (hoveredObj && hoveredObj.userData.active) {
                 const card = hoveredObj.userData;
                 if (card.type === 'TRAP') { triggerEnding('SHOT'); return; }
@@ -1550,9 +1579,10 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] if you issued a trap, [
                 window.useCard(card.type, card);
                 return;
             }
-            
-            // Tablet click detection
-            if (hoveredObj && hoveredObj.userData.isTablet && currentPhase === 3) {
+
+            // Tablet click detection — only entry, never re-entry.
+            if (hoveredObj && hoveredObj.userData.isTablet && currentPhase === 3 &&
+                document.getElementById('tablet-overlay').style.display !== 'flex') {
                 initPhase3();
                 return;
             }
