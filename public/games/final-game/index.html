@@ -1553,6 +1553,8 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             // Stop any in-flight Phase 3 minigame tick so it can't keep
             // updating hidden DOM after the player is dead/freed.
             clearPhase3Interval();
+            // Drop off the live-subjects panel.
+            try { stopLivePlayers(); } catch (e) {}
             if (db && userId) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)).catch(e=>{});
 
             const endScreen = document.getElementById('end-screen'); const endText = document.getElementById('end-text'); const flash = document.getElementById('flash-overlay'); const restartBtn = document.getElementById('restart-btn');
@@ -2183,15 +2185,16 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                 studentInfo = matchStudent(playerName, studentDatabase);
             }
             
-            const authSuccess = await initAuth();
-            if (authSuccess && db && userId) {
-                const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId);
-                await setDoc(playerRef, { name: playerName, joinedAt: serverTimestamp() }).catch(e=>{});
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'live_players'), (snapshot) => {
-                    const listEl = document.getElementById('live-players-list'); listEl.innerHTML = '';
-                    snapshot.forEach(d => { const li = document.createElement('li'); li.innerHTML = `<span class="live-dot"></span> ${d.data().name}`; listEl.appendChild(li); });
-                });
-            }
+            // Best-effort Firebase auth — only used in environments that
+            // inject __firebase_config (Firebase Studio embed). In our
+            // standalone deployment this returns false and the live-players
+            // panel falls back to the HTTP heartbeat path below.
+            await initAuth().catch(() => false);
+
+            // Live-subjects via our own /api/games/final-game/players
+            // endpoint. The Firebase setup never works in standalone
+            // deployments because __firebase_config isn't injected.
+            startLivePlayers(playerName);
 
             initAudio();
             document.getElementById('start-screen').style.display = 'none';
@@ -2276,7 +2279,78 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
 
         document.getElementById('give-up-btn').addEventListener('click', () => { document.getElementById('give-up-btn').style.display = 'none'; inputContainer.style.display = 'none'; playerInput.disabled = true; typeWriterEffect("Coward.", () => { triggerEnding("SHOT"); }); });
         document.getElementById('restart-btn').addEventListener('click', () => { location.reload(); });
-        window.addEventListener('beforeunload', () => { if (db && userId) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)); });
+        window.addEventListener('beforeunload', () => {
+            // Best-effort Firebase cleanup (only fires in embed environments
+            // where Firebase actually initialized).
+            if (db && userId) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_players', userId)).catch(()=>{});
+            // HTTP cleanup for the live-subjects panel — sendBeacon survives
+            // the unload window. The endpoint accepts ?clientId=... on DELETE
+            // but most browsers only sendBeacon as POST, so we route via a
+            // simple fetch with keepalive: true.
+            try {
+                if (window.__livePlayerClientId) {
+                    fetch('/api/games/final-game/players?clientId=' + encodeURIComponent(window.__livePlayerClientId), {
+                        method: 'DELETE', keepalive: true,
+                    }).catch(()=>{});
+                }
+            } catch(e) {}
+        });
+
+        // ── HTTP-backed live subjects panel ────────────────────────────────
+        // Independent of Firebase. Each iframe instance gets a sessionStorage
+        // UUID; heartbeats every 10s; polls the list every 5s; cleans up on
+        // unload. Server tracks presence in-memory with a 30s TTL.
+        let __livePlayerHeartbeat = null;
+        let __livePlayerPoll = null;
+        function startLivePlayers(name) {
+            // Stable per-tab id so refresh doesn't duplicate the player.
+            let cid = '';
+            try { cid = sessionStorage.getItem('finalGameClientId') || ''; } catch (e) {}
+            if (!cid) {
+                cid = 'c_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+                try { sessionStorage.setItem('finalGameClientId', cid); } catch (e) {}
+            }
+            window.__livePlayerClientId = cid;
+            const safeName = (name || 'Anonymous').toString().slice(0, 32);
+            // Initial heartbeat + first poll, then intervals.
+            const heartbeat = () => {
+                fetch('/api/games/final-game/players', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clientId: cid, name: safeName }),
+                }).catch(() => {});
+            };
+            const poll = async () => {
+                try {
+                    const res = await fetch('/api/games/final-game/players', { method: 'GET' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const listEl = document.getElementById('live-players-list');
+                    if (!listEl) return;
+                    listEl.innerHTML = '';
+                    for (const p of (data.players || [])) {
+                        const li = document.createElement('li');
+                        li.innerHTML = '<span class="live-dot"></span> ' + (p.name || '?').replace(/[<>]/g, '');
+                        listEl.appendChild(li);
+                    }
+                } catch (e) {}
+            };
+            heartbeat(); poll();
+            if (__livePlayerHeartbeat) clearInterval(__livePlayerHeartbeat);
+            if (__livePlayerPoll) clearInterval(__livePlayerPoll);
+            __livePlayerHeartbeat = setInterval(heartbeat, 10000);
+            __livePlayerPoll = setInterval(poll, 5000);
+        }
+        function stopLivePlayers() {
+            if (__livePlayerHeartbeat) { clearInterval(__livePlayerHeartbeat); __livePlayerHeartbeat = null; }
+            if (__livePlayerPoll) { clearInterval(__livePlayerPoll); __livePlayerPoll = null; }
+            const cid = window.__livePlayerClientId;
+            if (cid) {
+                fetch('/api/games/final-game/players?clientId=' + encodeURIComponent(cid), {
+                    method: 'DELETE', keepalive: true,
+                }).catch(()=>{});
+            }
+        }
 
         // --- ADMIN MODE ---
         // The admin route loads this iframe with ?admin in the query string.
