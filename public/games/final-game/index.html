@@ -1339,7 +1339,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                 dialogueBox.style.display = 'block';
                 dialogueBox.style.transition = 'opacity 1s';
                 dialogueBox.style.opacity = '1';
-                document.getElementById('dialogue-text').innerHTML = "Play the games.";
+                document.getElementById('dialogue-text').innerHTML = "Five games. Win three. Or die.";
                 setTimeout(() => {
                     dialogueBox.style.opacity = '0';
                     setTimeout(() => { dialogueBox.style.display = 'none'; }, 1100);
@@ -1642,6 +1642,10 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             return ctx;
         }
 
+        // Phase 3 constants — 5 games (one per category), need 3 wins.
+        const PHASE3_NEED = 3;
+        const PHASE3_TOTAL = 5;
+
         function initPhase3() {
             cameraMode = 'tablet';
             setTimeout(() => { document.getElementById('tablet-overlay').style.display = 'flex'; }, 1000);
@@ -1650,13 +1654,22 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             gamesWon = 0;
             currentGameIndex = 0;
 
-            // Fisher-Yates shuffle of the FULL registry — pick 3 distinct.
-            const pool = Object.keys(window.MINIGAMES || {});
-            for (let i = pool.length - 1; i > 0; i--) {
+            // Pick exactly ONE game per category. Five categories means five
+            // games, ordered random so no two runs feel the same.
+            const cats = window.MINIGAME_CATEGORIES || {};
+            const catNames = Object.keys(cats);
+            // Shuffle category order (random which dimension comes first).
+            for (let i = catNames.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [pool[i], pool[j]] = [pool[j], pool[i]];
+                [catNames[i], catNames[j]] = [catNames[j], catNames[i]];
             }
-            selectedGames = pool.slice(0, 3);
+            selectedGames = [];
+            for (const cat of catNames) {
+                const ids = (cats[cat] || []).filter(id => window.MINIGAMES && window.MINIGAMES[id]);
+                if (ids.length === 0) continue;
+                const pick = ids[Math.floor(Math.random() * ids.length)];
+                selectedGames.push(pick);
+            }
             // If registry hasn't loaded yet, fail safe and free the player
             // rather than soft-locking the tablet.
             if (selectedGames.length === 0) {
@@ -1668,7 +1681,7 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
 
             showIntro({
                 title: "PHASE 3",
-                desc: "Win 3 games to survive.",
+                desc: `Win ${PHASE3_NEED} of ${PHASE3_TOTAL} games. Win or die.`,
                 button: "BEGIN",
                 onClick: () => startNextGame(),
             });
@@ -1693,9 +1706,16 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
         }
 
         function startNextGame() {
-            if (currentGameIndex >= 3) {
+            // Early WIN if 3 wins are already locked in.
+            if (gamesWon >= PHASE3_NEED) {
                 document.getElementById('tablet-overlay').style.display = 'none';
                 handleGameState('FREE');
+                return;
+            }
+            // No more games to play and not enough wins → death.
+            if (currentGameIndex >= selectedGames.length) {
+                document.getElementById('tablet-overlay').style.display = 'none';
+                handleGameState('LOSE');
                 return;
             }
             const id = selectedGames[currentGameIndex];
@@ -1759,28 +1779,32 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                 return;
             }
 
-            if (success) {
-                gamesWon++;
-                currentGameIndex++;
-                setTimeout(() => {
-                    if (currentGameIndex >= 3) {
-                        document.getElementById('tablet-overlay').style.display = 'none';
-                        handleGameState('FREE');
-                        return;
-                    }
-                    showIntro({
-                        title: "SUCCESS",
-                        desc: `GAMES WON: ${gamesWon}/3`,
-                        button: "NEXT",
-                        onClick: () => startNextGame(),
-                    });
-                }, 1100);
-            } else {
-                setTimeout(() => {
+            if (success) gamesWon++;
+            currentGameIndex++;
+            const remaining = PHASE3_TOTAL - currentGameIndex;
+            const stillPossible = (gamesWon + remaining) >= PHASE3_NEED;
+
+            setTimeout(() => {
+                // Early-win shortcut once the player has secured 3 wins.
+                if (gamesWon >= PHASE3_NEED) {
+                    document.getElementById('tablet-overlay').style.display = 'none';
+                    handleGameState('FREE');
+                    return;
+                }
+                // Mathematically locked out — even winning every remaining
+                // game wouldn't reach 3. End the run early.
+                if (!stillPossible) {
                     document.getElementById('tablet-overlay').style.display = 'none';
                     handleGameState('LOSE');
-                }, 1100);
-            }
+                    return;
+                }
+                showIntro({
+                    title: success ? "SURVIVED" : "FAILED",
+                    desc: `WINS ${gamesWon}/${PHASE3_NEED}  ·  ${remaining} GAME${remaining === 1 ? '' : 'S'} LEFT`,
+                    button: "NEXT",
+                    onClick: () => startNextGame(),
+                });
+            }, 1100);
         }
 
         // --- EVENTS ---

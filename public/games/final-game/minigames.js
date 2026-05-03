@@ -662,13 +662,13 @@
     // requires steady rhythm. Lowered from 20 (felt brutal: instant fail = whole run lost).
     M.flappy_bird = {
         title: 'FLAPPY BIRD',
-        desc: 'Score 12+ in 60 seconds. TAP / SPACE to flap.',
+        desc: 'Score 18+ in 50 seconds. TAP / SPACE to flap.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
             let by = 200, vy = 0, gravity = 900, jump = -340;
             const pipes = []; let spawnT = 0; let score = 0;
             let dead = false;
-            const cd = countdown(ctx, 60, 'TIME', () => { if (!dead) finish(); });
+            const cd = countdown(ctx, 50, 'TIME', () => { if (!dead) finish(); });
             ctx.setScore(`SCORE 0`);
             function flap() { if (!dead) { vy = jump; sfx.tick(); } }
             ctx.on(ctx.stage, 'pointerdown', flap);
@@ -680,7 +680,7 @@
             function finish() {
                 dead = true;
                 cd.stop();
-                ctx.timeout(() => { score >= 12 ? ctx.win() : ctx.lose(); }, 400);
+                ctx.timeout(() => { score >= 18 ? ctx.win() : ctx.lose(); }, 400);
             }
             ctx.loop((dt) => {
                 if (dead) return;
@@ -718,13 +718,13 @@
     // no missed tile and no blank-space tap.
     M.piano_tiles = {
         title: 'PIANO TILES',
-        desc: 'Tap black tiles only. Survive 45 seconds.',
+        desc: 'Tap black tiles only. Survive 60 seconds.',
         run(ctx) {
             const cols = 4; const colW = 800 / cols; const tileH = 110;
             const tiles = []; // {x, y, col, hit}
             let speed = 160; let t = 0; let lastSpawnRow = -1;
             let dead = false;
-            const cd = countdown(ctx, 45, 'TIME', () => { if (!dead) { dead = true; ctx.timeout(() => ctx.win(), 200); } });
+            const cd = countdown(ctx, 60, 'TIME', () => { if (!dead) { dead = true; ctx.timeout(() => ctx.win(), 200); } });
             const { c, g } = mkCanvas(ctx);
             for (let i = 0; i < 4; i++) tiles.push({ y: -tileH * (i+1), col: randInt(0, cols-1), hit: false });
             ctx.on(c, 'pointerdown', (e) => {
@@ -913,7 +913,7 @@
     // distribution this is easily survivable; worst-case clustering is the failure mode.
     M.falling_blocks = {
         title: 'FALLING BLOCKS',
-        desc: 'Tap blocks before they stack to the top. Survive 45 seconds.',
+        desc: 'Tap blocks before they stack to the top. Survive 60 seconds.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
             const cols = 8; const colW = ctx.W / cols; const ceil = 30;
@@ -933,7 +933,7 @@
                     }
                 }
             });
-            countdown(ctx, 45, 'TIME', () => { if (!dead) ctx.win(); });
+            countdown(ctx, 60, 'TIME', () => { if (!dead) ctx.win(); });
             ctx.interval(() => { if (!dead) falling.push({ col: randInt(0, cols-1), y: -40, h: 36 }); }, 600);
             ctx.loop((dt) => {
                 if (dead) return;
@@ -1117,9 +1117,9 @@
     // Pure reflex/attention; threshold is binary and well-tuned.
     M.red_green = {
         title: 'RED / GREEN LIGHT',
-        desc: 'HOLD the screen on GREEN, RELEASE on RED. Survive 10 rounds.',
+        desc: 'HOLD the screen on GREEN, RELEASE on RED. Survive 14 rounds.',
         run(ctx) {
-            let round = 0; const total = 10; let phase = 'WAIT'; // WAIT | GREEN | RED | DONE
+            let round = 0; const total = 14; let phase = 'WAIT'; // WAIT | GREEN | RED | DONE
             let holding = false; let dead = false;
             ctx.stage.style.background = 'radial-gradient(ellipse at center, #1a1408 0%, #050200 100%)';
             const light = ctx.el('div', { style: { position: 'absolute', top: '60px', left: '50%', transform: 'translateX(-50%)', width: '180px', height: '180px', borderRadius: '90px', background: '#222', border: '8px solid #444', boxShadow: 'inset 0 0 40px rgba(0,0,0,0.8), 0 0 30px rgba(255,255,255,0.05)' } });
@@ -1164,10 +1164,10 @@
     // guide makes calibration possible after 1-2 shots. Well-tuned.
     M.basketball = {
         title: 'BASKETBALL',
-        desc: 'Adjust angle and power. Score 5 of 10 shots.',
+        desc: 'Adjust angle and power. Score 6 of 10 shots.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
-            let shots = 0, scored = 0; const total = 10, need = 5;
+            let shots = 0, scored = 0; const total = 10, need = 6;
             const HOOP = { x: 700, y: 240, w: 60, h: 8 };
             let angle = 50, power = 600;
             let ball = null;
@@ -1753,7 +1753,7 @@
     // is normal; 60s is comfortable for an attentive player.
     M.memory_match = {
         title: 'MEMORY MATCH',
-        desc: 'Match all 8 pairs in 60 seconds.',
+        desc: 'Match all 8 pairs in 40 seconds.',
         run(ctx) {
             const symbols = ['◆','▲','●','★','♥','♣','■','✚'];
             const deck = shuffle([...symbols, ...symbols]);
@@ -1782,7 +1782,7 @@
                     ctx.timeout(() => { show(first, false); show(c, false); first = null; lock = false; }, 700);
                 }
             }
-            countdown(ctx, 60, 'TIME', () => matches >= 8 ? ctx.win() : ctx.lose());
+            countdown(ctx, 40, 'TIME', () => matches >= 8 ? ctx.win() : ctx.lose());
         }
     };
 
@@ -2678,45 +2678,344 @@
     // canonical entries within the Pattern and Memory categories.
     // Reflex Tap is added here with hardened spawn behavior.
 
-    // Reflex Tap — 10 hits in 10 seconds. Each new mole spawns at a
-    // random location guaranteed to be at least 120 px from the previous
-    // spawn so the player must actually move the cursor each time.
-    // Difficulty: 1 hit per second average. The 120-px min-distance rule keeps it from
-    // being a degenerate "click in one place" game while still leaving enough buffer
-    // time. Well-tuned.
-    M.reflex_tap = {
-        title: 'REFLEX TAP',
-        desc: 'Tap 10 moles in 10 seconds. They jump to fresh spots.',
+    // (M.reflex_tap removed — was a near-duplicate of M.mole_rush.)
+
+    // -------------------- PUZZLE / STRATEGY (5) --------------------
+
+    // 41. Lights Out — 4x4 grid. Click any cell to toggle it AND its 4
+    // orthogonal neighbors. Goal: turn every light OFF. Starts with a
+    // random valid pattern (random number of taps applied to all-off,
+    // so the puzzle is always solvable).
+    M.puzzle_lights_out = {
+        title: 'LIGHTS OUT',
+        desc: 'Turn every light OFF. Click flips the cell and its 4 neighbors. 60 seconds.',
         run(ctx) {
-            let score = 0; const need = 10;
-            ctx.setScore(`SCORE 0/${need}`);
-            const area = ctx.el('div', { style: { position: 'absolute', inset: '20px', background: 'radial-gradient(ellipse at center, #1a1408 0%, #050200 100%)', border: '4px solid #2a1f10', boxShadow: 'inset 0 0 60px #000' } });
-            ctx.stage.appendChild(area);
-            const SIZE = 60, PAD = 12, MIN_DIST = 120;
-            const maxX = 760 - SIZE - PAD, maxY = 510 - SIZE - PAD;
-            let mole = null; let lastX = -999, lastY = -999;
-            function spawn() {
-                if (mole) mole.remove();
-                let x, y, tries = 0;
-                do {
-                    x = randInt(PAD, maxX);
-                    y = randInt(PAD, maxY);
-                    tries++;
-                } while (tries < 30 && Math.hypot(x - lastX, y - lastY) < MIN_DIST);
-                lastX = x; lastY = y;
-                mole = ctx.el('button', { style: { position: 'absolute', left: x + 'px', top: y + 'px', width: SIZE + 'px', height: SIZE + 'px', background: 'transparent', border: 'none', cursor: 'pointer', backgroundImage: `url(${sprURL('mole', 6)})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', imageRendering: 'pixelated' }, onclick: () => {
-                    if (mole.dataset.hit) return; mole.dataset.hit = '1';
-                    score++; sfx.hit(); ctx.setScore(`SCORE ${score}/${need}`);
-                    if (score >= need) { ctx.win(); return; }
-                    spawn();
-                } });
-                area.appendChild(mole);
+            const N = 4;
+            const cells = []; // 2D state
+            for (let r = 0; r < N; r++) { cells[r] = []; for (let c = 0; c < N; c++) cells[r][c] = 0; }
+            // Generate solvable puzzle: apply 6-10 random toggles to all-off.
+            const toggles = randInt(6, 10);
+            const flip = (r, c) => {
+                if (r < 0 || r >= N || c < 0 || c >= N) return;
+                cells[r][c] ^= 1;
+            };
+            const flipPlus = (r, c) => { flip(r,c); flip(r-1,c); flip(r+1,c); flip(r,c-1); flip(r,c+1); };
+            for (let i = 0; i < toggles; i++) flipPlus(randInt(0, N-1), randInt(0, N-1));
+            const grid = ctx.el('div', { style: { position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', display: 'grid', gridTemplateColumns: `repeat(${N}, 80px)`, gridGap: '8px' } });
+            ctx.stage.appendChild(grid);
+            const btns = [];
+            const refresh = () => {
+                let on = 0;
+                for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+                    btns[r*N+c].style.background = cells[r][c] ? '#ffd24a' : '#1a1a1a';
+                    btns[r*N+c].style.boxShadow = cells[r][c] ? '0 0 14px #ffd24a, inset 0 0 16px #fff8' : 'inset 0 0 12px #000';
+                    if (cells[r][c]) on++;
+                }
+                ctx.setScore(`LIGHTS ${on}`);
+                if (on === 0) { sfx.win && sfx.win(); ctx.win(); }
+            };
+            for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+                const btn = ctx.el('button', { style: { width: '80px', height: '80px', border: '3px solid #555', background: '#1a1a1a', cursor: 'pointer', transition: 'all 0.1s' }, onclick: () => { flipPlus(r, c); sfx.tick && sfx.tick(); refresh(); } });
+                btns.push(btn); grid.appendChild(btn);
             }
-            spawn();
-            countdown(ctx, 10, 'TIME', () => score >= need ? ctx.win() : ctx.lose());
+            refresh();
+            countdown(ctx, 60, 'TIME', () => ctx.lose());
+        }
+    };
+
+    // 42. Sliding Puzzle — 3x3 with tiles 1-8 and one empty slot. Click
+    // a tile adjacent to empty to slide. Solve to row-major 1..8.
+    M.puzzle_sliding = {
+        title: 'SLIDING PUZZLE',
+        desc: 'Click a tile next to the empty slot to slide. Order 1-8. 90 seconds.',
+        run(ctx) {
+            const N = 3; const SIZE = 90;
+            // Start with the goal then make 30 random valid moves so the
+            // puzzle is always solvable.
+            let board = [1,2,3,4,5,6,7,8,0];
+            let empty = 8;
+            const moves = [-1, 1, -N, N];
+            for (let i = 0; i < 30; i++) {
+                const r = Math.floor(empty / N), c = empty % N;
+                const cands = [];
+                if (r > 0) cands.push(empty - N);
+                if (r < N-1) cands.push(empty + N);
+                if (c > 0) cands.push(empty - 1);
+                if (c < N-1) cands.push(empty + 1);
+                const tgt = cands[randInt(0, cands.length-1)];
+                board[empty] = board[tgt]; board[tgt] = 0; empty = tgt;
+            }
+            const wrap = ctx.el('div', { style: { position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', display: 'grid', gridTemplateColumns: `repeat(${N}, ${SIZE}px)`, gap: '6px', padding: '14px', background: '#0a0a0a', border: '4px solid #444', boxShadow: '0 0 24px rgba(0,255,255,0.2)' } });
+            ctx.stage.appendChild(wrap);
+            const tiles = [];
+            const isSolved = () => board.every((v, i) => i === N*N-1 ? v === 0 : v === i + 1);
+            const refresh = () => {
+                for (let i = 0; i < N*N; i++) {
+                    const v = board[i];
+                    tiles[i].textContent = v || '';
+                    tiles[i].style.background = v ? '#1a3a5a' : '#000';
+                    tiles[i].style.color = v ? '#7adfff' : 'transparent';
+                    tiles[i].style.cursor = v ? 'pointer' : 'default';
+                    tiles[i].style.boxShadow = v ? 'inset 0 0 10px rgba(120,220,255,0.3)' : 'none';
+                }
+                if (isSolved()) ctx.win();
+            };
+            const tryMove = (i) => {
+                const r = Math.floor(i / N), c = i % N;
+                const er = Math.floor(empty / N), ec = empty % N;
+                if ((Math.abs(r-er) === 1 && c === ec) || (Math.abs(c-ec) === 1 && r === er)) {
+                    board[empty] = board[i]; board[i] = 0; empty = i;
+                    sfx.tick && sfx.tick();
+                    refresh();
+                }
+            };
+            for (let i = 0; i < N*N; i++) {
+                const t = ctx.el('button', { style: { width: SIZE+'px', height: SIZE+'px', border: '2px solid #2a5a8a', fontSize: '36px', fontFamily: 'VT323, monospace', cursor: 'pointer' }, onclick: () => tryMove(i) });
+                tiles.push(t); wrap.appendChild(t);
+            }
+            refresh();
+            countdown(ctx, 90, 'TIME', () => ctx.lose());
+        }
+    };
+
+    // 43. Mastermind — 4-color hidden code from a palette of 6. 6 guesses.
+    // Feedback after each guess: ● = correct color, correct position;
+    // ○ = correct color, wrong position; nothing = not in code.
+    M.puzzle_mastermind = {
+        title: 'MASTERMIND',
+        desc: 'Crack the 4-color code in 6 guesses.',
+        run(ctx) {
+            const COLORS = ['#ff3a3a', '#3a72e2', '#3ae26a', '#ffd24a', '#a040ff', '#ff8aa0'];
+            const NAMES = ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE', 'PINK'];
+            const code = [randInt(0,5), randInt(0,5), randInt(0,5), randInt(0,5)];
+            const guesses = [];
+            const wrap = ctx.el('div', { style: { position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace' } });
+            ctx.stage.appendChild(wrap);
+            const board = ctx.el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' } });
+            wrap.appendChild(board);
+            const drawBoard = () => {
+                board.innerHTML = '';
+                for (let r = 0; r < 6; r++) {
+                    const row = ctx.el('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' } });
+                    const g = guesses[r];
+                    for (let i = 0; i < 4; i++) {
+                        const peg = ctx.el('div', { style: { width: '36px', height: '36px', borderRadius: '50%', background: g ? COLORS[g.guess[i]] : '#2a2a2a', border: '2px solid #555' } });
+                        row.appendChild(peg);
+                    }
+                    if (g) {
+                        const fb = ctx.el('div', { style: { display: 'flex', gap: '3px', marginLeft: '12px' } });
+                        for (let i = 0; i < g.exact; i++) fb.appendChild(ctx.el('div', { style: { width: '12px', height: '12px', borderRadius: '50%', background: '#fff' } }));
+                        for (let i = 0; i < g.partial; i++) fb.appendChild(ctx.el('div', { style: { width: '12px', height: '12px', borderRadius: '50%', background: 'transparent', border: '2px solid #fff' } }));
+                        row.appendChild(fb);
+                    }
+                    board.appendChild(row);
+                }
+            };
+            // Current row builder
+            const cur = [];
+            const palette = ctx.el('div', { style: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '8px' } });
+            wrap.appendChild(palette);
+            for (let i = 0; i < 6; i++) {
+                const sw = ctx.el('button', { style: { width: '40px', height: '40px', borderRadius: '50%', background: COLORS[i], border: '2px solid #fff', cursor: 'pointer' }, title: NAMES[i], onclick: () => { if (cur.length < 4) { cur.push(i); drawCur(); } } });
+                palette.appendChild(sw);
+            }
+            const curWrap = ctx.el('div', { style: { display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center', marginBottom: '8px' } });
+            wrap.appendChild(curWrap);
+            const drawCur = () => {
+                curWrap.innerHTML = '';
+                for (let i = 0; i < 4; i++) {
+                    curWrap.appendChild(ctx.el('div', { style: { width: '32px', height: '32px', borderRadius: '50%', background: cur[i] != null ? COLORS[cur[i]] : '#2a2a2a', border: '2px solid #888' } }));
+                }
+                const undo = ctx.el('button', { text: 'X', style: { background: '#3a1010', color: '#fff', border: '1px solid #555', padding: '4px 10px', fontFamily: 'VT323, monospace', cursor: 'pointer' }, onclick: () => { cur.pop(); drawCur(); } });
+                const submit = ctx.el('button', { text: 'GUESS', style: { background: '#1a3a1a', color: '#fff', border: '1px solid #555', padding: '4px 14px', fontFamily: 'VT323, monospace', cursor: 'pointer' }, onclick: () => {
+                    if (cur.length !== 4) return;
+                    const guess = cur.slice();
+                    let exact = 0; const codeUsed = new Array(4).fill(false); const guessUsed = new Array(4).fill(false);
+                    for (let i = 0; i < 4; i++) if (guess[i] === code[i]) { exact++; codeUsed[i] = guessUsed[i] = true; }
+                    let partial = 0;
+                    for (let i = 0; i < 4; i++) {
+                        if (guessUsed[i]) continue;
+                        for (let j = 0; j < 4; j++) {
+                            if (codeUsed[j]) continue;
+                            if (guess[i] === code[j]) { partial++; codeUsed[j] = true; break; }
+                        }
+                    }
+                    guesses.push({ guess, exact, partial });
+                    cur.length = 0; drawBoard(); drawCur();
+                    ctx.setScore(`GUESS ${guesses.length}/6`);
+                    if (exact === 4) { sfx.win && sfx.win(); ctx.win(); return; }
+                    if (guesses.length >= 6) { sfx.lose && sfx.lose(); ctx.lose(); return; }
+                } });
+                curWrap.appendChild(undo); curWrap.appendChild(submit);
+            };
+            ctx.setScore('GUESS 0/6');
+            drawBoard(); drawCur();
+        }
+    };
+
+    // 44. 2048 (mini) — 4x4 swipe-merge. Reach the 256 tile in 90 seconds.
+    M.puzzle_2048 = {
+        title: '2048 (TO 256)',
+        desc: 'Use ARROW KEYS or swipe. Combine tiles to reach 256. 90 seconds.',
+        run(ctx) {
+            const N = 4;
+            let board = []; for (let i = 0; i < N*N; i++) board.push(0);
+            const SIZE = 80;
+            const wrap = ctx.el('div', { style: { position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', padding: '14px', background: '#0a0a0a', border: '4px solid #555', display: 'grid', gridTemplateColumns: `repeat(${N}, ${SIZE}px)`, gap: '6px' } });
+            ctx.stage.appendChild(wrap);
+            const tiles = [];
+            const colorFor = (v) => {
+                if (v === 0) return ['#1a1a1a', 'transparent'];
+                const colors = [null, ['#3a3a3a','#fff'], ['#5a3a8a','#fff'], ['#3a72e2','#fff'], ['#3ae26a','#000'], ['#ffd24a','#000'], ['#ff8a3a','#000'], ['#ff3a3a','#fff'], ['#a040ff','#fff'], ['#ff70a0','#000']];
+                const idx = Math.log2(v);
+                return colors[idx] || ['#fff', '#000'];
+            };
+            for (let i = 0; i < N*N; i++) {
+                const t = ctx.el('div', { style: { width: SIZE+'px', height: SIZE+'px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'VT323, monospace', fontSize: '32px', transition: 'all 0.1s' } });
+                tiles.push(t); wrap.appendChild(t);
+            }
+            const refresh = () => {
+                for (let i = 0; i < N*N; i++) {
+                    const [bg, fg] = colorFor(board[i]);
+                    tiles[i].style.background = bg; tiles[i].style.color = fg;
+                    tiles[i].textContent = board[i] || '';
+                }
+                ctx.setScore('TARGET 256');
+                if (board.includes(256)) { sfx.win && sfx.win(); ctx.win(); }
+            };
+            const spawn = () => {
+                const empties = []; for (let i = 0; i < N*N; i++) if (board[i] === 0) empties.push(i);
+                if (empties.length === 0) return;
+                board[empties[randInt(0, empties.length-1)]] = Math.random() < 0.9 ? 2 : 4;
+            };
+            const slide = (line) => {
+                const filtered = line.filter(v => v !== 0);
+                for (let i = 0; i < filtered.length - 1; i++) {
+                    if (filtered[i] === filtered[i+1]) { filtered[i] *= 2; filtered.splice(i+1, 1); }
+                }
+                while (filtered.length < N) filtered.push(0);
+                return filtered;
+            };
+            const move = (dir) => {
+                let changed = false;
+                for (let i = 0; i < N; i++) {
+                    let line = [];
+                    for (let j = 0; j < N; j++) {
+                        if (dir === 'L') line.push(board[i*N+j]);
+                        else if (dir === 'R') line.push(board[i*N+(N-1-j)]);
+                        else if (dir === 'U') line.push(board[j*N+i]);
+                        else line.push(board[(N-1-j)*N+i]);
+                    }
+                    const slid = slide(line);
+                    for (let j = 0; j < N; j++) {
+                        let val = slid[j];
+                        let idx;
+                        if (dir === 'L') idx = i*N+j;
+                        else if (dir === 'R') idx = i*N+(N-1-j);
+                        else if (dir === 'U') idx = j*N+i;
+                        else idx = (N-1-j)*N+i;
+                        if (board[idx] !== val) changed = true;
+                        board[idx] = val;
+                    }
+                }
+                if (changed) { spawn(); sfx.tick && sfx.tick(); refresh(); }
+                else if (!board.includes(0) && !canMove()) { ctx.lose(); }
+            };
+            const canMove = () => {
+                for (let i = 0; i < N*N; i++) {
+                    if (board[i] === 0) return true;
+                    const r = Math.floor(i/N), c = i%N;
+                    if (c < N-1 && board[i] === board[i+1]) return true;
+                    if (r < N-1 && board[i] === board[i+N]) return true;
+                }
+                return false;
+            };
+            spawn(); spawn(); refresh();
+            ctx.on(window, 'keydown', (e) => {
+                if (e.key === 'ArrowLeft') { e.preventDefault(); move('L'); }
+                else if (e.key === 'ArrowRight') { e.preventDefault(); move('R'); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); move('U'); }
+                else if (e.key === 'ArrowDown') { e.preventDefault(); move('D'); }
+            });
+            // Touch: minimal swipe handler.
+            let sx = 0, sy = 0;
+            ctx.on(ctx.stage, 'touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, { passive: true });
+            ctx.on(ctx.stage, 'touchend', (e) => {
+                const t = e.changedTouches[0]; const dx = t.clientX - sx, dy = t.clientY - sy;
+                if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
+                if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 'R' : 'L');
+                else move(dy > 0 ? 'D' : 'U');
+            });
+            countdown(ctx, 90, 'TIME', () => ctx.lose());
+        }
+    };
+
+    // 45. Tower of Hanoi — 4 disks, 3 pegs. Click peg to pick up topmost,
+    // click another peg to drop. Cannot place a larger disk on a smaller.
+    // Optimal solution is 15 moves. Limit: 22.
+    M.puzzle_hanoi = {
+        title: 'TOWER OF HANOI',
+        desc: 'Move all 4 disks from peg 1 to peg 3. Larger never on smaller. 22 moves max.',
+        run(ctx) {
+            const NUM_DISKS = 4;
+            const pegs = [[4,3,2,1], [], []]; // bigger numbers = bigger disks
+            const COLORS = ['#ff3a3a', '#ffd24a', '#3ae26a', '#3a72e2'];
+            let picked = -1; // peg index
+            let moves = 0; const MAX_MOVES = 22;
+            const wrap = ctx.el('div', { style: { position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', display: 'flex', gap: '40px', alignItems: 'flex-end' } });
+            ctx.stage.appendChild(wrap);
+            const pegEls = [];
+            for (let i = 0; i < 3; i++) {
+                const col = ctx.el('div', { style: { display: 'flex', flexDirection: 'column-reverse', alignItems: 'center', minHeight: '260px', width: '180px', borderBottom: '6px solid #aaa', cursor: 'pointer', padding: '4px', position: 'relative' }, onclick: () => clickPeg(i) });
+                const post = ctx.el('div', { style: { position: 'absolute', left: '50%', bottom: '6px', transform: 'translateX(-50%)', width: '8px', height: '240px', background: '#888' } });
+                col.appendChild(post);
+                pegEls.push(col); wrap.appendChild(col);
+            }
+            const refresh = () => {
+                pegEls.forEach((p, i) => {
+                    p.style.borderTop = picked === i ? '3px solid #ffd24a' : '3px solid transparent';
+                    // remove disk children except the post
+                    Array.from(p.querySelectorAll('.disk')).forEach(d => d.remove());
+                    pegs[i].forEach(d => {
+                        const w = 40 + d * 28;
+                        const disk = ctx.el('div', { class: 'disk', style: { position: 'relative', zIndex: '2', width: w + 'px', height: '24px', background: COLORS[d-1], border: '2px solid #000', marginBottom: '2px', borderRadius: '4px', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)' } });
+                        p.appendChild(disk);
+                    });
+                });
+                ctx.setScore(`MOVES ${moves}/${MAX_MOVES}`);
+                if (pegs[2].length === NUM_DISKS) { sfx.win && sfx.win(); ctx.win(); return; }
+                if (moves >= MAX_MOVES) { sfx.lose && sfx.lose(); ctx.lose(); }
+            };
+            const clickPeg = (i) => {
+                if (picked === -1) {
+                    if (pegs[i].length === 0) return;
+                    picked = i;
+                } else if (picked === i) {
+                    picked = -1;
+                } else {
+                    const fromTop = pegs[picked][pegs[picked].length - 1];
+                    const toTop = pegs[i][pegs[i].length - 1];
+                    if (toTop !== undefined && toTop < fromTop) { picked = -1; refresh(); return; }
+                    pegs[i].push(pegs[picked].pop()); moves++; picked = -1;
+                    sfx.tick && sfx.tick();
+                }
+                refresh();
+            };
+            refresh();
+            countdown(ctx, 120, 'TIME', () => ctx.lose());
         }
     };
 
     // -------------------- expose --------------------
     window.MINIGAMES = M;
+
+    // Category map — used by initPhase3() to pick exactly one game per
+    // category so every run tests reflex + aim + memory + pattern + puzzle.
+    window.MINIGAME_CATEGORIES = {
+        reflex:  ['flappy_bird', 'piano_tiles', 'whack_color', 'fruit_ninja', 'mole_rush', 'falling_blocks', 'bug_smash', 'balloon_pop', 'tap_number', 'red_green'],
+        aim:     ['basketball', 'archery', 'angry_birds', 'paper_toss', 'cannon', 'darts', 'penalty_kick', 'bowling', 'pool', 'bottle_flip'],
+        memory:  ['simon_says', 'memory_match', 'sequence_recall', 'cup_shuffle', 'pattern_flash', 'odd_one_out', 'story_recall', 'sound_sequence', 'color_memory', 'word_recall'],
+        pattern: ['color_rules', 'math_sprint', 'spot_imposter', 'sequence_completion', 'symbol_decoder', 'sorting', 'flow_connect', 'grid_logic', 'analogy_sprint', 'password_crack'],
+        puzzle:  ['puzzle_lights_out', 'puzzle_sliding', 'puzzle_mastermind', 'puzzle_2048', 'puzzle_hanoi'],
+    };
 })();
