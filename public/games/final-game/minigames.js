@@ -1344,20 +1344,40 @@
             const pockets = [{x:30,y:30},{x:W-30,y:30},{x:30,y:H-30},{x:W-30,y:H-30},{x:W/2,y:30},{x:W/2,y:H-30}];
             let shots = 5, sunk = 0, dragging = false, dragP = null;
             ctx.setScore(`SUNK 0/4`);
+            // Pointer capture so the drag keeps tracking even when the
+            // cursor leaves the canvas — critical when the cue ball is
+            // near a corner and the player needs to drag in the opposite
+            // direction to charge full power.
+            let capturedPointerId = null;
             ctx.on(c, 'pointerdown', (e) => {
                 if (cue.vx || cue.vy) return;
                 const r = c.getBoundingClientRect();
                 const x = (e.clientX - r.left) * (c.width / r.width);
                 const y = (e.clientY - r.top) * (c.height / r.height);
-                if (Math.hypot(x - cue.x, y - cue.y) < 30) { dragging = true; dragP = { x, y }; }
+                if (Math.hypot(x - cue.x, y - cue.y) < 30) {
+                    dragging = true; dragP = { x, y };
+                    try { c.setPointerCapture(e.pointerId); capturedPointerId = e.pointerId; } catch (err) {}
+                }
             });
-            ctx.on(c, 'pointermove', (e) => { if (!dragging) return; const r = c.getBoundingClientRect(); dragP.cx = (e.clientX - r.left) * (c.width / r.width); dragP.cy = (e.clientY - r.top) * (c.height / r.height); });
-            ctx.on(c, 'pointerup', () => {
+            ctx.on(c, 'pointermove', (e) => {
+                if (!dragging) return;
+                const r = c.getBoundingClientRect();
+                // clientX/Y - r.left can go negative or beyond r.width when
+                // the pointer leaves the canvas — that's intentional, the
+                // larger drag means more power.
+                dragP.cx = (e.clientX - r.left) * (c.width / r.width);
+                dragP.cy = (e.clientY - r.top) * (c.height / r.height);
+            });
+            const finishDrag = (e) => {
                 if (!dragging) return; dragging = false;
+                try { if (capturedPointerId !== null) c.releasePointerCapture(capturedPointerId); } catch (err) {}
+                capturedPointerId = null;
                 if (dragP.cx == null) return;
                 cue.vx = (cue.x - dragP.cx) * 5; cue.vy = (cue.y - dragP.cy) * 5;
                 shots--;
-            });
+            };
+            ctx.on(c, 'pointerup', finishDrag);
+            ctx.on(c, 'pointercancel', finishDrag);
             ctx.loop((dt) => {
                 for (const b of balls) {
                     b.x += b.vx * dt; b.y += b.vy * dt;
