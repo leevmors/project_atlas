@@ -662,7 +662,7 @@
     // requires steady rhythm. Lowered from 20 (felt brutal: instant fail = whole run lost).
     M.flappy_bird = {
         title: 'FLAPPY BIRD',
-        desc: 'Score 18+ in 50 seconds. TAP / SPACE to flap.',
+        desc: 'Score 24+ in 50 seconds. TAP / SPACE to flap.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
             let by = 200, vy = 0, gravity = 900, jump = -340;
@@ -680,7 +680,7 @@
             function finish() {
                 dead = true;
                 cd.stop();
-                ctx.timeout(() => { score >= 18 ? ctx.win() : ctx.lose(); }, 400);
+                ctx.timeout(() => { score >= 24 ? ctx.win() : ctx.lose(); }, 400);
             }
             ctx.loop((dt) => {
                 if (dead) return;
@@ -822,11 +822,11 @@
     // dropped from 12% to 10% to ease the doom-cooldown of repeated unlucky bomb spawns.
     M.fruit_ninja = {
         title: 'FRUIT NINJA',
-        desc: 'Slice 22 fruits in 45s. Avoid bombs.',
+        desc: 'Slice 28 fruits in 40s. Avoid bombs.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
             const items = []; // {x,y,vx,vy,kind,r,sliced}
-            let score = 0; let need = 22; let dead = false;
+            let score = 0; let need = 28; let dead = false;
             ctx.setScore(`SLICED 0/${need}`);
             let lastP = null;
             ctx.on(c, 'pointermove', (e) => {
@@ -853,8 +853,8 @@
                 const isBomb = Math.random() < 0.10;
                 items.push({ x: rand(80, ctx.W - 80), y: ctx.H + 30, vx: rand(-90, 90), vy: rand(-680, -540), kind: isBomb ? 'bomb' : pick(['apple','watermelon','lime','orange']), r: 28, sliced: false });
             }
-            ctx.interval(spawn, 700);
-            countdown(ctx, 45, 'TIME', () => { if (!dead) { dead = true; ctx.timeout(() => score >= need ? ctx.win() : ctx.lose(), 200); } });
+            ctx.interval(spawn, 600);
+            countdown(ctx, 40, 'TIME', () => { if (!dead) { dead = true; ctx.timeout(() => score >= need ? ctx.win() : ctx.lose(), 200); } });
             ctx.loop((dt) => {
                 if (dead) return;
                 for (const it of items) { it.vy += 980 * dt; it.x += it.vx * dt; it.y += it.vy * dt; }
@@ -934,10 +934,10 @@
                 }
             });
             countdown(ctx, 60, 'TIME', () => { if (!dead) ctx.win(); });
-            ctx.interval(() => { if (!dead) falling.push({ col: randInt(0, cols-1), y: -40, h: 36 }); }, 600);
+            ctx.interval(() => { if (!dead) falling.push({ col: randInt(0, cols-1), y: -40, h: 36 }); }, 420);
             ctx.loop((dt) => {
                 if (dead) return;
-                speed += dt * 4;
+                speed += dt * 8;
                 for (const b of falling) b.y += speed * dt;
                 // landing
                 for (let i = falling.length - 1; i >= 0; i--) {
@@ -992,9 +992,9 @@
             });
             const sp = ctx.interval(() => {
                 if (spawned >= total) { ctx.clearInterval(sp); return; }
-                bugs.push({ x: -30, y: rand(40, ctx.H - 40), v: rand(50, 110), wig: 0 });
+                bugs.push({ x: -30, y: rand(40, ctx.H - 40), v: rand(80, 160), wig: 0 });
                 spawned++;
-            }, 700);
+            }, 450);
             ctx.loop((dt) => {
                 if (dead) return;
                 for (const b of bugs) { b.x += b.v * dt; b.wig += dt * 8; }
@@ -1037,10 +1037,10 @@
                     }
                 }
             });
-            let interval = 900;
+            let interval = 600;
             const sp = ctx.interval(() => {
                 if (spawned >= total) { ctx.clearInterval(sp); return; }
-                balloons.push({ x: rand(60, ctx.W - 60), y: ctx.H + 40, v: rand(60, 110) + spawned * 2, color: pick(['#e23a3a','#3a72e2','#3ae26a','#e2c83a','#cc3aee']) });
+                balloons.push({ x: rand(60, ctx.W - 60), y: ctx.H + 40, v: rand(90, 150) + spawned * 3, color: pick(['#e23a3a','#3a72e2','#3ae26a','#e2c83a','#cc3aee']) });
                 spawned++;
             }, interval);
             ctx.loop((dt) => {
@@ -1168,7 +1168,11 @@
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
             let shots = 0, scored = 0; const total = 10, need = 6;
-            const HOOP = { x: 700, y: 240, w: 60, h: 8 };
+            // Hoop position calibrated so that with the 400-900 power slider
+            // and 20-80° angle range, sane shots (power 700-850, angle 50-65)
+            // can land cleanly. Original (700, 240) was mathematically out of
+            // range with the available power.
+            const HOOP = { x: 640, y: 300, w: 72, h: 8 };
             let angle = 50, power = 600;
             let ball = null;
             ctx.setScore(`HITS 0/${need}`);
@@ -1521,18 +1525,19 @@
     // release. Center-aimed strikes knock 6-8; edge rolls usually 2-4. Fair target.
     M.bowling = {
         title: 'BOWLING',
-        desc: 'Aim and roll. Knock 18+ pins across 3 frames.',
+        desc: 'Aim and roll. 3 rolls. Knock down 8+ of the 10 pins.',
         run(ctx) {
             const { c, g } = mkCanvas(ctx);
-            let frame = 0, total = 0;
-            let pins = []; // {x,y,alive}
+            let roll = 0; const totalRolls = 3; const need = 8;
+            let pins = []; // {x,y,alive}  — PERSISTENT across all 3 rolls
             let aiming = true; let aimX = 400; let aimDir = 1; let ball = null;
-            ctx.setScore(`PINS 0`);
             function setupPins() {
                 pins = []; const baseX = 400, baseY = 100;
                 for (let r = 0; r < 4; r++) for (let i = 0; i <= r; i++) pins.push({ x: baseX - r * 22 + i * 44, y: baseY + r * 36, alive: true });
             }
             setupPins();
+            const knockedCount = () => pins.filter(p => !p.alive).length;
+            ctx.setScore(`PINS 0/10`);
             ctx.on(c, 'pointerdown', () => {
                 if (!aiming || ball) return;
                 aiming = false; ball = { x: aimX, y: 540, vy: -700 };
@@ -1546,11 +1551,17 @@
                         if (Math.hypot(ball.x - p.x, ball.y - p.y) < 20) { p.alive = false; sfx.hit(); ball.vy *= 0.95; }
                     }
                     if (ball.y < 60) {
-                        const knocked = pins.filter(p => !p.alive).length;
-                        total += knocked; ctx.setScore(`PINS ${total}`); frame++;
+                        const k = knockedCount();
+                        ctx.setScore(`PINS ${k}/10`); roll++;
                         ball = null;
-                        if (frame >= 3) { ctx.timeout(() => total >= 18 ? ctx.win() : ctx.lose(), 600); return; }
-                        ctx.timeout(() => { setupPins(); aiming = true; }, 800);
+                        // Early win if already at threshold.
+                        if (k >= need) { ctx.timeout(() => ctx.win(), 600); return; }
+                        // No more rolls left.
+                        if (roll >= totalRolls) { ctx.timeout(() => k >= need ? ctx.win() : ctx.lose(), 600); return; }
+                        // Otherwise: KEEP the pin state, just give the player
+                        // another roll. Real bowling style — leftover pins
+                        // matter for the next roll.
+                        ctx.timeout(() => { aiming = true; }, 800);
                     }
                 }
                 drawBg(g, 'wood', ctx.W, ctx.H);
@@ -1567,7 +1578,7 @@
                     drawSpr(g, 'bball', aimX, 548, 2);
                 }
                 if (ball) { drawSpr(g, 'bball', ball.x, ball.y, 2, { rot: ball.y * 0.05 }); }
-                ctx.setTimer(`FRAME ${frame+1}/3`);
+                ctx.setTimer(`ROLL ${Math.min(roll+1, totalRolls)}/${totalRolls}`);
             });
         }
     };
@@ -2141,7 +2152,13 @@
                 ctx.stage.appendChild(grid);
                 const submit = pxBtn('SUBMIT', () => {
                     let correct = 0; for (const w of picked) if (target.includes(w)) correct++;
-                    correct >= 7 ? ctx.win() : ctx.lose();
+                    const wrong = picked.size - correct;
+                    // Win only if you picked at least 7 target words AND
+                    // didn't pick any distractors. Previously the player
+                    // could pick everything (24/24) and win on raw correct
+                    // count alone.
+                    if (correct >= 7 && wrong === 0) ctx.win();
+                    else ctx.lose();
                 });
                 submit.style.cssText += 'position:absolute;bottom:15px;left:50%;transform:translateX(-50%)';
                 ctx.stage.appendChild(submit);
@@ -2149,51 +2166,10 @@
         }
     };
 
-    // -------------------- PATTERN RECOGNITION (10) --------------------
+    // -------------------- PATTERN RECOGNITION (9) --------------------
 
-    // 31. Color Rules — tap shapes that match shifting rule
-    // Difficulty: 15 hits in 60s, rule shifts every 5 hits. Wrong tap = lose-game (harsh
-    // but rule is unambiguous and posted at top). 12 shapes per refresh, ~3-4 match.
-    M.color_rules = {
-        title: 'COLOR RULES',
-        desc: 'Tap shapes matching the current rule. Rule shifts after every 5 hits.',
-        run(ctx) {
-            const colors = [{n:'RED',h:'#e23a3a'},{n:'BLUE',h:'#3a72e2'},{n:'GREEN',h:'#3ae26a'},{n:'YELLOW',h:'#e2c83a'}];
-            const shapes = ['SQUARE','CIRCLE','TRIANGLE'];
-            let rule = randomRule(); let score = 0; let need = 18; let lastShift = 0;
-            const ruleEl = ctx.el('div', { style: { position: 'absolute', top: '20px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '28px', letterSpacing: '4px' } });
-            ctx.stage.appendChild(ruleEl);
-            const board = ctx.el('div', { style: { position: 'absolute', inset: '70px 30px 30px', position: 'absolute' } });
-            ctx.stage.appendChild(board);
-            ctx.setScore(`HITS 0/${need}`);
-            function randomRule() { return Math.random() < 0.5 ? { type: 'color', val: pick(colors) } : { type: 'shape', val: pick(shapes) }; }
-            function refreshRule() { ruleEl.textContent = rule.type === 'color' ? `TAP ${rule.val.n}` : `TAP ${rule.val}`; ruleEl.style.color = rule.type === 'color' ? rule.val.h : '#fff'; }
-            refreshRule();
-            function refresh() {
-                board.innerHTML = '';
-                for (let i = 0; i < 12; i++) {
-                    const col = pick(colors); const sh = pick(shapes);
-                    const matches = (rule.type === 'color' && col.n === rule.val.n) || (rule.type === 'shape' && sh === rule.val);
-                    const x = randInt(20, 720), y = randInt(20, 440);
-                    const el = ctx.el('button', { style: { position: 'absolute', left: x+'px', top: y+'px', width: '60px', height: '60px', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 } });
-                    el.appendChild(drawShape(sh, col.h));
-                    ctx.on(el, 'click', () => {
-                        if (matches) { score++; sfx.hit(); ctx.setScore(`HITS ${score}/${need}`); el.remove(); if (score >= need) ctx.timeout(() => ctx.win(), 300); else if (score - lastShift >= 5) { lastShift = score; rule = randomRule(); refreshRule(); refresh(); } }
-                        else { sfx.lose(); ctx.timeout(() => ctx.lose(), 400); }
-                    });
-                    board.appendChild(el);
-                }
-            }
-            function drawShape(sh, hex) {
-                const c = document.createElement('div'); c.style.cssText = `width:60px;height:60px;background:${hex};`;
-                if (sh === 'CIRCLE') c.style.borderRadius = '50%';
-                if (sh === 'TRIANGLE') { c.style.background = 'transparent'; c.style.borderLeft = '30px solid transparent'; c.style.borderRight = '30px solid transparent'; c.style.borderBottom = `60px solid ${hex}`; c.style.height = '0'; c.style.width = '0'; }
-                return c;
-            }
-            refresh();
-            countdown(ctx, 60, 'TIME', () => score >= need ? ctx.win() : ctx.lose());
-        }
-    };
+    // (M.color_rules removed per design — replaced by the remaining 9
+    // pattern entries.)
 
     // 32. Math Sprint
     // Difficulty: 15 problems in 60s = 4s/problem. Wrong = -3s (forgiving — does not
@@ -2238,9 +2214,9 @@
     // (e.g. red vs deeper red), so it's a moderately easy scan. Wrong tap = lose.
     M.spot_imposter = {
         title: 'SPOT THE IMPOSTER',
-        desc: 'One icon differs from the other 19. 5 rounds, 7 seconds each.',
+        desc: 'One icon differs from the other 19. 5 rounds, 5 seconds each.',
         run(ctx) {
-            let round = 0; const total = 5; const PER_ROUND = 7;
+            let round = 0; const total = 5; const PER_ROUND = 5;
             const grid = ctx.el('div', { style: { position: 'absolute', inset: '60px 80px 40px', display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gridTemplateRows: 'repeat(4,1fr)', gap: '8px' } });
             ctx.stage.appendChild(grid);
             ctx.setScore(`ROUND 0/${total}`);
@@ -2329,36 +2305,48 @@
     // share 2-3 letters with the answer so it requires real decoding.
     M.symbol_decoder = {
         title: 'SYMBOL DECODER',
-        desc: 'Use the key to decode 3 short messages. ALL 3 must be correct.',
+        desc: 'Decode 5 messages in 35 seconds. ALL 5 must be correct.',
         run(ctx) {
-            const symbols = ['▲','●','■','◆','★','♥','♣','✚','◀','▶'];
-            // Build random key A..J → symbols
-            const letters = ['A','B','C','D','E','F','G','H','I','J'];
+            const symbols = ['▲','●','■','◆','★','♥','♣','✚','◀','▶','◐','◑'];
+            // Build random key A..L → symbols (12 letters now to cover the
+            // longer message pool).
+            const letters = ['A','B','C','D','E','F','G','H','I','J','K','L'];
             shuffle(symbols);
             const key = {}; letters.forEach((l, i) => key[l] = symbols[i]);
-            const messages = ['CAGE','DEAD','FACE','HEAD','BEAD','HIDE','BAGE','FADE'];
+            const messages = ['CABBAGE','DEADHEAD','FACELIFT','HEADACHE','BEDLAMITE','HIDEFILE','HACKLE','FADEAWAY','GADFLY','BACKLIFE','LEAFCAKE','JADELIKE','IDEALIZE','KEELHAUL'];
             shuffle(messages);
-            const targets = messages.slice(0, 3);
+            const targets = messages.slice(0, 5);
             let i = 0; let ok = 0;
-            const keyEl = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '20px', right: '20px', display: 'grid', gridTemplateColumns: 'repeat(10,1fr)', gap: '4px', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '24px', textAlign: 'center' } });
+            const keyEl = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '10px', right: '10px', display: 'grid', gridTemplateColumns: 'repeat(12,1fr)', gap: '3px', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '20px', textAlign: 'center' } });
             for (const l of letters) keyEl.appendChild(ctx.el('div', { style: { padding: '4px', background: '#1a1a1a', border: '2px solid #444' }, html: `${l}<br/>${key[l]}` }));
             ctx.stage.appendChild(keyEl);
-            const probEl = ctx.el('div', { style: { position: 'absolute', top: '180px', width: '100%', textAlign: 'center', color: '#3ae26a', fontFamily: 'VT323, monospace', fontSize: '64px', letterSpacing: '14px' } });
-            const opts = ctx.el('div', { style: { position: 'absolute', top: '300px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' } });
+            const probEl = ctx.el('div', { style: { position: 'absolute', top: '170px', width: '100%', textAlign: 'center', color: '#3ae26a', fontFamily: 'VT323, monospace', fontSize: '52px', letterSpacing: '10px' } });
+            const opts = ctx.el('div', { style: { position: 'absolute', top: '280px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', minWidth: '460px' } });
             ctx.stage.appendChild(probEl); ctx.stage.appendChild(opts);
-            ctx.setScore(`DECODED 0/3 (NEED 3)`);
-            let locked = false;
+            ctx.setScore(`DECODED 0/5`);
+            let locked = false; let done = false;
             function next() {
-                if (i >= 3) { ok >= 3 ? ctx.win() : ctx.lose(); return; }
+                if (done) return;
+                if (i >= 5) { done = true; ok >= 5 ? ctx.win() : ctx.lose(); return; }
                 const m = targets[i]; i++;
                 probEl.textContent = m.split('').map(l => key[l]).join(' ');
-                const choices = shuffle([m, ...messages.filter(x => x !== m).slice(0, 3)]);
+                // 4 choices: 1 correct + 3 distractors. Wrong = lose
+                // immediately (must get all 5).
+                const distractors = messages.filter(x => x !== m);
+                shuffle(distractors);
+                const choices = shuffle([m, ...distractors.slice(0, 3)]);
                 opts.innerHTML = ''; locked = false;
                 choices.forEach(v => {
-                    const b = pxBtn(v, () => { if (locked) return; locked = true; opts.querySelectorAll('button').forEach(x => x.disabled = true); if (v === m) { ok++; sfx.win(); ctx.setScore(`DECODED ${ok}/3 (NEED 3)`); } else { sfx.bad(); } ctx.timeout(next, 400); });
-                    b.style.fontSize = '28px'; opts.appendChild(b);
+                    const b = pxBtn(v, () => {
+                        if (locked || done) return; locked = true;
+                        opts.querySelectorAll('button').forEach(x => x.disabled = true);
+                        if (v === m) { ok++; sfx.win(); ctx.setScore(`DECODED ${ok}/5`); ctx.timeout(next, 350); }
+                        else { sfx.bad(); done = true; ctx.timeout(() => ctx.lose(), 400); }
+                    });
+                    b.style.fontSize = '22px'; opts.appendChild(b);
                 });
             }
+            countdown(ctx, 35, 'TIME', () => { if (!done) { done = true; ok >= 5 ? ctx.win() : ctx.lose(); } });
             next();
         }
     };
@@ -2511,7 +2499,7 @@
                     ctx.timeout(makePuzzle, 500);
                 }
             });
-            countdown(ctx, 65, 'TIME', () => round >= total ? ctx.win() : ctx.lose());
+            countdown(ctx, 50, 'TIME', () => round >= total ? ctx.win() : ctx.lose());
             makePuzzle();
         }
     };
@@ -2549,8 +2537,13 @@
                 });
                 b.style.fontSize = '28px'; pad.appendChild(b);
             }
+            ctx.stage.appendChild(pad);
+            // SUBMIT lives in its OWN row below the number pad. Previously it
+            // was appended INSIDE the pad with absolute positioning, which
+            // (since the pad itself is positioned) meant submit was placed
+            // relative to the small pad and visually sat on top of buttons
+            // 2 and 3.
             const submit = pxBtn('SUBMIT', () => {
-                // valid? check rows/cols
                 const M2 = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
                 for (const c of cells) M2[c.r][c.c] = c.val;
                 if (M2.flat().includes(0)) { sfx.bad(); return; }
@@ -2559,8 +2552,7 @@
                 ctx.win();
             });
             submit.style.cssText += 'position:absolute;bottom:10px;left:50%;transform:translateX(-50%)';
-            pad.appendChild(submit);
-            ctx.stage.appendChild(pad);
+            ctx.stage.appendChild(submit);
             ctx.setScore('LATIN SQUARE');
             countdown(ctx, 75, 'TIME', () => ctx.lose());
         }
@@ -2623,9 +2615,9 @@
     // doesn't pinpoint which digits. With 4 tries, deductive players can converge.
     M.password_crack = {
         title: 'PASSWORD CRACK',
-        desc: 'Guess the 4-digit code in 3 tries. Feedback: HOT (very close) / WARM / COLD.',
+        desc: 'Guess the 4-digit code in 7 tries. Feedback: HOT (very close) / WARM / COLD.',
         run(ctx) {
-            const MAX_TRIES = 3;
+            const MAX_TRIES = 7;
             // 4-digit code, digits 0-9, may repeat (true 4-digit deduction).
             const code = []; for (let i = 0; i < 4; i++) code.push(randInt(0, 9));
             const guesses = [];
@@ -2931,16 +2923,38 @@
                 return false;
             };
             spawn(); spawn(); refresh();
-            ctx.on(window, 'keydown', (e) => {
+            // Make the wrap focusable and grab focus immediately so arrow
+            // keys reach this handler even if iframe focus drifted.
+            wrap.setAttribute('tabindex', '0');
+            wrap.style.outline = 'none';
+            try { wrap.focus({ preventScroll: true }); } catch (e) { wrap.focus(); }
+            // Show explicit on-screen controls so the game is playable on
+            // mobile or when the iframe doesn't have keyboard focus.
+            const controls = ctx.el('div', { style: { position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '60px 60px 60px', gridTemplateRows: '60px 60px', gap: '4px' } });
+            const mkArrow = (label, dir, gridArea) => ctx.el('button', { style: { gridArea, fontFamily: 'VT323, monospace', fontSize: '28px', background: '#2a2a4a', color: '#fff', border: '2px solid #5566cc', cursor: 'pointer' }, text: label, onclick: () => move(dir) });
+            const up = mkArrow('▲', 'U', '1 / 2 / 2 / 3');
+            const left = mkArrow('◀', 'L', '2 / 1 / 3 / 2');
+            const down = mkArrow('▼', 'D', '2 / 2 / 3 / 3');
+            const right = mkArrow('▶', 'R', '2 / 3 / 3 / 4');
+            controls.appendChild(up); controls.appendChild(left); controls.appendChild(down); controls.appendChild(right);
+            ctx.stage.appendChild(controls);
+            // Listen on BOTH window and document so arrow keys fire from
+            // wherever focus is.
+            const onKey = (e) => {
                 if (e.key === 'ArrowLeft') { e.preventDefault(); move('L'); }
                 else if (e.key === 'ArrowRight') { e.preventDefault(); move('R'); }
                 else if (e.key === 'ArrowUp') { e.preventDefault(); move('U'); }
                 else if (e.key === 'ArrowDown') { e.preventDefault(); move('D'); }
-            });
-            // Touch: minimal swipe handler.
-            let sx = 0, sy = 0;
-            ctx.on(ctx.stage, 'touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, { passive: true });
+            };
+            ctx.on(window, 'keydown', onKey);
+            ctx.on(document, 'keydown', onKey);
+            // Touch swipe — non-passive so we can prevent the iframe from
+            // scrolling on a vertical drag.
+            let sx = 0, sy = 0, swiping = false;
+            ctx.on(ctx.stage, 'touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; swiping = true; }, { passive: true });
+            ctx.on(ctx.stage, 'touchmove', (e) => { if (swiping) e.preventDefault(); }, { passive: false });
             ctx.on(ctx.stage, 'touchend', (e) => {
+                if (!swiping) return; swiping = false;
                 const t = e.changedTouches[0]; const dx = t.clientX - sx, dy = t.clientY - sy;
                 if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
                 if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 'R' : 'L');
@@ -3015,7 +3029,7 @@
         reflex:  ['flappy_bird', 'piano_tiles', 'whack_color', 'fruit_ninja', 'mole_rush', 'falling_blocks', 'bug_smash', 'balloon_pop', 'tap_number', 'red_green'],
         aim:     ['basketball', 'archery', 'angry_birds', 'paper_toss', 'cannon', 'darts', 'penalty_kick', 'bowling', 'pool', 'bottle_flip'],
         memory:  ['simon_says', 'memory_match', 'sequence_recall', 'cup_shuffle', 'pattern_flash', 'odd_one_out', 'story_recall', 'sound_sequence', 'color_memory', 'word_recall'],
-        pattern: ['color_rules', 'math_sprint', 'spot_imposter', 'sequence_completion', 'symbol_decoder', 'sorting', 'flow_connect', 'grid_logic', 'analogy_sprint', 'password_crack'],
+        pattern: ['math_sprint', 'spot_imposter', 'sequence_completion', 'symbol_decoder', 'sorting', 'flow_connect', 'grid_logic', 'analogy_sprint', 'password_crack'],
         puzzle:  ['puzzle_lights_out', 'puzzle_sliding', 'puzzle_mastermind', 'puzzle_2048', 'puzzle_hanoi'],
     };
 })();
