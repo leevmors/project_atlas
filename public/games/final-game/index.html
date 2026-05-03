@@ -584,10 +584,12 @@
             <button class="adm-btn" data-action="win">TRIGGER WIN (FREE)</button>
             <button class="adm-btn" data-action="lose">TRIGGER LOSE (SHOT)</button>
             <button class="adm-btn" data-action="reset">RESET GAME</button>
+            <button class="adm-btn" data-action="lock" style="border-color:#3a1010; color:#aa5050;">LOCK ADMIN (forget pass)</button>
             <div id="adm-mg-row">
                 <select id="adm-mg-select"><option value="">— pick game —</option></select>
                 <button class="adm-btn" data-action="test-mg">TEST</button>
             </div>
+            <div style="font-size:13px; color:#7a6a4a; text-align:center; padding-top:4px; border-top:1px dashed #554433; margin-top:4px;">GOD MODE: ON — death prevented</div>
         </div>
     </div>
     <style>
@@ -1474,6 +1476,49 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
         }
 
         function triggerEnding(type) {
+            // Admin god-mode — death (SHOT) is intercepted so testers can
+            // run end-to-end without restarting on every wrong answer or
+            // failed minigame. FREE still resolves normally so the win
+            // ending can be exercised. The intercept reverts the in-flight
+            // state (cards, traps, minigame intervals) and returns the
+            // player to a safe interactable phase based on currentPhase.
+            if (type === 'SHOT' && window.__adminGodMode) {
+                if (trapInterval) { clearInterval(trapInterval); trapInterval = null; }
+                inTrap = false; trapDecisionPending = false;
+                activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
+                clearPhase3Interval();
+                document.getElementById('tablet-overlay').style.display = 'none';
+                document.getElementById('ui-layer').style.display = 'flex';
+                // Visible "death prevented" banner so the admin sees what
+                // happened. 1.4s, then drop them into the relevant phase.
+                const dialogueBox = document.getElementById('dialogue-box');
+                dialogueBox.style.display = 'block';
+                dialogueBox.style.opacity = '1';
+                document.getElementById('kidnapper-label').innerText = 'ADMIN';
+                document.getElementById('kidnapper-label').style.color = '#ffd24a';
+                document.getElementById('kidnapper-label').style.borderColor = '#ffd24a';
+                dialogueBox.style.borderColor = '#ffd24a';
+                document.getElementById('dialogue-text').innerHTML = '🛡 GOD MODE — death prevented. Resuming.';
+                setTimeout(() => {
+                    document.getElementById('kidnapper-label').innerText = 'MR. ASYLBI';
+                    document.getElementById('kidnapper-label').style.color = '#ff3333';
+                    document.getElementById('kidnapper-label').style.borderColor = '#555';
+                    dialogueBox.style.borderColor = '#555';
+                    if (currentPhase === 3) {
+                        // Re-enter Phase 3 so the admin can pick another
+                        // minigame from the dropdown or via the tablet.
+                        handleGameState('PHASE3');
+                    } else {
+                        // Phase 1 / 2 — re-enable input on the current question.
+                        inputContainer.style.display = 'flex';
+                        playerInput.disabled = false;
+                        playerInput.value = '';
+                        playerInput.focus();
+                    }
+                }, 1400);
+                return;
+            }
+
             document.getElementById('ui-layer').style.display = 'none';
             document.getElementById('tablet-overlay').style.display = 'none';
             activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
@@ -2050,11 +2095,16 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
         // NOTE: this is a play-test convenience, not security. The "real" admin
         // protection is the parent app's session (only logged-in admins can
         // reach /games/final-game/admin in the first place).
+        // Exposed globally so triggerEnding() / completeGame() can check
+        // god-mode without coupling them to the IIFE scope.
+        window.__adminGodMode = false;
+
         (function setupAdminMode() {
             const params = new URLSearchParams(window.location.search);
             if (!params.has('admin')) return;
 
             const ADMIN_PASSWORD = "mrasylbirules";
+            const STORAGE_KEY = "final_game_admin_unlocked_v1";
             const gate = document.getElementById('admin-gate');
             const pwInput = document.getElementById('admin-password');
             const submit = document.getElementById('admin-submit');
@@ -2062,8 +2112,23 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
             const errEl = document.getElementById('admin-error');
             const panel = document.getElementById('admin-panel');
 
-            gate.style.display = 'flex';
-            setTimeout(() => pwInput.focus(), 50);
+            function unlock() {
+                gate.style.display = 'none';
+                panel.style.display = 'block';
+                window.__adminGodMode = true;
+                try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+            }
+
+            // Persist the unlock — admins shouldn't have to re-type the
+            // password on every reload while they're testing.
+            let alreadyUnlocked = false;
+            try { alreadyUnlocked = localStorage.getItem(STORAGE_KEY) === '1'; } catch (e) {}
+            if (alreadyUnlocked) {
+                unlock();
+            } else {
+                gate.style.display = 'flex';
+                setTimeout(() => pwInput.focus(), 50);
+            }
 
             // Populate minigame tester dropdown (after minigames.js loads).
             function populateMgSelect() {
@@ -2085,8 +2150,7 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
 
             function tryUnlock() {
                 if (pwInput.value === ADMIN_PASSWORD) {
-                    gate.style.display = 'none';
-                    panel.style.display = 'block';
+                    unlock();
                 } else {
                     errEl.innerText = "WRONG PASSWORD";
                     pwInput.value = '';
@@ -2119,6 +2183,12 @@ After that ONE menacing sentence, immediately ask the first Phase 1 profiling qu
                     setInterval(updateTimer, 1000);
                 }
 
+                if (action === 'lock') {
+                    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+                    window.__adminGodMode = false;
+                    location.reload();
+                    return;
+                }
                 if (action === 'phase2') {
                     handleGameState("PHASE2");
                 } else if (action === 'phase3') {
