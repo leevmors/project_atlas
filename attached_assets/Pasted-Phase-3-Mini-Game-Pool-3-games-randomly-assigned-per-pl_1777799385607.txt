@@ -1,0 +1,57 @@
+Phase 3 — Mini-Game Pool
+3 games randomly assigned per player. Tablet on the table. Tap to play.
+
+Reflex
+
+Flappy Bird — score 20+ in 60 seconds
+Piano Tiles — survive 45 seconds at increasing speed
+Whack-a-Mole with rules — hit only AI-called colors, rules shift every 10 seconds
+Fruit Ninja — slice 30 fruit in 45 seconds, avoid bombs
+Mole Rush — 25 hits in 20 seconds, pure speed
+Falling Blocks — destroy blocks before they stack to ceiling, survive 45 seconds
+Bug Smash — smash 20 bugs before any reach the other side
+Balloon Pop — pop all balloons before any escape, speed increases
+Tap the Number — numbers 1–20 appear randomly, tap in order as fast as possible
+Red Light Green Light — stop on red, go on green, survive 10 rounds
+
+
+Aim / Power
+
+Basketball — set angle, charge power, make 5/10 shots
+Archery — hit moving target 3 times in 5 arrows
+Angry Birds — knock all targets in 3 shots
+Paper Toss — land 5/8 into the bin
+Cannon — hit small target across screen, 3/5
+Darts — land 3 in moving bullseye
+Penalty Kick — score 3/5, goalkeeper moves randomly
+Bowling — knock 15+ pins across 3 frames
+Pool — sink 3 balls in 5 shots
+Bottle Flip — land upright 3 out of 5 flicks
+
+
+Memory
+
+Simon Says — reproduce sequences, reach length 8
+Memory Match — match all pairs in 60 seconds
+Sequence Recall — reproduce 10 numbers after 5 seconds
+Cup Shuffle — find the ball in 5 rounds of increasing speed
+Pattern Flash — reproduce 3x3 grid patterns, 10 rounds
+Odd One Out — spot difference between two images in 3 seconds, 5 in a row
+Story Recall — listen to 30-second story, answer 5 detail questions
+Sound Sequence — reproduce 5-tone sequence by tapping numbered buttons
+Color Memory — reproduce 8 colors in exact order
+Word Recall — remember 12 words in 10 seconds, reproduce 8+
+
+
+Pattern Recognition
+
+Color Rules — tap matching shapes, rules shift mid-game
+Math Sprint — solve 15 problems in 60 seconds
+Spot the Imposter — find odd one out of 20 icons, 5 rounds
+Sequence Completion — find next in sequence, 5 problems in 90 seconds
+Symbol Decoder — decode 3 messages using a key
+Sorting — drag falling items into correct bins at increasing speed
+Flow Connect — connect colored dots without crossing paths, 5 puzzles in 90 seconds
+Grid Logic — complete 4x4 sudoku-style grid in 60 seconds
+Analogy Sprint — 10 analogies in 60 seconds
+Password Crack — deduce 4-digit code from clues in 3 guesses
