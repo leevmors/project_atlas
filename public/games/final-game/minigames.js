@@ -1914,24 +1914,37 @@
         }
     };
 
-    // -------------------- LEGACY ORIGINALS (3) --------------------
-    // The original Phase 3 had three minigames. They are kept here as
-    // distinct, faster/simpler variants alongside the extended versions
-    // above so the full registry stays at 43 entries.
+    // -------------------- POLISHED LEGACY ORIGINAL --------------------
+    // The original Phase 3 had three mini-games: Reflex Tap, Math Sprint,
+    // and Simon Says. The polished Math Sprint (with -3s wrong-answer
+    // penalty) and Simon Says (target length 8) are defined above as
+    // canonical entries within the Pattern and Memory categories.
+    // Reflex Tap is added here with hardened spawn behavior.
 
-    // L1. Reflex Tap (classic) — 10 hits in 10s, single mole roams
+    // Reflex Tap — 10 hits in 10 seconds. Each new mole spawns at a
+    // random location guaranteed to be at least 120 px from the previous
+    // spawn so the player must actually move the cursor each time.
     M.reflex_tap = {
         title: 'REFLEX TAP',
-        desc: 'Tap 10 moles in 10 seconds. They keep moving.',
+        desc: 'Tap 10 moles in 10 seconds. They jump to fresh spots.',
         run(ctx) {
             let score = 0; const need = 10;
             ctx.setScore(`SCORE 0/${need}`);
             const area = ctx.el('div', { style: { position: 'absolute', inset: '20px', background: '#1a1408', border: '4px solid #2a1f10' } });
             ctx.stage.appendChild(area);
-            let mole = null;
+            const SIZE = 60, PAD = 12, MIN_DIST = 120;
+            const maxX = 760 - SIZE - PAD, maxY = 510 - SIZE - PAD;
+            let mole = null; let lastX = -999, lastY = -999;
             function spawn() {
                 if (mole) mole.remove();
-                mole = ctx.el('button', { style: { position: 'absolute', left: rand(20, 700) + 'px', top: rand(20, 480) + 'px', width: '60px', height: '60px', background: '#8b3a1f', border: '4px solid #c95a2f', cursor: 'pointer' }, onclick: () => {
+                let x, y, tries = 0;
+                do {
+                    x = randInt(PAD, maxX);
+                    y = randInt(PAD, maxY);
+                    tries++;
+                } while (tries < 30 && Math.hypot(x - lastX, y - lastY) < MIN_DIST);
+                lastX = x; lastY = y;
+                mole = ctx.el('button', { style: { position: 'absolute', left: x + 'px', top: y + 'px', width: SIZE + 'px', height: SIZE + 'px', background: '#8b3a1f', border: '4px solid #c95a2f', cursor: 'pointer', borderRadius: '50%' }, onclick: () => {
                     if (mole.dataset.hit) return; mole.dataset.hit = '1';
                     score++; sfx.hit(); ctx.setScore(`SCORE ${score}/${need}`);
                     if (score >= need) { ctx.win(); return; }
@@ -1941,77 +1954,6 @@
             }
             spawn();
             countdown(ctx, 10, 'TIME', () => score >= need ? ctx.win() : ctx.lose());
-        }
-    };
-
-    // L2. Math Sprint (classic) — 5 problems, 15s, wrong answer = lose
-    M.math_sprint_classic = {
-        title: 'MATH SPRINT (CLASSIC)',
-        desc: 'Solve 5 problems in 15 seconds. One wrong answer ends it.',
-        run(ctx) {
-            let score = 0; const need = 5;
-            const probEl = ctx.el('div', { style: { position: 'absolute', top: '140px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '64px' } });
-            const opts = ctx.el('div', { style: { position: 'absolute', top: '290px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '20px' } });
-            ctx.stage.appendChild(probEl); ctx.stage.appendChild(opts);
-            ctx.setScore(`SOLVED 0/${need}`);
-            countdown(ctx, 15, 'TIME', () => score >= need ? ctx.win() : ctx.lose());
-            function next() {
-                if (score >= need) { ctx.timeout(() => ctx.win(), 300); return; }
-                const a = randInt(0, 19), b = randInt(0, 19); const ans = a + b;
-                probEl.textContent = `${a} + ${b} = ?`;
-                const wrongs = new Set();
-                while (wrongs.size < 2) { const d = randInt(-5, 5); if (d === 0) continue; wrongs.add(ans + d); }
-                const choices = shuffle([ans, ...wrongs]);
-                opts.innerHTML = '';
-                choices.forEach(v => {
-                    const b = pxBtn(String(v), () => {
-                        if (v === ans) { score++; sfx.hit(); ctx.setScore(`SOLVED ${score}/${need}`); next(); }
-                        else { sfx.lose(); ctx.timeout(() => ctx.lose(), 300); }
-                    });
-                    b.style.fontSize = '32px'; opts.appendChild(b);
-                });
-            }
-            next();
-        }
-    };
-
-    // L3. Simon Says (classic) — 4 rounds (length 4)
-    M.simon_says_classic = {
-        title: 'SIMON SAYS (CLASSIC)',
-        desc: 'Watch the sequence, then repeat. 4 rounds.',
-        run(ctx) {
-            const seq = []; let pStep = 0; const TARGET = 4; let watching = true;
-            const colors = ['#e23a3a', '#3a72e2', '#3ae26a', '#e2c83a'];
-            const grid = ctx.el('div', { style: { position: 'absolute', top: '120px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' } });
-            const msg = ctx.el('div', { style: { position: 'absolute', top: '50px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '36px', letterSpacing: '4px' }, text: 'WATCH' });
-            const btns = colors.map((col, i) => {
-                const b = ctx.el('button', { style: { width: '170px', height: '170px', background: col, opacity: 0.4, border: 'none', cursor: 'pointer', transition: 'opacity 0.1s' }, onclick: () => onTap(i) });
-                grid.appendChild(b); return b;
-            });
-            ctx.stage.appendChild(grid); ctx.stage.appendChild(msg);
-            ctx.setScore(`ROUND 0/${TARGET}`);
-            function flash(i) { btns[i].style.opacity = 1; ctx.timeout(() => { btns[i].style.opacity = 0.4; }, 300); beep(220 + i * 110, 0.2, 'square', 0.05); }
-            function play() {
-                watching = true; msg.textContent = 'WATCH'; pStep = 0;
-                seq.push(randInt(0, 3));
-                ctx.setScore(`ROUND ${seq.length-1}/${TARGET}`);
-                let i = 0;
-                const id = ctx.interval(() => {
-                    if (i < seq.length) { flash(seq[i]); i++; }
-                    else { ctx.clearInterval(id); ctx.timeout(() => { watching = false; msg.textContent = 'REPEAT'; }, 300); }
-                }, 700);
-            }
-            function onTap(i) {
-                if (watching) return; flash(i);
-                if (i === seq[pStep]) {
-                    pStep++;
-                    if (pStep === seq.length) {
-                        if (seq.length >= TARGET) { ctx.timeout(() => ctx.win(), 400); return; }
-                        ctx.timeout(play, 800);
-                    }
-                } else { sfx.lose(); ctx.timeout(() => ctx.lose(), 400); }
-            }
-            play();
         }
     };
 

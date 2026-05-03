@@ -65,7 +65,9 @@ The app starts automatically via the "Start application" workflow using `npm run
 
 The Final Game lives in `public/games/final-game/` and is loaded by
 `app/games/final-game/page.tsx`. Phase 3 (the in-cabin tablet) randomly
-picks **3 of 43 mini-games** for each run.
+picks **3 of 41 mini-games** for each run (40 new + the polished
+original Reflex Tap; the polished originals of Math Sprint and Simon
+Says are listed within the new Pattern and Memory categories).
 
 ### Architecture
 
@@ -95,8 +97,11 @@ picks **3 of 43 mini-games** for each run.
   - **Pattern (10)**: color_rules, math_sprint, spot_imposter,
     sequence_completion, symbol_decoder, sorting, flow_connect, grid_logic,
     analogy_sprint, password_crack
-  - **Legacy classics (3)**: reflex_tap, math_sprint_classic,
-    simon_says_classic — preserved versions of the original three games
+  - **Polished original (1)**: reflex_tap — the classic 10-hit mole
+    tapper, hardened with non-overlapping spawns. Math Sprint (with -3s
+    wrong-answer time penalty) and Simon Says (target sequence length 8)
+    are the polished versions of the other two originals and live in
+    the Pattern and Memory categories above.
 
 ### Adding a new mini-game
 
