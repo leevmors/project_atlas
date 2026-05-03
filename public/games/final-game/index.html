@@ -517,9 +517,10 @@
             } catch(e) { return false; }
         }
 
-        const apiKey = ""; 
-        const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+        // Server-side proxy — keeps the API key off the browser. The proxy at
+        // /api/games/final-game/chat forwards to gemini-2.5-flash using the
+        // GEMINI_API_KEY env var on the server.
+        const API_URL = "/api/games/final-game/chat";
 
         let chatHistory = [];
         let irritationLevel = 0;
