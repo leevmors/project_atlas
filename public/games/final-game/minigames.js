@@ -1012,57 +1012,7 @@
         }
     };
 
-    // 8. Balloon Pop
-    // Difficulty: 20 balloons; speed = rand(60-110) + spawned*2 (was *4 — late balloons
-    // were rocket-fast and unhittable). Now last balloon caps near 150 px/s = 4s travel.
-    // Any escape = lose, so threshold remains all-or-nothing but pacing is fairer.
-    M.balloon_pop = {
-        title: 'BALLOON POP',
-        desc: 'Pop all 20 balloons before any escape the top.',
-        run(ctx) {
-            const { c, g } = mkCanvas(ctx);
-            const balloons = []; let spawned = 0; let popped = 0; const total = 20; let dead = false;
-            ctx.setScore(`POPPED 0/${total}`);
-            ctx.on(c, 'pointerdown', (e) => {
-                if (dead) return;
-                const r = c.getBoundingClientRect();
-                const x = (e.clientX - r.left) * (c.width / r.width);
-                const y = (e.clientY - r.top) * (c.height / r.height);
-                for (let i = balloons.length - 1; i >= 0; i--) {
-                    const b = balloons[i];
-                    if (Math.abs(x - b.x) < 30 && Math.abs(y - b.y) < 36) {
-                        balloons.splice(i, 1); popped++; sfx.hit(); ctx.setScore(`POPPED ${popped}/${total}`);
-                        if (popped >= total) { dead = true; ctx.timeout(() => ctx.win(), 200); }
-                        return;
-                    }
-                }
-            });
-            let interval = 600;
-            const sp = ctx.interval(() => {
-                if (spawned >= total) { ctx.clearInterval(sp); return; }
-                balloons.push({ x: rand(60, ctx.W - 60), y: ctx.H + 40, v: rand(90, 150) + spawned * 3, color: pick(['#e23a3a','#3a72e2','#3ae26a','#e2c83a','#cc3aee']) });
-                spawned++;
-            }, interval);
-            ctx.loop((dt) => {
-                if (dead) return;
-                for (const b of balloons) b.y -= b.v * dt;
-                if (balloons.some(b => b.y < -40)) { dead = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 300); return; }
-                if (spawned >= total && balloons.length === 0) { dead = true; ctx.timeout(() => ctx.win(), 200); return; }
-                drawBg(g, 'sky', ctx.W, ctx.H);
-                for (const b of balloons) {
-                    // procedural per-balloon tint (each balloon picks its own color);
-                    // hand-shaded pixel rectangles produce the chunky retro look.
-                    g.save(); g.translate(b.x, b.y);
-                    g.fillStyle = '#000'; g.fillRect(-1, 16, 2, 30);
-                    g.fillStyle = b.color; g.fillRect(-22, -28, 44, 44);
-                    g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(8, -16, 8, 32); g.fillRect(-22, 8, 44, 8);
-                    g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(-14, -22, 6, 6); g.fillRect(-12, -16, 2, 8);
-                    g.fillStyle = b.color; g.beginPath(); g.moveTo(-4, 14); g.lineTo(4, 14); g.lineTo(0, 22); g.closePath(); g.fill();
-                    g.restore();
-                }
-            });
-        }
-    };
+    // (M.balloon_pop removed — too easy, replaced by tighter games.)
 
     // 9. Tap the Number
     // Difficulty: 20 numbers in 45s (was 30s) with hard reset on wrong tap. The reset
@@ -2065,59 +2015,158 @@
     // Difficulty: tightened from 3s → 1.8s per round (5 rounds, all needed). The bright
     // star is still salient but at <2s scan time the player must commit quickly. Misclick
     // outside the star wastes time but doesn't penalize. Estimate ~50% win at 1.8s.
-    M.odd_one_out = {
-        title: 'ODD ONE OUT',
-        desc: 'Spot the difference between two images. 5 rounds, 1.8s each.',
-        run(ctx) {
-            let round = 0; const total = 5;
-            const wrap = ctx.el('div', { style: { position: 'absolute', inset: '60px 40px 60px', display: 'flex', gap: '20px' } });
-            const left = ctx.el('div', { style: { flex: 1, position: 'relative', background: '#222', border: '3px solid #555' } });
-            const right = ctx.el('div', { style: { flex: 1, position: 'relative', background: '#222', border: '3px solid #555' } });
-            wrap.appendChild(left); wrap.appendChild(right); ctx.stage.appendChild(wrap);
-            ctx.setScore(`ROUND 0/${total}`);
-            let target = null; // {x,y} relative to either side
-            let timer = null;
-            function buildSide(side, hide) {
-                side.innerHTML = '';
-                for (let i = 0; i < 12; i++) {
-                    const x = randInt(20, 280), y = randInt(20, 380);
-                    const sh = ctx.el('div', { style: { position: 'absolute', left: x+'px', top: y+'px', width: '24px', height: '24px', background: pick(['#e23a3a','#3a72e2','#3ae26a','#e2c83a','#cc3aee']), border: '2px solid #000' } });
-                    side.appendChild(sh);
-                }
-                if (!hide) {
-                    target = { x: randInt(20, 280), y: randInt(20, 380) };
-                    const star = ctx.el('div', { style: { position: 'absolute', left: target.x+'px', top: target.y+'px', width: '36px', height: '36px', background: '#fff', border: '3px solid #ff3a3a', cursor: 'pointer' }, onclick: () => onFound() });
-                    side.appendChild(star);
-                }
-            }
-            function onFound() {
-                if (timer) ctx.clearTimeout(timer);
-                sfx.win(); round++; ctx.setScore(`ROUND ${round}/${total}`);
-                if (round >= total) { ctx.timeout(() => ctx.win(), 400); return; }
-                ctx.timeout(start, 500);
-            }
-            function start() {
-                buildSide(left, true); buildSide(right, false);
-                timer = ctx.timeout(() => { sfx.lose(); ctx.lose(); }, 1800);
-            }
-            start();
-        }
-    };
+    // (M.odd_one_out removed.)
 
     // 27. Story Recall
-    // Difficulty: 30s read time, 5 questions, need 4+. ALL-CAPS keywords prime memory.
-    // Threshold of 4/5 is the sweet spot — 5/5 would be too punishing for one slip.
+    // 20 short stories. Each has at least one TRICK question — typically a
+    // negation ("which character was NOT mentioned"), a chronology trap, a
+    // distractor that sounds plausible from context, or a question about a
+    // detail the player likely glossed over (the COLOR of the second item
+    // mentioned, etc.). 30s study, 5 questions, need 4+.
     M.story_recall = {
         title: 'STORY RECALL',
-        desc: 'Read the story carefully. You have 30 seconds. Then answer 5 questions (need 4+).',
+        desc: 'Read carefully. 30s study. 5 questions. Need 4+. Trick questions are real.',
         run(ctx) {
             const stories = [
                 { story: "MARA found a brass key under the third floor stairs at 4:45 PM. The key opened a red door behind the BOILER ROOM, where she discovered a ledger listing 12 names and a SILVER coin dated 1947. She hid the coin in her left coat pocket and ran to find her brother NOAH.", q: [
-                    { q: "Whose name was the protagonist?", a: ["MARA","NOAH","ASYLBI","THE GIRL"], c: 0 },
                     { q: "What time did she find the key?", a: ["4:00 PM","4:45 PM","5:15 PM","6:30 PM"], c: 1 },
+                    { q: "What floor were the stairs on?", a: ["First","Second","Third","Basement"], c: 2 },
                     { q: "How many names were in the ledger?", a: ["8","10","12","20"], c: 2 },
-                    { q: "What year was the coin dated?", a: ["1939","1947","1953","1962"], c: 1 },
+                    { q: "Which color was NOT mentioned?", a: ["Red","Silver","Gold","Brass"], c: 2 },
                     { q: "Where did she hide the coin?", a: ["Right pocket","Left pocket","Her shoe","A drawer"], c: 1 },
+                ]},
+                { story: "TIMUR boarded the 7:14 train at Almaty-2 with a green backpack containing 3 BOOKS, a passport, and a sandwich. He got off at the FOURTH stop and met his cousin LEILA wearing a yellow scarf. They walked north for 8 minutes to a cafe called RIVAL.", q: [
+                    { q: "What time did Timur board?", a: ["7:04","7:14","7:40","8:14"], c: 1 },
+                    { q: "Which item was NOT in the backpack?", a: ["Books","Passport","Sandwich","Wallet"], c: 3 },
+                    { q: "Which stop did he get off at?", a: ["Third","Fourth","Fifth","Last"], c: 1 },
+                    { q: "What color was Leila's scarf?", a: ["Yellow","Green","Red","Blue"], c: 0 },
+                    { q: "How long did they walk?", a: ["3 minutes","8 minutes","18 minutes","Half an hour"], c: 1 },
+                ]},
+                { story: "DR. KIM kept 5 jars on her desk: red, blue, green, white, black. She added 4 drops to the GREEN jar at 9 AM, then 7 drops to the WHITE jar at 9:15. The lab cat KIRA knocked the BLUE jar over at 9:23. Dr. Kim cleaned it up before the lecture at 10:00.", q: [
+                    { q: "How many jars total?", a: ["3","4","5","6"], c: 2 },
+                    { q: "Which jar got 7 drops?", a: ["Red","Green","White","Black"], c: 2 },
+                    { q: "Which jar did the cat knock over?", a: ["Red","Blue","Green","Black"], c: 1 },
+                    { q: "Which color jar was NOT on the desk?", a: ["Yellow","Black","White","Blue"], c: 0 },
+                    { q: "What was at 10:00?", a: ["A lecture","Lunch","Cleanup","Another experiment"], c: 0 },
+                ]},
+                { story: "The thief stole 14 coins from the SECOND vault on TUESDAY night. He left footprints near the east window and dropped a button from a BROWN coat. Detective AKMARAL arrived at 6 AM Wednesday and found a torn note in Russian saying 'meet at the bridge'.", q: [
+                    { q: "Which vault was robbed?", a: ["First","Second","Third","Main"], c: 1 },
+                    { q: "When was the robbery?", a: ["Monday","Tuesday","Wednesday","Friday"], c: 1 },
+                    { q: "How many coins were stolen?", a: ["4","12","14","40"], c: 2 },
+                    { q: "What did the thief drop?", a: ["A glove","A button","A ring","Nothing"], c: 1 },
+                    { q: "What language was the note in?", a: ["English","Russian","Kazakh","Unknown"], c: 1 },
+                ]},
+                { story: "ANNA bought 3 apples, 2 pears, and 1 mango at the market for 1200 tenge. She gave the mango to her grandmother BAYAN and ate one apple on the bus home. The bus number was 47 and it took 22 minutes.", q: [
+                    { q: "What did she give to Bayan?", a: ["Apple","Pear","Mango","All of them"], c: 2 },
+                    { q: "Which fruit was NOT bought?", a: ["Apple","Pear","Mango","Peach"], c: 3 },
+                    { q: "How many apples did she eat?", a: ["1","2","3","Zero"], c: 0 },
+                    { q: "What was the bus number?", a: ["27","47","57","74"], c: 1 },
+                    { q: "How much did she spend?", a: ["1200","1500","2200","1020"], c: 0 },
+                ]},
+                { story: "The PILOT named YEGOR took off from gate 12 at 03:50. The plane carried 187 passengers, including a baby and TWO dogs. The flight lasted 4 hours 35 minutes. The co-pilot was named DARIA and the destination was DUBAI.", q: [
+                    { q: "What gate did they leave from?", a: ["2","12","20","21"], c: 1 },
+                    { q: "How many dogs were on board?", a: ["1","2","3","Zero"], c: 1 },
+                    { q: "Who was the co-pilot?", a: ["Yegor","Daria","Anna","Not mentioned"], c: 1 },
+                    { q: "Was a CAT on board?", a: ["Yes","No","Mentioned but not on board","Two of them"], c: 1 },
+                    { q: "What was the destination?", a: ["Doha","Dubai","Damascus","Delhi"], c: 1 },
+                ]},
+                { story: "ZAHRA painted the kitchen wall LAVENDER on Saturday. She used 2 cans of paint and finished by 6 PM. Her dog MAX bumped a can and spilled it on the BLUE rug, which she had to throw out. She bought a new GRAY rug on Sunday for 8500 tenge.", q: [
+                    { q: "What color was the kitchen wall?", a: ["Blue","Gray","Lavender","White"], c: 2 },
+                    { q: "What color was the OLD rug?", a: ["Lavender","Blue","Gray","Brown"], c: 1 },
+                    { q: "What color was the NEW rug?", a: ["Lavender","Blue","Gray","Same as old"], c: 2 },
+                    { q: "How many cans of paint?", a: ["1","2","3","4"], c: 1 },
+                    { q: "When did she finish painting?", a: ["3 PM","6 PM","Sunday","Not stated"], c: 1 },
+                ]},
+                { story: "Captain BORIS commanded the ship VIKTORIYA. The ship had 4 sails, 18 cannons, and a crew of 67. They left port on March 11 carrying TEA and SILK. A storm hit on March 14 and they lost ONE sail.", q: [
+                    { q: "Name of the ship?", a: ["Viktoriya","Boris","Boris's Pride","Not stated"], c: 0 },
+                    { q: "How many sails AT START?", a: ["3","4","5","Not stated"], c: 1 },
+                    { q: "How many sails AFTER the storm?", a: ["2","3","4","All of them"], c: 1 },
+                    { q: "What did they carry?", a: ["Tea and gold","Silk and gold","Tea and silk","Tea only"], c: 2 },
+                    { q: "When did the storm hit?", a: ["March 11","March 12","March 14","March 18"], c: 2 },
+                ]},
+                { story: "The recipe needed 250g flour, 120g sugar, 3 eggs, and a pinch of SALT. Bake at 180°C for 25 minutes. KAMILA forgot the SALT and added 30g extra sugar instead. The cake came out FLAT and her sister AIZHAN said it was 'too sweet'.", q: [
+                    { q: "What did Kamila forget?", a: ["Eggs","Flour","Salt","Sugar"], c: 2 },
+                    { q: "Total sugar used?", a: ["120g","150g","180g","250g"], c: 1 },
+                    { q: "Bake temperature?", a: ["160°C","180°C","200°C","220°C"], c: 1 },
+                    { q: "How many eggs?", a: ["2","3","4","Half a dozen"], c: 1 },
+                    { q: "Who tasted it?", a: ["Kamila's mother","Kamila's sister","Both","Nobody"], c: 1 },
+                ]},
+                { story: "On the bus, ARMAN sat in seat 14B next to a woman reading a YELLOW book. The bus had 42 seats, 38 were full. They passed 6 villages before reaching ASTANA at 11:52 PM. The fare was 3500 tenge and the trip took 5 hours 18 minutes.", q: [
+                    { q: "What seat was Arman in?", a: ["12B","14A","14B","41B"], c: 2 },
+                    { q: "Color of the book?", a: ["Red","Blue","Yellow","Green"], c: 2 },
+                    { q: "How many seats were EMPTY?", a: ["2","3","4","6"], c: 2 },
+                    { q: "Final destination?", a: ["Almaty","Astana","Aktau","Not stated"], c: 1 },
+                    { q: "How long was the trip?", a: ["3h","5h 18m","6h","11h 52m"], c: 1 },
+                ]},
+                { story: "DARIA had a green parrot named PINKY. The parrot knew 14 words in Russian and 3 in English. It lived in a cage on the BALCONY. One Tuesday morning Daria forgot to lock the cage and the parrot flew to the NEIGHBOR's apartment and stayed for 6 hours.", q: [
+                    { q: "Color of the parrot?", a: ["Green","Pink","Yellow","Blue"], c: 0 },
+                    { q: "Name of the parrot?", a: ["Daria","Pinky","Greenie","Not stated"], c: 1 },
+                    { q: "How many English words did it know?", a: ["1","3","14","17"], c: 1 },
+                    { q: "Where was the cage?", a: ["Living room","Kitchen","Balcony","Bedroom"], c: 2 },
+                    { q: "Where did the parrot fly?", a: ["Outside the building","Neighbor","Park","Back to its cage"], c: 1 },
+                ]},
+                { story: "NURSULTAN solved 11 chess puzzles in 25 minutes. The HARDEST puzzle (#7) took him 6 minutes. He missed only one — puzzle #4 — and his coach VLADIMIR gave him a score of 91%. The next session is on FRIDAY.", q: [
+                    { q: "How many puzzles total?", a: ["7","9","11","25"], c: 2 },
+                    { q: "Which puzzle did he MISS?", a: ["#4","#7","#11","None"], c: 0 },
+                    { q: "Which was the HARDEST?", a: ["#4","#7","#11","Not stated"], c: 1 },
+                    { q: "How long on the hardest?", a: ["3 min","6 min","11 min","25 min"], c: 1 },
+                    { q: "When is the next session?", a: ["Tomorrow","Tuesday","Friday","Not stated"], c: 2 },
+                ]},
+                { story: "The library has 4 floors. Floor 1 holds FICTION, Floor 2 holds SCIENCE, Floor 3 holds HISTORY, and Floor 4 is closed for repair. RUSLAN wanted a book on the Mongol invasions. He took the elevator UP, found his book in 12 minutes, and checked it out at 2:18 PM.", q: [
+                    { q: "Which floor was CLOSED?", a: ["1","2","3","4"], c: 3 },
+                    { q: "Which floor for HISTORY?", a: ["1","2","3","4"], c: 2 },
+                    { q: "Which floor would Ruslan visit?", a: ["1","2","3","4"], c: 2 },
+                    { q: "How long to find the book?", a: ["2 min","12 min","18 min","2 hours"], c: 1 },
+                    { q: "Did he take the STAIRS?", a: ["Yes","No","Both","Not stated"], c: 1 },
+                ]},
+                { story: "MADINA inherited 3 paintings from her great-uncle TARAS. Two were OIL on canvas, one was a WATERCOLOR. She sold the watercolor for 45,000 tenge and kept the others. The smallest painting was of a HORSE. The largest showed a winter MOUNTAIN scene.", q: [
+                    { q: "How many paintings inherited?", a: ["2","3","4","Not stated"], c: 1 },
+                    { q: "How many WATERCOLORS?", a: ["0","1","2","All"], c: 1 },
+                    { q: "What did she SELL?", a: ["Horse painting","Mountain","Watercolor","An oil"], c: 2 },
+                    { q: "Subject of the SMALLEST?", a: ["Mountain","Horse","Sea","River"], c: 1 },
+                    { q: "Sale price?", a: ["4500","45,000","450,000","Not stated"], c: 1 },
+                ]},
+                { story: "The bakery opens at 06:30 every day except SUNDAY. They bake 80 loaves of BREAD and 40 dozen BUNS daily. The owner ABAY hires 5 workers — 3 morning shift and 2 afternoon. The most popular item is the cinnamon BUN at 250 tenge each.", q: [
+                    { q: "What day is the bakery CLOSED?", a: ["Friday","Saturday","Sunday","Always open"], c: 2 },
+                    { q: "How many TOTAL workers?", a: ["3","5","8","Not stated"], c: 1 },
+                    { q: "How many BUNS per day? (1 dozen = 12)", a: ["40","80","240","480"], c: 3 },
+                    { q: "Most popular item?", a: ["Bread","Cinnamon bun","Cookie","Coffee"], c: 1 },
+                    { q: "Opening time?", a: ["6:00","6:30","7:00","7:30"], c: 1 },
+                ]},
+                { story: "OLZHAS climbed Mount KHAN-TENGRI in 9 days. He brought 22 kg of gear including a TENT, a stove, and 14 days of food. The summit temperature was -34°C. Two team members turned back at camp 3, leaving FOUR climbers including OLZHAS to summit.", q: [
+                    { q: "How many days to climb?", a: ["4","9","14","22"], c: 1 },
+                    { q: "Total climbers WHO SUMMITED?", a: ["2","4","6","Not stated"], c: 1 },
+                    { q: "Days of food brought?", a: ["9","14","22","34"], c: 1 },
+                    { q: "Summit temperature?", a: ["-14°C","-22°C","-34°C","-44°C"], c: 2 },
+                    { q: "How many turned BACK?", a: ["1","2","3","4"], c: 1 },
+                ]},
+                { story: "ELENA's birthday party had 11 GUESTS. She served pizza (4 boxes), cake (1), and tea. SAMAT arrived 25 minutes late with a wrapped GIFT — a silver bracelet. The party started at 7 PM and ended at 11:15 PM. Three guests were vegetarian.", q: [
+                    { q: "How many guests?", a: ["7","9","11","13"], c: 2 },
+                    { q: "How many pizza boxes?", a: ["1","2","4","11"], c: 2 },
+                    { q: "What did Samat bring?", a: ["Cake","Bracelet","Pizza","Nothing"], c: 1 },
+                    { q: "How long was the party?", a: ["3 hours","4h 15m","5h","6h 25m"], c: 1 },
+                    { q: "Who was LATE?", a: ["Elena","Samat","All guests","Nobody"], c: 1 },
+                ]},
+                { story: "Three crows sat on the fence: one BLACK, one BROWN, one with a WHITE wing. The black crow flew away first. The brown one followed 12 seconds later. The white-winged crow stayed for ANOTHER 4 minutes before joining the others by the wheat field.", q: [
+                    { q: "Total crows?", a: ["2","3","4","Not stated"], c: 1 },
+                    { q: "Which flew FIRST?", a: ["Black","Brown","White wing","All together"], c: 0 },
+                    { q: "Which color was actually mentioned for a WING?", a: ["Black","Brown","White","Gray"], c: 2 },
+                    { q: "Time gap between black and brown?", a: ["4 sec","12 sec","4 min","Not stated"], c: 1 },
+                    { q: "Where did they reunite?", a: ["Sky","Pond","Wheat field","Roof"], c: 2 },
+                ]},
+                { story: "AYSHA cooked dinner for 6 people: her parents, her brother BAKHTYAR, and 2 friends. The menu was BESHBARMAK, salad, and apple pie. They ate at 8 PM. Aysha's friend SAULE brought a BOTTLE of red wine. The dinner lasted nearly 3 hours.", q: [
+                    { q: "How many people TOTAL at dinner?", a: ["4","5","6","8"], c: 2 },
+                    { q: "Brother's name?", a: ["Bakhtyar","Saule","Boris","Not stated"], c: 0 },
+                    { q: "What did Saule bring?", a: ["Apple pie","Wine","Bread","Nothing"], c: 1 },
+                    { q: "What COLOR was the wine?", a: ["Red","White","Rosé","Not stated"], c: 0 },
+                    { q: "When did they EAT?", a: ["6 PM","7 PM","8 PM","9 PM"], c: 2 },
+                ]},
+                { story: "The garage held 4 vehicles: a RED car, a BLUE truck, a black motorcycle, and a yellow bicycle. AIBEK used the BLUE truck on Monday for moving boxes. The motorcycle had a flat tire. Aibek's father ERLAN drove the RED car to work every day.", q: [
+                    { q: "How many vehicles in the garage?", a: ["3","4","5","Not stated"], c: 1 },
+                    { q: "Color of the truck?", a: ["Red","Blue","Black","Yellow"], c: 1 },
+                    { q: "Which had a FLAT tire?", a: ["Car","Truck","Motorcycle","Bicycle"], c: 2 },
+                    { q: "Who drove the RED car?", a: ["Aibek","Erlan","Nobody","Both"], c: 1 },
+                    { q: "What did Aibek use the TRUCK for?", a: ["Work","Moving boxes","Racing","Not stated"], c: 1 },
                 ]},
             ];
             const s = pick(stories);
@@ -2136,7 +2185,7 @@
                     if (i >= s.q.length) { ok >= 4 ? ctx.win() : ctx.lose(); return; }
                     const item = s.q[i];
                     const wrap = ctx.el('div', { style: { position: 'absolute', inset: '40px 50px', display: 'flex', flexDirection: 'column', justifyContent: 'center' } });
-                    const ql = ctx.el('div', { style: { color: '#fff', fontFamily: 'VT323, monospace', fontSize: '32px', textAlign: 'center', marginBottom: '24px' }, text: item.q });
+                    const ql = ctx.el('div', { style: { color: '#fff', fontFamily: 'VT323, monospace', fontSize: '28px', textAlign: 'center', marginBottom: '24px' }, text: item.q });
                     const opts = ctx.el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' } });
                     item.a.forEach((a, k) => {
                         const b = pxBtn(a, () => { if (k === item.c) ok++; sfx.tick(); i++; ctx.stage.innerHTML = ''; next(); });
@@ -2461,158 +2510,9 @@
         }
     };
 
-    // 36. Sorting — falling items into 3 bins
-    // Difficulty: need 18 (was 25), spawn 1000ms (was 900ms), starting fall speed 50.
-    // Sort wrong = instant lose. With 60s and 1s spawn = ~60 items, need 18 correct
-    // sorts in a row. Tunable: lowering fall speed or raising spawn-spacing prevents
-    // pile-up.
-    M.sorting = {
-        title: 'SORTING',
-        desc: 'Tap each falling item with its matching colored bin button. 60s, 18 needed.',
-        run(ctx) {
-            const colors = [{n:'R',h:'#e23a3a'},{n:'B',h:'#3a72e2'},{n:'G',h:'#3ae26a'}];
-            const items = []; let score = 0; const need = 18; let speed = 50; let dead = false;
-            ctx.setScore(`SORTED 0/${need}`);
-            const board = ctx.el('div', { style: { position: 'absolute', inset: '0 0 80px 0', overflow: 'hidden', backgroundImage: `linear-gradient(180deg, #0a0500 0%, #1a1408 100%)` } });
-            ctx.stage.appendChild(board);
-            const bins = ctx.el('div', { style: { position: 'absolute', bottom: '0', width: '100%', display: 'flex', justifyContent: 'space-around', height: '70px' } });
-            colors.forEach(c => {
-                const b = ctx.el('button', { style: { width: '180px', background: c.h, border: '4px solid #000', color: '#000', fontFamily: 'VT323, monospace', fontSize: '32px', cursor: 'pointer', backgroundImage: `url(${sprURL('bin', 4)})`, backgroundSize: '60px', backgroundRepeat: 'no-repeat', backgroundPosition: '12px center', paddingLeft: '60px', boxShadow: 'inset 0 -6px 0 rgba(0,0,0,0.4)' }, text: c.n + ' BIN', onclick: () => sortNow(c.n) });
-                bins.appendChild(b);
-            });
-            ctx.stage.appendChild(bins);
-            function sortNow(col) {
-                if (dead) return;
-                // sort the lowest item — must match
-                if (!items.length) return;
-                const it = items[0];
-                if (it.col === col) { score++; sfx.hit(); ctx.setScore(`SORTED ${score}/${need}`); items.shift(); it.el.remove(); if (score >= need) { dead = true; ctx.timeout(() => ctx.win(), 200); } }
-                else { sfx.lose(); dead = true; ctx.timeout(() => ctx.lose(), 300); }
-            }
-            ctx.interval(() => {
-                if (dead) return;
-                const c = pick(colors);
-                const x = randInt(40, 720);
-                const el = ctx.el('div', { style: { position: 'absolute', left: x+'px', top: '-40px', width: '40px', height: '40px', background: c.h, border: '3px solid #000', boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.4), 0 4px 0 rgba(0,0,0,0.6)' } });
-                board.appendChild(el);
-                items.push({ el, col: c.n, x, y: -40 });
-            }, 1000);
-            countdown(ctx, 60, 'TIME', () => score >= need ? ctx.win() : ctx.lose());
-            ctx.loop((dt) => {
-                if (dead) return;
-                speed += dt * 4;
-                for (const it of items) { it.y += speed * dt; it.el.style.top = it.y + 'px'; }
-                if (items.length && items[0].y > 480) { dead = true; sfx.lose(); ctx.timeout(() => ctx.lose(), 300); }
-            });
-        }
-    };
+    // (M.sorting removed.)
 
-    // 37. Flow Connect — drag colored dots to pair, no crossing
-    // Difficulty: 5 puzzles in 90s, 3 colored pairs each, randomly placed. Random
-    // placement occasionally produces puzzles where the obvious path is blocked, but
-    // the canvas is large enough to route around. ~18s/puzzle is a comfortable budget.
-    M.flow_connect = {
-        title: 'FLOW CONNECT',
-        desc: 'Drag from each dot to its same-color pair. No crossing lines. 5 puzzles.',
-        run(ctx) {
-            // Each puzzle: 3 colors, 6 dots placed; player draws lines; we just check pairs were each drawn.
-            let round = 0; const total = 5;
-            ctx.setScore(`PUZZLE 0/${total}`);
-            const { c, g } = mkCanvas(ctx);
-            let pairs = [], paths = []; // paths[i] = [{x,y},...]
-            let drawing = null; // {color, idx, points}
-            function makePuzzle() {
-                pairs = []; paths = [];
-                const colors = ['#e23a3a','#3a72e2','#3ae26a'];
-                colors.forEach((col, i) => {
-                    const a = { x: randInt(60, 740), y: randInt(60, 510), color: col, group: i };
-                    let b; do { b = { x: randInt(60, 740), y: randInt(60, 510), color: col, group: i }; } while (Math.hypot(a.x - b.x, a.y - b.y) < 200);
-                    pairs.push(a, b);
-                    paths.push(null); // path for group i
-                });
-                draw();
-            }
-            function draw() {
-                drawBg(g, 'night', ctx.W, ctx.H);
-                // grid overlay
-                g.strokeStyle = 'rgba(255,255,255,0.05)'; g.lineWidth = 1;
-                for (let xx = 0; xx < ctx.W; xx += 40) { g.beginPath(); g.moveTo(xx, 0); g.lineTo(xx, ctx.H); g.stroke(); }
-                for (let yy = 0; yy < ctx.H; yy += 40) { g.beginPath(); g.moveTo(0, yy); g.lineTo(ctx.W, yy); g.stroke(); }
-                for (let i = 0; i < paths.length; i++) {
-                    const p = paths[i]; if (!p || p.length < 2) continue;
-                    const col = pairs[i*2].color;
-                    g.strokeStyle = col; g.lineWidth = 8; g.beginPath();
-                    g.moveTo(p[0].x, p[0].y); for (let k = 1; k < p.length; k++) g.lineTo(p[k].x, p[k].y); g.stroke();
-                }
-                for (const d of pairs) { g.fillStyle = d.color; g.fillRect(d.x - 18, d.y - 18, 36, 36); g.strokeStyle = '#fff'; g.lineWidth = 3; g.strokeRect(d.x - 18, d.y - 18, 36, 36); }
-                if (drawing) {
-                    const col = pairs[drawing.idx * 2].color;
-                    g.strokeStyle = col; g.lineWidth = 8; g.beginPath();
-                    g.moveTo(drawing.points[0].x, drawing.points[0].y);
-                    for (let k = 1; k < drawing.points.length; k++) g.lineTo(drawing.points[k].x, drawing.points[k].y);
-                    g.stroke();
-                }
-            }
-            ctx.on(c, 'pointerdown', (e) => {
-                const r = c.getBoundingClientRect();
-                const x = (e.clientX - r.left) * (c.width / r.width); const y = (e.clientY - r.top) * (c.height / r.height);
-                for (let i = 0; i < pairs.length; i++) {
-                    if (Math.abs(x - pairs[i].x) < 22 && Math.abs(y - pairs[i].y) < 22) {
-                        drawing = { idx: pairs[i].group, points: [{ x: pairs[i].x, y: pairs[i].y }], startDot: i };
-                        return;
-                    }
-                }
-            });
-            ctx.on(c, 'pointermove', (e) => {
-                if (!drawing) return;
-                const r = c.getBoundingClientRect();
-                const x = (e.clientX - r.left) * (c.width / r.width); const y = (e.clientY - r.top) * (c.height / r.height);
-                drawing.points.push({ x, y }); draw();
-            });
-            // Segment-vs-segment intersection (proper, excludes shared endpoints).
-            function segIntersect(a, b, c2, d) {
-                function ccw(p, q, r) { return (r.y - p.y) * (q.x - p.x) > (q.y - p.y) * (r.x - p.x); }
-                return ccw(a, c2, d) !== ccw(b, c2, d) && ccw(a, b, c2) !== ccw(a, b, d);
-            }
-            function pathCrosses(newPts, otherPaths) {
-                for (let i = 0; i < newPts.length - 1; i++) {
-                    const a = newPts[i], b = newPts[i+1];
-                    for (const op of otherPaths) {
-                        if (!op) continue;
-                        for (let j = 0; j < op.length - 1; j++) {
-                            if (segIntersect(a, b, op[j], op[j+1])) return true;
-                        }
-                    }
-                }
-                return false;
-            }
-            ctx.on(c, 'pointerup', (e) => {
-                if (!drawing) return;
-                const r = c.getBoundingClientRect();
-                const x = (e.clientX - r.left) * (c.width / r.width); const y = (e.clientY - r.top) * (c.height / r.height);
-                const targetIdx = pairs.findIndex((d, k) => k !== drawing.startDot && d.group === drawing.idx && Math.abs(x - d.x) < 30 && Math.abs(y - d.y) < 30);
-                if (targetIdx >= 0) {
-                    const candidate = drawing.points.concat([{ x: pairs[targetIdx].x, y: pairs[targetIdx].y }]);
-                    // Reject if it crosses any other already-drawn path.
-                    const others = paths.filter((_, k) => k !== drawing.idx);
-                    if (pathCrosses(candidate, others)) {
-                        sfx.bad();
-                        ctx.banner('LINES MUST NOT CROSS', 'bad', 900);
-                    } else {
-                        paths[drawing.idx] = candidate; sfx.hit();
-                    }
-                } else { sfx.bad(); }
-                drawing = null; draw();
-                if (paths.every(p => p && p.length >= 2)) {
-                    sfx.win(); round++; ctx.setScore(`PUZZLE ${round}/${total}`);
-                    if (round >= total) { ctx.timeout(() => ctx.win(), 400); return; }
-                    ctx.timeout(makePuzzle, 500);
-                }
-            });
-            countdown(ctx, 50, 'TIME', () => round >= total ? ctx.win() : ctx.lose());
-            makePuzzle();
-        }
-    };
+    // (M.flow_connect removed.)
 
     // 38. Grid Logic — 4x4 Latin square
     // Difficulty: 75s (was 60s), 50% cells given (was 40%). Wrong submission resets the
@@ -2668,51 +2568,84 @@
         }
     };
 
-    // 39. Analogy Sprint — 10 analogies in 60s
-    // Difficulty: 12-problem pool, need 6 correct (was 8) in 60s. Wrong answer no longer
-    // ends the game — just doesn't count and advances. With easier need + non-fatal
-    // mistakes, this is now achievable for a reasonably literate player.
+    // 39. Analogy Sprint — solve 7 in 50s. WRONG ANSWER ENDS THE GAME.
+    // Each item has 4 options, 3 of which are TRAP distractors that look
+    // right at a glance — same domain, semantically adjacent, or matching
+    // the wrong half of the relationship. The relationship type varies per
+    // item (cause/effect, part/whole, opposite, sequence, function, etc.)
+    // so muscle-memory pattern matching fails. Time pressure compounds it.
     M.analogy_sprint = {
         title: 'ANALOGY SPRINT',
-        desc: 'Solve 6 analogies in 60 seconds. Wrong = next.',
+        desc: 'Solve 7 analogies in 50 seconds. Distractors are designed to fool you. Wrong = lose.',
         run(ctx) {
+            // For each, the answer satisfies the EXACT relationship of the
+            // first pair. Distractors are tempting in different ways:
+            //   - "right domain, wrong relationship" trap
+            //   - "matches half the analogy"
+            //   - "looks like a synonym of the answer but is from a different part of the analogy"
+            //   - "feels like the answer if you skim"
             const probs = [
-                { q: 'CAT : KITTEN :: DOG : ?', a: 'PUPPY', w: ['HORSE','PONY','CALF'] },
-                { q: 'HOT : COLD :: UP : ?', a: 'DOWN', w: ['LEFT','OVER','SIDE'] },
-                { q: 'HAND : GLOVE :: FOOT : ?', a: 'SHOE', w: ['SOCK','BOOT','HAT'] },
-                { q: 'BIRD : SKY :: FISH : ?', a: 'WATER', w: ['LAND','TREE','NEST'] },
-                { q: 'PEN : WRITE :: KNIFE : ?', a: 'CUT', w: ['DRAW','SHARP','STAB'] },
-                { q: 'KEY : LOCK :: KEY : ?', a: 'PIANO', w: ['DOOR','RING','LATCH'] },
-                { q: 'DOCTOR : HOSPITAL :: TEACHER : ?', a: 'SCHOOL', w: ['STORE','OFFICE','GYM'] },
-                { q: 'WHEEL : CAR :: WING : ?', a: 'PLANE', w: ['BIKE','SHIP','SLED'] },
-                { q: 'EAR : HEAR :: EYE : ?', a: 'SEE', w: ['LOOK','SHUT','BLINK'] },
-                { q: 'SECOND : MINUTE :: MINUTE : ?', a: 'HOUR', w: ['DAY','WEEK','MONTH'] },
-                { q: 'WET : DRY :: NIGHT : ?', a: 'DAY', w: ['DARK','MOON','LATE'] },
-                { q: 'PAGE : BOOK :: SCENE : ?', a: 'PLAY', w: ['SHOW','SCRIPT','ACT'] },
+                // Sequence trap: "FORTNIGHT" is also a time period but skips the doubling pattern.
+                { q: 'SECOND : MINUTE :: HOUR : ?', a: 'DAY', w: ['FORTNIGHT','WEEK','SECOND'] },
+                // Half-analogy trap: "PUPPY" matches "DOG" but the question goes the OTHER way.
+                { q: 'PUPPY : DOG :: KITTEN : ?', a: 'CAT', w: ['LION','PUPPY','MOUSE'] },
+                // Function vs. body part — "FINGER" is on a hand but doesn't fit "see".
+                { q: 'EAR : LISTEN :: EYE : ?', a: 'SEE', w: ['BLINK','GLASSES','FINGER'] },
+                // Part-whole reversed trap.
+                { q: 'PETAL : FLOWER :: PAGE : ?', a: 'BOOK', w: ['CHAPTER','LIBRARY','INK'] },
+                // Object → its enabler vs. its action.
+                { q: 'KEY : LOCK :: PEN : ?', a: 'PAPER', w: ['INK','WRITE','HAND'] },
+                // Synonym trap.
+                { q: 'BRAVE : COWARD :: GENEROUS : ?', a: 'STINGY', w: ['KIND','HONEST','FRUGAL'] },
+                // Cause/effect vs. category.
+                { q: 'SPARK : FIRE :: SEED : ?', a: 'PLANT', w: ['SOIL','SUN','GARDENER'] },
+                // "Where" trap — picks the wrong location category.
+                { q: 'JUDGE : COURT :: SURGEON : ?', a: 'HOSPITAL', w: ['UNIVERSITY','LAW','SCALPEL'] },
+                // Material trap — wood is part of the answer's function, not the analogue.
+                { q: 'AXE : CHOP :: HAMMER : ?', a: 'POUND', w: ['NAIL','METAL','WOOD'] },
+                // Number-based — "DOZEN" matches the doubling pattern best, but is it 6×2 or 12×2?
+                { q: 'TWO : FOUR :: SIX : ?', a: 'TWELVE', w: ['EIGHT','THREE','SIXTEEN'] },
+                // Antonym vs. synonym.
+                { q: 'GIGANTIC : TINY :: ANCIENT : ?', a: 'MODERN', w: ['OLD','HISTORIC','RUIN'] },
+                // Process direction.
+                { q: 'CATERPILLAR : BUTTERFLY :: TADPOLE : ?', a: 'FROG', w: ['LIZARD','SALAMANDER','FISH'] },
+                // Tool/output vs. user/place.
+                { q: 'BRUSH : PAINTING :: CHISEL : ?', a: 'SCULPTURE', w: ['ARTIST','STONE','HAMMER'] },
+                // Linguistic trap — "SOLO" is a synonym but "DUET" matches the count.
+                { q: 'DUET : TWO :: TRIO : ?', a: 'THREE', w: ['SOLO','GROUP','BAND'] },
+                // Capital trap.
+                { q: 'PARIS : FRANCE :: TOKYO : ?', a: 'JAPAN', w: ['CHINA','ASIA','OSAKA'] },
+                // Relationship reversal — wages flow FROM employer to worker.
+                { q: 'AUTHOR : NOVEL :: COMPOSER : ?', a: 'SYMPHONY', w: ['POEM','BAND','CONDUCTOR'] },
+                // Body system trap — "HEART" pumps blood, "BRAIN" controls thinking.
+                { q: 'HEART : BLOOD :: LUNG : ?', a: 'AIR', w: ['BREATH','OXYGEN','BREATHE'] },
+                // Time of day, but reversed direction.
+                { q: 'DAWN : SUNRISE :: DUSK : ?', a: 'SUNSET', w: ['MOONRISE','MIDNIGHT','EVENING'] },
             ];
             shuffle(probs);
-            let i = 0, ok = 0; const need = 6;
+            let i = 0, ok = 0; const need = 7;
             ctx.setScore(`SOLVED 0/${need}`);
-            const probEl = ctx.el('div', { style: { position: 'absolute', top: '110px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '32px' } });
-            const opts = ctx.el('div', { style: { position: 'absolute', top: '230px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' } });
+            const probEl = ctx.el('div', { style: { position: 'absolute', top: '110px', width: '100%', textAlign: 'center', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '30px', letterSpacing: '2px' } });
+            const opts = ctx.el('div', { style: { position: 'absolute', top: '230px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', minWidth: '440px' } });
             ctx.stage.appendChild(probEl); ctx.stage.appendChild(opts);
-            countdown(ctx, 60, 'TIME', () => ok >= need ? ctx.win() : ctx.lose());
+            const cd = countdown(ctx, 50, 'TIME', () => ok >= need ? ctx.win() : ctx.lose());
+            let done = false;
             function next() {
-                if (ok >= need) { ctx.timeout(() => ctx.win(), 400); return; }
-                if (i >= probs.length) { ctx.timeout(() => ok >= need ? ctx.win() : ctx.lose(), 400); return; }
+                if (done) return;
+                if (ok >= need) { done = true; ctx.timeout(() => ctx.win(), 400); return; }
+                if (i >= probs.length) { done = true; ctx.timeout(() => ok >= need ? ctx.win() : ctx.lose(), 400); return; }
                 const p = probs[i]; i++;
                 probEl.textContent = p.q;
                 const choices = shuffle([p.a, ...p.w.slice(0, 3)]);
                 opts.innerHTML = '';
                 choices.forEach(v => {
                     const b = pxBtn(v, () => {
-                        if (b.disabled) return;
+                        if (done || b.disabled) return;
                         opts.querySelectorAll('button').forEach(x => x.disabled = true);
-                        if (v === p.a) { ok++; sfx.hit(); ctx.setScore(`SOLVED ${ok}/${need}`); }
-                        else { sfx.bad(); }
-                        ctx.timeout(next, 200);
+                        if (v === p.a) { ok++; sfx.hit(); ctx.setScore(`SOLVED ${ok}/${need}`); ctx.timeout(next, 220); }
+                        else { sfx.lose && sfx.lose(); done = true; ctx.timeout(() => ctx.lose(), 500); }
                     });
-                    b.style.fontSize = '24px'; opts.appendChild(b);
+                    b.style.fontSize = '22px'; opts.appendChild(b);
                 });
             }
             next();
@@ -2725,51 +2658,72 @@
     // doesn't pinpoint which digits. With 4 tries, deductive players can converge.
     M.password_crack = {
         title: 'PASSWORD CRACK',
-        desc: 'Guess the 4-digit code in 7 tries. Feedback: HOT (very close) / WARM / COLD.',
+        desc: 'Crack the 4-digit code in 7 tries. HOT / WARM / COLD feedback per guess.',
         run(ctx) {
             const MAX_TRIES = 7;
-            // 4-digit code, digits 0-9, may repeat (true 4-digit deduction).
             const code = []; for (let i = 0; i < 4; i++) code.push(randInt(0, 9));
             const guesses = [];
-            const board = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '20px', right: '20px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#fff', fontFamily: 'VT323, monospace', fontSize: '32px' } });
-            ctx.stage.appendChild(board);
-            const guessEl = ctx.el('div', { style: { position: 'absolute', bottom: '120px', width: '100%', textAlign: 'center', color: '#3ae26a', fontFamily: 'VT323, monospace', fontSize: '60px', letterSpacing: '14px', minHeight: '70px' } });
-            const pad = ctx.el('div', { style: { position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '600px' } });
-            ctx.stage.appendChild(guessEl); ctx.stage.appendChild(pad);
             let cur = '';
-            for (let n = 0; n < 10; n++) {
-                const b = pxBtn(String(n), () => { if (cur.length < 4) { cur += n; guessEl.textContent = cur; sfx.tick(); } });
-                b.style.fontSize = '24px'; pad.appendChild(b);
+
+            // History panel (top half) — fixed-height scroll area listing
+            // each guess + feedback chip. No more wrap-around overlap.
+            const history = ctx.el('div', { style: { position: 'absolute', top: '20px', left: '60px', right: '60px', height: '230px', background: 'rgba(20,20,20,0.6)', border: '2px solid #444', padding: '10px 16px', overflowY: 'auto', fontFamily: 'VT323, monospace', fontSize: '28px', color: '#ccc', display: 'flex', flexDirection: 'column', gap: '6px' } });
+            ctx.stage.appendChild(history);
+
+            // Current guess display — large green digits in a centered slot row.
+            const slots = ctx.el('div', { style: { position: 'absolute', top: '270px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '12px' } });
+            const slotEls = [];
+            for (let i = 0; i < 4; i++) {
+                const s = ctx.el('div', { style: { width: '54px', height: '64px', background: '#0a0a0a', border: '3px solid #4eff7a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'VT323, monospace', fontSize: '44px', color: '#4eff7a', boxShadow: 'inset 0 0 12px rgba(78,255,122,0.2)' } });
+                slots.appendChild(s); slotEls.push(s);
             }
-            const back = pxBtn('←', () => { cur = cur.slice(0, -1); guessEl.textContent = cur; });
-            back.style.fontSize = '24px'; pad.appendChild(back);
-            // Hot/cold feedback: how close (sum of absolute digit differences) the guess is to the code.
-            // 0 = exact (win); 1-4 = HOT; 5-12 = WARM; 13+ = COLD.
+            ctx.stage.appendChild(slots);
+
+            // Keypad — 4 rows × 3 cols, fixed positions. Phone-style layout:
+            //   1 2 3
+            //   4 5 6
+            //   7 8 9
+            //   ← 0 ✓
+            const pad = ctx.el('div', { style: { position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)', display: 'grid', gridTemplateColumns: 'repeat(3, 64px)', gridTemplateRows: 'repeat(4, 44px)', gap: '6px' } });
+            ctx.stage.appendChild(pad);
+
+            const refreshSlots = () => { for (let i = 0; i < 4; i++) slotEls[i].textContent = cur[i] || ''; };
+
+            const mkKey = (label, fn, color) => ctx.el('button', { style: { background: '#1a1a1a', color: color || '#fff', border: '2px solid ' + (color || '#555'), fontFamily: 'VT323, monospace', fontSize: '24px', cursor: 'pointer', boxShadow: 'inset 0 0 8px rgba(0,0,0,0.5)' }, text: label, onclick: fn });
+            const order = ['1','2','3','4','5','6','7','8','9'];
+            for (const d of order) pad.appendChild(mkKey(d, () => { if (cur.length < 4) { cur += d; sfx.tick && sfx.tick(); refreshSlots(); } }));
+            pad.appendChild(mkKey('←', () => { cur = cur.slice(0, -1); refreshSlots(); }, '#ff7a7a'));
+            pad.appendChild(mkKey('0', () => { if (cur.length < 4) { cur += '0'; sfx.tick && sfx.tick(); refreshSlots(); } }));
+            pad.appendChild(mkKey('GUESS', () => trySubmit(), '#4eff7a'));
+
+            // 0 = exact win; 1-4 = HOT; 5-12 = WARM; 13+ = COLD.
             function feedback(distance) {
                 if (distance === 0) return { label: 'CORRECT', color: '#3ae26a' };
-                if (distance <= 4) return { label: 'HOT', color: '#e25a3a' };
-                if (distance <= 12) return { label: 'WARM', color: '#e2c83a' };
-                return { label: 'COLD', color: '#3a72e2' };
+                if (distance <= 4) return { label: 'HOT',     color: '#ff7a3a' };
+                if (distance <= 12) return { label: 'WARM',    color: '#e2c83a' };
+                return { label: 'COLD',                          color: '#7aaaff' };
             }
-            const submit = pxBtn('GUESS', () => {
-                if (cur.length !== 4) return;
+            function trySubmit() {
+                if (cur.length !== 4) { sfx.bad && sfx.bad(); return; }
                 const digs = cur.split('').map(Number);
                 let dist = 0; for (let i = 0; i < 4; i++) dist += Math.abs(digs[i] - code[i]);
                 const fb = feedback(dist);
                 guesses.push({ guess: cur, label: fb.label, color: fb.color });
-                board.innerHTML = '';
-                for (const g of guesses) board.appendChild(ctx.el('div', { html: `${g.guess.split('').join(' ')} &nbsp;&nbsp; <span style="color:${g.color}">${g.label}</span>` }));
-                if (dist === 0) { sfx.win(); ctx.timeout(() => ctx.win(), 500); return; }
+                const row = ctx.el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dashed #333' } });
+                row.appendChild(ctx.el('span', { style: { letterSpacing: '8px', color: '#fff' }, text: cur.split('').join(' ') }));
+                row.appendChild(ctx.el('span', { style: { color: fb.color, fontWeight: 'bold' }, text: fb.label }));
+                history.appendChild(row);
+                history.scrollTop = history.scrollHeight;
+                if (dist === 0) { sfx.win && sfx.win(); ctx.timeout(() => ctx.win(), 500); return; }
                 if (guesses.length >= MAX_TRIES) {
-                    sfx.lose();
-                    board.appendChild(ctx.el('div', { html: `&nbsp;<br><span style="color:#e23a3a">CODE WAS ${code.join(' ')}</span>` }));
+                    sfx.lose && sfx.lose();
+                    history.appendChild(ctx.el('div', { style: { color: '#e23a3a', textAlign: 'center', marginTop: '8px' }, text: `CODE WAS ${code.join(' ')}` }));
                     ctx.timeout(() => ctx.lose(), 1200); return;
                 }
-                cur = ''; guessEl.textContent = '';
-                ctx.setScore(`TRIES ${MAX_TRIES - guesses.length}`);
-            });
-            submit.style.fontSize = '24px'; pad.appendChild(submit);
-            ctx.setScore(`TRIES ${MAX_TRIES}`);
+                cur = ''; refreshSlots();
+                ctx.setScore(`TRIES LEFT ${MAX_TRIES - guesses.length}`);
+            }
+            ctx.setScore(`TRIES LEFT ${MAX_TRIES}`);
         }
     };
 
@@ -3136,10 +3090,10 @@
     // Category map — used by initPhase3() to pick exactly one game per
     // category so every run tests reflex + aim + memory + pattern + puzzle.
     window.MINIGAME_CATEGORIES = {
-        reflex:  ['flappy_bird', 'piano_tiles', 'whack_color', 'fruit_ninja', 'mole_rush', 'falling_blocks', 'bug_smash', 'balloon_pop', 'tap_number', 'red_green'],
+        reflex:  ['flappy_bird', 'piano_tiles', 'whack_color', 'fruit_ninja', 'mole_rush', 'falling_blocks', 'bug_smash', 'tap_number', 'red_green'],
         aim:     ['basketball', 'archery', 'angry_birds', 'paper_toss', 'cannon', 'darts', 'penalty_kick', 'bowling', 'pool', 'bottle_flip'],
-        memory:  ['simon_says', 'memory_match', 'sequence_recall', 'cup_shuffle', 'pattern_flash', 'odd_one_out', 'story_recall', 'sound_sequence', 'color_memory', 'word_recall'],
-        pattern: ['math_sprint', 'spot_imposter', 'sequence_completion', 'symbol_decoder', 'sorting', 'flow_connect', 'grid_logic', 'analogy_sprint', 'password_crack'],
+        memory:  ['simon_says', 'memory_match', 'sequence_recall', 'cup_shuffle', 'pattern_flash', 'story_recall', 'sound_sequence', 'color_memory', 'word_recall'],
+        pattern: ['math_sprint', 'spot_imposter', 'sequence_completion', 'symbol_decoder', 'grid_logic', 'analogy_sprint', 'password_crack'],
         puzzle:  ['puzzle_lights_out', 'puzzle_sliding', 'puzzle_mastermind', 'puzzle_2048', 'puzzle_hanoi'],
     };
 })();
