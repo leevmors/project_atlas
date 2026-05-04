@@ -156,6 +156,29 @@ INSERT INTO games (name, answer, bonus_points)
 SELECT 'THE FINAL GAME (DEADMAN''S CHOICE)', 'TONYSTARKISIRONMAN', 50
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'THE FINAL GAME (DEADMAN''S CHOICE)');
 
+-- Seed Campus Survivor — high-score-by-deadline game (safe to re-run).
+-- No fixed answer string; the winner is the team with the highest score
+-- when the deadline (May 10, 2026 18:00 GMT+5 = May 10 13:00 UTC) passes.
+-- The 'answer' column is required NOT NULL by the schema, so we store a
+-- sentinel that no submission can match.
+INSERT INTO games (name, answer, bonus_points)
+SELECT 'CAMPUS SURVIVOR', '__HIGHSCORE_DEADLINE__', 100
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'CAMPUS SURVIVOR');
+
+-- Per-run scoreboard for Campus Survivor. One row per submitted run.
+-- The team's best run determines their leaderboard position.
+CREATE TABLE IF NOT EXISTS campus_survivor_scores (
+  id              serial        PRIMARY KEY,
+  team_id         uuid          NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  score           integer       NOT NULL DEFAULT 0,
+  kills           integer       NOT NULL DEFAULT 0,
+  time_survived   integer       NOT NULL DEFAULT 0,
+  level_reached   integer       NOT NULL DEFAULT 1,
+  submitted_at    timestamptz   DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS campus_survivor_scores_team_idx ON campus_survivor_scores(team_id);
+CREATE INDEX IF NOT EXISTS campus_survivor_scores_score_idx ON campus_survivor_scores(score DESC);
+
 -- Migrations (safe to re-run)
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
 ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_cooldown_until timestamptz;
