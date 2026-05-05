@@ -227,9 +227,32 @@
         const STATE = { MENU: 0, PLAYING: 1, LEVEL_UP: 2, GAMEOVER: 3, CHEST: 4, SHOP: 5 };
         let currentState = STATE.MENU;
 
-        // Meta Progression State (In-Memory for current session, persists between runs)
+        // Meta Progression State — persisted to localStorage so purchases survive page reloads
+        const SHOP_STORAGE_KEY = 'campus_survivor_shop_v1';
+
+        function saveShopToStorage() {
+            try {
+                localStorage.setItem(SHOP_STORAGE_KEY, JSON.stringify({ globalGold, shopStats }));
+            } catch (e) { /* storage unavailable */ }
+        }
+
+        function loadShopFromStorage() {
+            try {
+                const raw = localStorage.getItem(SHOP_STORAGE_KEY);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                if (typeof saved.globalGold === 'number') globalGold = saved.globalGold;
+                if (saved.shopStats && typeof saved.shopStats === 'object') {
+                    Object.keys(shopStats).forEach(k => {
+                        if (typeof saved.shopStats[k] === 'number') shopStats[k] = saved.shopStats[k];
+                    });
+                }
+            } catch (e) { /* corrupt storage — ignore */ }
+        }
+
         let globalGold = 0;
         let shopStats = { maxHp: 0, speed: 0, damage: 0, armor: 0, pickup: 0, cooldown: 0, area: 0, luck: 0, coin: 0, xp: 0, reroll: 0, revive: 0, freshmanKit: 0 };
+        loadShopFromStorage();
         
         const SHOP_UPGRADES = {
             maxHp: { name: 'Better Sleep', desc: '+10 Max HP per level.', max: 10, baseCost: 100, costMult: 1.4, icon: 'heal' },
@@ -1220,7 +1243,8 @@
                         SFX.init(); SFX.buy();
                         globalGold -= cost;
                         shopStats[key] = currentLvl + 1;
-                        renderShop(); 
+                        saveShopToStorage();
+                        renderShop();
                     };
                 }
                 container.appendChild(btn);
@@ -1417,6 +1441,7 @@
             currentState = STATE.GAMEOVER; uiLayer.classList.add('hidden'); menuLayer.classList.remove('hidden');
             
             globalGold += player.gold;
+            saveShopToStorage();
             document.getElementById('menu-global-gold').textContent = globalGold;
 
             document.getElementById('menu-title').textContent = "EXPELLED!"; document.getElementById('menu-title').classList.replace('text-[#fef3c7]', 'text-red-500');
