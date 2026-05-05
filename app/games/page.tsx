@@ -16,6 +16,7 @@ import { PressTheButtonGame } from '@/components/games/press-the-button-game';
 import { PressTheButtonTwoGame } from '@/components/games/press-the-button-two-game';
 import { CombinationGame } from '@/components/games/combination-game';
 import { FinalGame } from '@/components/games/final-game';
+import { CampusSurvivorGame } from '@/components/games/campus-survivor-game';
 import { Gamepad2, Trophy, Lock, Crown, Users } from 'lucide-react';
 import Link from 'next/link';
 
@@ -251,7 +252,12 @@ function GamesContent() {
                   {/* Game component */}
                   {isActive && (
                     <div className="border-t border-slate-200/50 p-4 sm:p-6">
-                      {game.name === "THE FINAL GAME (DEADMAN'S CHOICE)" ? (
+                      {game.name === 'CAMPUS SURVIVOR' ? (
+                        <CampusSurvivorGame
+                          gameId={game.id}
+                          isAdmin={isAdmin ?? false}
+                        />
+                      ) : game.name === "THE FINAL GAME (DEADMAN'S CHOICE)" ? (
                         <FinalGame
                           gameId={game.id}
                           isAdmin={isAdmin ?? false}
