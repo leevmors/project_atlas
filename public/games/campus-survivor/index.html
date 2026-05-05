@@ -1273,9 +1273,11 @@
             spawnPropChunk(-W, 0, W, H, 60, ['table', 'table', 'vending', 'trash']); 
             spawnPropChunk(0, 0, W, H, 40, ['dumpster']); 
 
+            nextSpawnTime = 0;
+            if (animFrameId !== null) { cancelAnimationFrame(animFrameId); animFrameId = null; }
             currentState = STATE.PLAYING;
             menuLayer.classList.add('hidden'); uiLayer.classList.remove('hidden');
-            updateUI(); requestAnimationFrame(gameLoop);
+            updateUI(); animFrameId = requestAnimationFrame(gameLoop);
         }
 
         function getAvailableUpgrades() {
@@ -1467,6 +1469,7 @@
         }
 
         let nextSpawnTime = 0;
+        let animFrameId = null;
         function update(dt) {
             gameTime += dt; document.getElementById('timer-text').textContent = formatTime(gameTime);
             if (screenShake > 0) screenShake *= 0.85; if (screenShake < 0.5) screenShake = 0;
@@ -1542,7 +1545,7 @@
                 }
             }
             if (currentState !== STATE.MENU && currentState !== STATE.SHOP) draw();
-            requestAnimationFrame(gameLoop);
+            animFrameId = requestAnimationFrame(gameLoop);
         }
 
         // --- Inputs ---
