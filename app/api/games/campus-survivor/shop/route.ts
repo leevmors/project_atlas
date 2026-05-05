@@ -25,7 +25,7 @@ const noCache = { 'Cache-Control': 'no-store' };
 const VALID_STAT_KEYS = new Set([
   'maxHp', 'speed', 'damage', 'armor', 'pickup',
   'cooldown', 'area', 'luck', 'coin', 'xp',
-  'reroll', 'revive', 'freshmanKit',
+  'reroll', 'revive', 'freshmanKit', 'coinChance',
 ]);
 
 // GET — return this team's saved gold + shop stats.

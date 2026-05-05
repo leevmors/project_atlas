@@ -284,7 +284,7 @@
         }
 
         let globalGold = 0;
-        let shopStats = { maxHp: 0, speed: 0, damage: 0, armor: 0, pickup: 0, cooldown: 0, area: 0, luck: 0, coin: 0, xp: 0, reroll: 0, revive: 0, freshmanKit: 0 };
+        let shopStats = { maxHp: 0, speed: 0, damage: 0, armor: 0, pickup: 0, cooldown: 0, area: 0, luck: 0, coin: 0, xp: 0, reroll: 0, revive: 0, freshmanKit: 0, coinChance: 0 };
         loadShopData();
         
         const SHOP_UPGRADES = {
@@ -297,6 +297,7 @@
             area: { name: 'Bigger Notes', desc: '+5% Attack Area.', max: 5, baseCost: 200, costMult: 1.5, icon: 'books' },
             luck: { name: 'Lucky Semester', desc: '+2% Crit Chance.', max: 5, baseCost: 250, costMult: 1.6, icon: 'pen' },
             coin: { name: 'Part-Time Job', desc: '+10% Coin Gain.', max: 5, baseCost: 300, costMult: 1.8, icon: 'chest' },
+            coinChance: { name: 'Lucky Pockets', desc: 'Coin drop chance: 5%→10%→25%→50%→100%.', max: 4, baseCost: 200, costMult: 2.2, icon: 'coin' },
             xp: { name: 'Study Habit', desc: '+5% XP Gain.', max: 5, baseCost: 200, costMult: 1.5, icon: 'library' },
             reroll: { name: 'Change Major', desc: '+1 Reroll on level up.', max: 3, baseCost: 500, costMult: 2.0, icon: 'dice' },
             revive: { name: 'Second Chance Exam', desc: 'Revive once per run with 50% HP.', max: 1, baseCost: 2000, costMult: 1, icon: 'revive' },
@@ -509,6 +510,9 @@
                 
                 this.globalAreaMult = 1.0 + (shopStats.area * 0.05);
                 this.coinMult = 1.0 + (shopStats.coin * 0.10);
+                // Coin drop chance tiers: 5% → 10% → 25% → 50% → 100%
+                const COIN_CHANCE_TIERS = [0.05, 0.10, 0.25, 0.50, 1.00];
+                this.coinDropChance = COIN_CHANCE_TIERS[Math.min(shopStats.coinChance, COIN_CHANCE_TIERS.length - 1)];
                 this.xpMult = 1.0 + (shopStats.xp * 0.05);
                 
                 // Rule 3: Max 3 proj bonus
@@ -1004,7 +1008,7 @@
                         else if (dropRoll < 0.0065) items.push(new Pickup(this.x, this.y, 'fire_alarm')); 
                         else if (dropRoll < 0.0067) items.push(new Pickup(this.x, this.y, 'tshirt')); 
                     }
-                    if (Math.random() < 0.05) player.gold += Math.floor(1 * player.coinMult);
+                    if (Math.random() < player.coinDropChance) player.gold += Math.floor(1 * player.coinMult);
                 }
                 
                 if (this.type === 6 && !this.isChild) {
