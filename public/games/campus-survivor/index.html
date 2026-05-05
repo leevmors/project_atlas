@@ -1183,8 +1183,40 @@
         }
 
         function resize() {
-            width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height;
-            if (gl) { gl.viewport(0, 0, width, height); const aspect = width / height; const targetWidth = 480; offscreenCanvas.width = targetWidth; offscreenCanvas.height = Math.floor(targetWidth / aspect); pixelScaleX = targetWidth / width; pixelScaleY = offscreenCanvas.height / height; }
+            // CSS-pixel size — what the game logic / pointer / world all
+            // operate in. width/height stay in CSS units so existing
+            // coordinate math (pointerScreen.x, camera, raycasts) is unchanged.
+            const cssW = window.innerWidth;
+            const cssH = window.innerHeight;
+            width = cssW; height = cssH;
+
+            // High-DPI: WebGL canvas backing buffer follows the device pixel
+            // ratio so the texture is sampled at physical-pixel resolution.
+            // CSS size stays the same so layout doesn't shift.
+            const dpr = Math.min(2.5, window.devicePixelRatio || 1);
+            const physW = Math.max(1, Math.floor(cssW * dpr));
+            const physH = Math.max(1, Math.floor(cssH * dpr));
+            canvas.width = physW; canvas.height = physH;
+            canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px';
+
+            if (gl) {
+                gl.viewport(0, 0, physW, physH);
+                const aspect = cssW / cssH;
+                // Pixel-art aesthetic preserved by capping the upscale factor.
+                // Was hardcoded 480 → 5.3× chunky on 2K (2560 wide). Now we
+                // scale the offscreen render target up with the screen so the
+                // worst case is ~3× per pixel, which reads as crisp pixel art
+                // instead of blocky.
+                const MAX_CHUNK = 3;
+                const MIN_TARGET = 480;  // mobile floor — keeps the look on phones
+                const MAX_TARGET = 1920; // hard ceiling for perf on 4K+ monitors
+                const targetWidth = Math.min(MAX_TARGET, Math.max(MIN_TARGET, Math.ceil(physW / MAX_CHUNK)));
+                offscreenCanvas.width = targetWidth;
+                offscreenCanvas.height = Math.max(1, Math.floor(targetWidth / aspect));
+                // World coords are CSS-pixels; pixelScale maps CSS→offscreen.
+                pixelScaleX = targetWidth / cssW;
+                pixelScaleY = offscreenCanvas.height / cssH;
+            }
         }
 
         function createPattern(drawFn, size) {
