@@ -238,6 +238,12 @@
                     if (typeof stats[k] === 'number') shopStats[k] = stats[k];
                 });
             }
+            // Push to DOM — loadShopData() is async/fire-and-forget so this is
+            // the only reliable place to update the display after load.
+            const menuGoldEl = document.getElementById('menu-global-gold');
+            const shopGoldEl = document.getElementById('shop-gold');
+            if (menuGoldEl) menuGoldEl.textContent = globalGold;
+            if (shopGoldEl) shopGoldEl.textContent = globalGold;
         }
 
         function saveShopToStorage() {
