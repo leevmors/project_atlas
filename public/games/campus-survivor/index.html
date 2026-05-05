@@ -227,8 +227,18 @@
         const STATE = { MENU: 0, PLAYING: 1, LEVEL_UP: 2, GAMEOVER: 3, CHEST: 4, SHOP: 5 };
         let currentState = STATE.MENU;
 
-        // Meta Progression State — persisted to localStorage so purchases survive page reloads
+        // Meta Progression State — persisted to the team's Project Atlas account
+        // via /api/games/campus-survivor/shop, with localStorage as offline fallback.
         const SHOP_STORAGE_KEY = 'campus_survivor_shop_v1';
+
+        function applyShopData(gold, stats) {
+            if (typeof gold === 'number' && gold >= 0) globalGold = gold;
+            if (stats && typeof stats === 'object') {
+                Object.keys(shopStats).forEach(k => {
+                    if (typeof stats[k] === 'number') shopStats[k] = stats[k];
+                });
+            }
+        }
 
         function saveShopToStorage() {
             try {
@@ -236,23 +246,40 @@
             } catch (e) { /* storage unavailable */ }
         }
 
-        function loadShopFromStorage() {
+        async function saveShopToServer() {
+            saveShopToStorage();
+            try {
+                await fetch('/api/games/campus-survivor/shop', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gold: globalGold, stats: shopStats })
+                });
+            } catch (e) { /* network unavailable — localStorage fallback already saved */ }
+        }
+
+        async function loadShopData() {
+            // Try server first (authoritative), fall back to localStorage.
+            try {
+                const res = await fetch('/api/games/campus-survivor/shop', { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    applyShopData(data.gold, data.stats);
+                    saveShopToStorage(); // keep local cache in sync
+                    return;
+                }
+            } catch (e) { /* offline */ }
+            // Fallback: restore from localStorage
             try {
                 const raw = localStorage.getItem(SHOP_STORAGE_KEY);
                 if (!raw) return;
                 const saved = JSON.parse(raw);
-                if (typeof saved.globalGold === 'number') globalGold = saved.globalGold;
-                if (saved.shopStats && typeof saved.shopStats === 'object') {
-                    Object.keys(shopStats).forEach(k => {
-                        if (typeof saved.shopStats[k] === 'number') shopStats[k] = saved.shopStats[k];
-                    });
-                }
+                applyShopData(saved.globalGold, saved.shopStats);
             } catch (e) { /* corrupt storage — ignore */ }
         }
 
         let globalGold = 0;
         let shopStats = { maxHp: 0, speed: 0, damage: 0, armor: 0, pickup: 0, cooldown: 0, area: 0, luck: 0, coin: 0, xp: 0, reroll: 0, revive: 0, freshmanKit: 0 };
-        loadShopFromStorage();
+        loadShopData();
         
         const SHOP_UPGRADES = {
             maxHp: { name: 'Better Sleep', desc: '+10 Max HP per level.', max: 10, baseCost: 100, costMult: 1.4, icon: 'heal' },
@@ -1243,7 +1270,7 @@
                         SFX.init(); SFX.buy();
                         globalGold -= cost;
                         shopStats[key] = currentLvl + 1;
-                        saveShopToStorage();
+                        saveShopToServer();
                         renderShop();
                     };
                 }
@@ -1443,7 +1470,7 @@
             currentState = STATE.GAMEOVER; uiLayer.classList.add('hidden'); menuLayer.classList.remove('hidden');
             
             globalGold += player.gold;
-            saveShopToStorage();
+            saveShopToServer();
             document.getElementById('menu-global-gold').textContent = globalGold;
 
             document.getElementById('menu-title').textContent = "EXPELLED!"; document.getElementById('menu-title').classList.replace('text-[#fef3c7]', 'text-red-500');

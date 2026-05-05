@@ -179,6 +179,16 @@ CREATE TABLE IF NOT EXISTS campus_survivor_scores (
 CREATE INDEX IF NOT EXISTS campus_survivor_scores_team_idx ON campus_survivor_scores(team_id);
 CREATE INDEX IF NOT EXISTS campus_survivor_scores_score_idx ON campus_survivor_scores(score DESC);
 
+-- Per-team shop state for Campus Survivor (gold + upgrade levels).
+-- Upserted on every purchase and end-of-run so coins survive across
+-- devices and code updates.
+CREATE TABLE IF NOT EXISTS campus_survivor_shop (
+  team_id     uuid        PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,
+  gold        integer     NOT NULL DEFAULT 0 CHECK (gold >= 0),
+  stats       jsonb       NOT NULL DEFAULT '{}',
+  updated_at  timestamptz DEFAULT NOW()
+);
+
 -- Migrations (safe to re-run)
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
 ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_cooldown_until timestamptz;
