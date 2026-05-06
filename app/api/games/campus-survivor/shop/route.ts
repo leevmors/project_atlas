@@ -79,16 +79,21 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await pool.query(
+    const res = await pool.query(
       `INSERT INTO campus_survivor_shop (team_id, gold, stats, updated_at)
        VALUES ($1, $2, $3, NOW())
        ON CONFLICT (team_id) DO UPDATE
          SET gold = EXCLUDED.gold,
              stats = EXCLUDED.stats,
-             updated_at = NOW()`,
+             updated_at = NOW()
+       RETURNING gold, stats`,
       [session.user_id, gold, JSON.stringify(stats)]
     );
-    return NextResponse.json({ ok: true }, { headers: noCache });
+    const row = res.rows[0];
+    return NextResponse.json(
+      { ok: true, gold: row?.gold ?? gold, stats: row?.stats ?? stats },
+      { headers: noCache }
+    );
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCache });
   }

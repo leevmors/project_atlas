@@ -231,6 +231,13 @@
         // via /api/games/campus-survivor/shop, with localStorage as offline fallback.
         const SHOP_STORAGE_KEY = 'campus_survivor_shop_v1';
 
+        function syncStoredGoldDisplay() {
+            const menuGoldEl = document.getElementById('menu-global-gold');
+            const shopGoldEl = document.getElementById('shop-gold');
+            if (menuGoldEl) menuGoldEl.textContent = globalGold;
+            if (shopGoldEl) shopGoldEl.textContent = globalGold;
+        }
+
         function applyShopData(gold, stats) {
             if (typeof gold === 'number' && gold >= 0) globalGold = gold;
             if (stats && typeof stats === 'object') {
@@ -240,10 +247,7 @@
             }
             // Push to DOM — loadShopData() is async/fire-and-forget so this is
             // the only reliable place to update the display after load.
-            const menuGoldEl = document.getElementById('menu-global-gold');
-            const shopGoldEl = document.getElementById('shop-gold');
-            if (menuGoldEl) menuGoldEl.textContent = globalGold;
-            if (shopGoldEl) shopGoldEl.textContent = globalGold;
+            syncStoredGoldDisplay();
         }
 
         function saveShopToStorage() {
@@ -258,7 +262,15 @@
                 await fetch('/api/games/campus-survivor/shop', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ gold: globalGold, stats: shopStats })
+                    body: JSON.stringify({ gold: globalGold, stats: shopStats }),
+                    credentials: 'include'
+                }).then(async (res) => {
+                    if (!res.ok) return;
+                    const data = await res.json().catch(() => null);
+                    if (data && typeof data === 'object') {
+                        applyShopData(data.gold, data.stats);
+                        saveShopToStorage();
+                    }
                 });
             } catch (e) { /* network unavailable — localStorage fallback already saved */ }
         }
@@ -266,7 +278,7 @@
         async function loadShopData() {
             // Try server first (authoritative), fall back to localStorage.
             try {
-                const res = await fetch('/api/games/campus-survivor/shop', { cache: 'no-store' });
+                const res = await fetch('/api/games/campus-survivor/shop', { cache: 'no-store', credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
                     applyShopData(data.gold, data.stats);
@@ -453,6 +465,7 @@
         let enemies = [], gems = [], items = [], damageTexts = [], particles = [], worldEffects = [], props = [];
         let patterns = {};
         let bossSpawns = {};
+        let currentRunId = null;
 
         const distSq = (x1, y1, x2, y2) => (x2 - x1) ** 2 + (y2 - y1) ** 2;
         const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
@@ -1329,8 +1342,16 @@
             currentState = STATE.MENU; shopLayer.classList.add('hidden'); menuLayer.classList.remove('hidden');
         });
 
+        function generateClientRunId() {
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                return window.crypto.randomUUID();
+            }
+            return `run_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+        }
+
         function startGame() {
             resize(); initBackground();
+            currentRunId = generateClientRunId();
             player = new Player();
             enemies = []; gems = []; items = []; damageTexts = []; particles = []; worldEffects = []; props = [];
             bossSpawns = { 10: false, 20: false, 30: false, 45: false, 60: false };
@@ -1511,9 +1532,7 @@
         function gameOver() {
             currentState = STATE.GAMEOVER; uiLayer.classList.add('hidden'); menuLayer.classList.remove('hidden');
             
-            globalGold += player.gold;
-            saveShopToServer();
-            document.getElementById('menu-global-gold').textContent = globalGold;
+            syncStoredGoldDisplay();
 
             document.getElementById('menu-title').textContent = "EXPELLED!"; document.getElementById('menu-title').classList.replace('text-[#fef3c7]', 'text-red-500');
             document.getElementById('stats-panel').classList.remove('hidden');
@@ -1710,6 +1729,8 @@
                         kills: Math.floor(run.kills || 0),
                         time_survived: Math.floor((run.time_survived || 0) / 1000),
                         level_reached: Math.floor(run.level_reached || 1),
+                        gold_earned: Math.floor(run.gold_earned || 0),
+                        client_run_id: run.client_run_id,
                     }),
                     credentials: 'include',
                 });
@@ -1794,6 +1815,8 @@
             const finalKills = player ? player.kills : 0;
             const finalTime  = gameTime;
             const finalLvl   = player ? player.level : 1;
+            const finalGold  = player ? player.gold : 0;
+            const runId = currentRunId || generateClientRunId();
             __origGameOver();
             const status = document.getElementById('submit-status');
             if (Date.now() > __DEADLINE_MS) {
@@ -1803,7 +1826,12 @@
                 const result = await __submitRun({
                     score: finalScore, kills: finalKills,
                     time_survived: finalTime, level_reached: finalLvl,
+                    gold_earned: finalGold, client_run_id: runId,
                 });
+                if (result.ok && typeof result.shop_gold === 'number') {
+                    applyShopData(result.shop_gold, null);
+                    saveShopToStorage();
+                }
                 if (status) {
                     if (result.ok) status.textContent = 'Score submitted!';
                     else if (result.status === 401) status.textContent = 'Log in as a registered team to qualify.';

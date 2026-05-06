@@ -174,10 +174,14 @@ CREATE TABLE IF NOT EXISTS campus_survivor_scores (
   kills           integer       NOT NULL DEFAULT 0,
   time_survived   integer       NOT NULL DEFAULT 0,
   level_reached   integer       NOT NULL DEFAULT 1,
+  gold_earned     integer       NOT NULL DEFAULT 0 CHECK (gold_earned >= 0),
+  client_run_id   varchar(80),
   submitted_at    timestamptz   DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS campus_survivor_scores_team_idx ON campus_survivor_scores(team_id);
 CREATE INDEX IF NOT EXISTS campus_survivor_scores_score_idx ON campus_survivor_scores(score DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS campus_survivor_scores_team_client_run_idx
+  ON campus_survivor_scores(team_id, client_run_id);
 
 -- Per-team shop state for Campus Survivor (gold + upgrade levels).
 -- Upserted on every purchase and end-of-run so coins survive across
@@ -193,3 +197,7 @@ CREATE TABLE IF NOT EXISTS campus_survivor_shop (
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS group_number varchar(20);
 ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_cooldown_until timestamptz;
 ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_sub_round integer NOT NULL DEFAULT 0;
+ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS gold_earned integer NOT NULL DEFAULT 0 CHECK (gold_earned >= 0);
+ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS client_run_id varchar(80);
+CREATE UNIQUE INDEX IF NOT EXISTS campus_survivor_scores_team_client_run_idx
+  ON campus_survivor_scores(team_id, client_run_id);
