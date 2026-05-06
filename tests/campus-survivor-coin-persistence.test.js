@@ -59,7 +59,7 @@ test('shop endpoint and client use explicit account credentials and return autho
 });
 
 test('early game balance gives no-upgrade teams a 90-120 second ramp', () => {
-  assert.match(gameHtml, /baseSpawnRate:\s*1500/);
+  assert.match(gameHtml, /baseSpawnRate:\s*1000/);
   assert.match(gameHtml, /spawnRateDecay:\s*0\.985/);
   assert.match(gameHtml, /EARLY_RAMP_MS\s*=\s*90_000/);
   assert.match(gameHtml, /FULL_STRENGTH_MS\s*=\s*180_000/);
@@ -88,17 +88,16 @@ test('first basic mobs die within one starter whip hit during the opening window
 });
 
 test('opening spawn density is busier but still ramps predictably', () => {
+  assert.match(gameHtml, /baseSpawnRate:\s*1000/);
   assert.match(gameHtml, /EARLY_SPAWN_RATE_START_MULT\s*=\s*0\.60/);
-  assert.match(gameHtml, /EARLY_BURST_STEP_MS\s*=\s*45_000/);
   assert.match(gameHtml, /EARLY_BURST_CAP_MS\s*=\s*480_000/);
   assert.match(gameHtml, /function\s+earlySpawnRateMult\(\)/);
   assert.match(gameHtml, /CONFIG\.baseSpawnRate\s*\*\s*earlySpawnRateMult\(\)\s*\*\s*Math\.pow\(CONFIG\.spawnRateDecay/);
   assert.match(gameHtml, /function\s+getSpawnBurst\(\)/);
-  assert.match(gameHtml, /if\s*\(gameTime\s*<\s*EARLY_BURST_STEP_MS\)\s*return\s*1/);
-  // burst capped at 2 through 8m, ramps to 3 at 8-10m, then resumes scaling
   assert.match(gameHtml, /if\s*\(gameTime\s*<\s*EARLY_BURST_CAP_MS\)\s*return\s*2/);
   assert.match(gameHtml, /if\s*\(gameTime\s*<\s*EARLY_FULL_STRENGTH_MS\)\s*return\s*3/);
-  assert.doesNotMatch(gameHtml, /if\s*\(gameTime\s*<\s*EARLY_RAMP_MS\)\s*return\s*2/);
+  assert.doesNotMatch(gameHtml, /EARLY_BURST_STEP_MS/);
+  assert.doesNotMatch(gameHtml, /if\s*\(gameTime\s*<\s*EARLY_BURST_STEP_MS\)\s*return\s*1/);
 });
 
 test('spawn distance uses close-spawn padding and not the far diagonal formula', () => {
@@ -141,13 +140,13 @@ test('single flame aura skill replaces separate ground aoe skills', () => {
   assert.match(gameHtml, /return\s+!!player\?\.actives\?\.flame/);
 });
 
-test('chest drops ramp over time without replacing ordinary pickup drops', () => {
-  assert.match(gameHtml, /NORMAL_CHEST_START_CHANCE\s*=\s*0\.002/);
-  assert.match(gameHtml, /NORMAL_CHEST_MAX_CHANCE\s*=\s*0\.012/);
-  assert.match(gameHtml, /ELITE_CHEST_START_CHANCE\s*=\s*0\.012/);
-  assert.match(gameHtml, /ELITE_CHEST_MAX_CHANCE\s*=\s*0\.05/);
-  assert.match(gameHtml, /CHEST_RAMP_MS\s*=\s*600_000/);
+test('chest drop rate is flat (no ramp)', () => {
+  assert.match(gameHtml, /CHEST_CHANCE_NORMAL\s*=\s*0\.005/);
+  assert.match(gameHtml, /CHEST_CHANCE_ELITE\s*=\s*0\.025/);
+  assert.doesNotMatch(gameHtml, /CHEST_RAMP_MS/);
+  assert.doesNotMatch(gameHtml, /NORMAL_CHEST_START_CHANCE/);
+  assert.doesNotMatch(gameHtml, /ELITE_CHEST_START_CHANCE/);
   assert.match(gameHtml, /function\s+getChestDropChance\(enemy\)/);
+  assert.match(gameHtml, /return\s+isElite\s*\?\s*CHEST_CHANCE_ELITE\s*:\s*CHEST_CHANCE_NORMAL/);
   assert.match(gameHtml, /if\s*\(Math\.random\(\)\s*<\s*getChestDropChance\(this\)\)\s*items\.push\(new\s+Pickup\(this\.x,\s*this\.y,\s*'chest'\)\)/);
-  assert.doesNotMatch(gameHtml, /if\s*\(this\.type\s*===\s*2\s*\|\|\s*this\.type\s*===\s*4\s*\|\|\s*this\.type\s*===\s*8\)\s*\{\s*if\s*\(dropRoll\s*<\s*0\.01\)\s*items\.push\(new\s+Pickup\(this\.x,\s*this\.y,\s*'chest'\)\);\s*\}\s*else/s);
 });

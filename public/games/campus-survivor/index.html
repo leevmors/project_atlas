@@ -217,7 +217,7 @@
             targetFPS: 60,
             tileSize: 64,
             playerSpeed: 180,
-            baseSpawnRate: 1500,
+            baseSpawnRate: 1000,
             spawnRateDecay: 0.985, // Faster decay = harder late game
             mapBounds: { width: 4000, height: 4000 },
             maxActive: 6,
@@ -229,18 +229,14 @@
         const FULL_STRENGTH_MS = 180_000;
         const EARLY_FULL_STRENGTH_MS = 600_000;
         const EARLY_ONE_HIT_MS = 60_000;
-        const EARLY_BURST_STEP_MS = 45_000;
         const EARLY_BURST_CAP_MS = 480_000;
         const SPAWN_DISTANCE_PADDING = 20;
         const EARLY_SPAWN_RATE_START_MULT = 0.60;
         const EARLY_ENEMY_HP_START_MULT = 0.28;
         const EARLY_ENEMY_HP_ONE_HIT_CAP = 0.31;
         const EARLY_ENEMY_THREAT_START_MULT = 0.55;
-        const NORMAL_CHEST_START_CHANCE = 0.002;
-        const NORMAL_CHEST_MAX_CHANCE = 0.012;
-        const ELITE_CHEST_START_CHANCE = 0.012;
-        const ELITE_CHEST_MAX_CHANCE = 0.05;
-        const CHEST_RAMP_MS = 600_000;
+        const CHEST_CHANCE_NORMAL = 0.005;
+        const CHEST_CHANCE_ELITE  = 0.025;
         let currentState = STATE.MENU;
 
         // Meta Progression State — persisted to the team's Project Atlas account
@@ -495,7 +491,6 @@
         }
 
         function getSpawnBurst() {
-            if (gameTime < EARLY_BURST_STEP_MS) return 1;
             if (gameTime < EARLY_BURST_CAP_MS) return 2;
             if (gameTime < EARLY_FULL_STRENGTH_MS) return 3;
             return 3 + Math.floor((gameTime - EARLY_FULL_STRENGTH_MS) / 60000);
@@ -518,11 +513,8 @@
         }
 
         function getChestDropChance(enemy) {
-            const ramp = clamp(gameTime / CHEST_RAMP_MS, 0, 1);
             const isElite = enemy.type === 2 || enemy.type === 4 || enemy.type === 8;
-            const start = isElite ? ELITE_CHEST_START_CHANCE : NORMAL_CHEST_START_CHANCE;
-            const max = isElite ? ELITE_CHEST_MAX_CHANCE : NORMAL_CHEST_MAX_CHANCE;
-            return start + ((max - start) * ramp);
+            return isElite ? CHEST_CHANCE_ELITE : CHEST_CHANCE_NORMAL;
         }
 
         // --- Classes ---
