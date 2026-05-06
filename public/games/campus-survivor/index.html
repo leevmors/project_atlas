@@ -227,8 +227,11 @@
         const STATE = { MENU: 0, PLAYING: 1, LEVEL_UP: 2, GAMEOVER: 3, CHEST: 4, SHOP: 5 };
         const EARLY_RAMP_MS = 90_000;
         const FULL_STRENGTH_MS = 180_000;
+        const EARLY_FULL_STRENGTH_MS = 600_000;
         const EARLY_ONE_HIT_MS = 60_000;
         const EARLY_BURST_STEP_MS = 45_000;
+        const EARLY_BURST_CAP_MS = 480_000;
+        const SPAWN_DISTANCE_PADDING = 20;
         const EARLY_SPAWN_RATE_START_MULT = 0.60;
         const EARLY_ENEMY_HP_START_MULT = 0.28;
         const EARLY_ENEMY_HP_ONE_HIT_CAP = 0.31;
@@ -493,18 +496,25 @@
 
         function getSpawnBurst() {
             if (gameTime < EARLY_BURST_STEP_MS) return 1;
-            if (gameTime < EARLY_RAMP_MS) return 2;
-            return 2 + Math.floor((gameTime - EARLY_RAMP_MS) / 60000);
+            if (gameTime < EARLY_BURST_CAP_MS) return 2;
+            if (gameTime < EARLY_FULL_STRENGTH_MS) return 3;
+            return 3 + Math.floor((gameTime - EARLY_FULL_STRENGTH_MS) / 60000);
         }
 
         function earlyEnemyHpMult(enemyType, enemyLevel) {
-            const ramped = EARLY_ENEMY_HP_START_MULT + ((1 - EARLY_ENEMY_HP_START_MULT) * clamp(gameTime / FULL_STRENGTH_MS, 0, 1));
+            const ramped = EARLY_ENEMY_HP_START_MULT + ((1 - EARLY_ENEMY_HP_START_MULT) * clamp(gameTime / EARLY_FULL_STRENGTH_MS, 0, 1));
             if (gameTime < EARLY_ONE_HIT_MS && enemyType === 0 && enemyLevel === 1) return Math.min(ramped, EARLY_ENEMY_HP_ONE_HIT_CAP);
             return ramped;
         }
 
         function earlyEnemyThreatMult() {
-            return EARLY_ENEMY_THREAT_START_MULT + ((1 - EARLY_ENEMY_THREAT_START_MULT) * clamp(gameTime / FULL_STRENGTH_MS, 0, 1));
+            return EARLY_ENEMY_THREAT_START_MULT + ((1 - EARLY_ENEMY_THREAT_START_MULT) * clamp(gameTime / EARLY_FULL_STRENGTH_MS, 0, 1));
+        }
+
+        function getNextXpNeeded(current, nextLevel) {
+            if (nextLevel <= 5) return Math.floor(current * 1.30);
+            if (nextLevel <= 10) return Math.floor(current * 1.45);
+            return Math.floor(current * 1.60);
         }
 
         function getChestDropChance(enemy) {
@@ -521,7 +531,7 @@
             constructor() {
                 this.x = 0; this.y = 0;
                 this.radius = 16;
-                this.level = 1; this.xp = 0; this.xpNeeded = 15; // Scaled up XP req
+                this.level = 1; this.xp = 0; this.xpNeeded = 10;
                 this.pendingLevelUps = 0; this.gold = 0; this.kills = 0;
                 
                 this.actives = { whip: 1 };
@@ -794,7 +804,7 @@
                 SFX.xp();
                 while (this.xp >= this.xpNeeded) {
                     this.level++; this.pendingLevelUps++;
-                    this.xp -= this.xpNeeded; this.xpNeeded = Math.floor(this.xpNeeded * 1.6); // Steeper scale
+                    this.xp -= this.xpNeeded; this.xpNeeded = getNextXpNeeded(this.xpNeeded, this.level);
                 }
                 updateUI();
             }
@@ -1330,10 +1340,14 @@
 
         function spawnEnemy() {
             const angle = Math.random() * Math.PI * 2;
-            const radius = Math.sqrt((width/2)**2 + (height/2)**2) + 50;
+            const radius = Math.max(width, height) * 0.45 + SPAWN_DISTANCE_PADDING;
             const sx = player.x + Math.cos(angle) * radius; const sy = player.y + Math.sin(angle) * radius;
             const mins = Math.floor(gameTime / 60000);
-            const enemyLevel = 1 + mins + Math.floor(player.level / 4);
+            let enemyLevel;
+            if (mins < 3) { enemyLevel = 1; }
+            else if (mins < 6) { enemyLevel = 2; }
+            else if (mins < 10) { enemyLevel = 3; }
+            else { enemyLevel = 4 + Math.floor(mins - 10) + Math.floor(player.level / 4); }
             
             let type = 0; const r = Math.random();
 
