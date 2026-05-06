@@ -227,7 +227,17 @@
         const STATE = { MENU: 0, PLAYING: 1, LEVEL_UP: 2, GAMEOVER: 3, CHEST: 4, SHOP: 5 };
         const EARLY_RAMP_MS = 90_000;
         const FULL_STRENGTH_MS = 180_000;
-        const EARLY_ENEMY_START_MULT = 0.55;
+        const EARLY_ONE_HIT_MS = 60_000;
+        const EARLY_BURST_STEP_MS = 45_000;
+        const EARLY_SPAWN_RATE_START_MULT = 0.60;
+        const EARLY_ENEMY_HP_START_MULT = 0.28;
+        const EARLY_ENEMY_HP_ONE_HIT_CAP = 0.31;
+        const EARLY_ENEMY_THREAT_START_MULT = 0.55;
+        const NORMAL_CHEST_START_CHANCE = 0.002;
+        const NORMAL_CHEST_MAX_CHANCE = 0.012;
+        const ELITE_CHEST_START_CHANCE = 0.012;
+        const ELITE_CHEST_MAX_CHANCE = 0.05;
+        const CHEST_RAMP_MS = 600_000;
         let currentState = STATE.MENU;
 
         // Meta Progression State — persisted to the team's Project Atlas account
@@ -380,7 +390,10 @@
             magnet: { '.': 'transparent', 'R': '#ef4444', 'S': '#94a3b8', 'D': '#b91c1c' },
             dice: { '.': 'transparent', 'W': '#f8fafc', 'R': '#ef4444', 'S': '#cbd5e1' },
             bag: { '.': 'transparent', 'B': '#3b82f6', 'D': '#1e40af', 'S': '#fcd34d' },
-            revive: { '.': 'transparent', 'R': '#ef4444', 'W': '#f8fafc', 'Y': '#fef08a' }
+            revive: { '.': 'transparent', 'R': '#ef4444', 'W': '#f8fafc', 'Y': '#fef08a' },
+            garlic: { '.': 'transparent', 'G': '#d9f99d', 'W': '#f8fafc', 'D': '#84cc16', 'S': '#a3e635' },
+            flames: { '.': 'transparent', 'R': '#dc2626', 'O': '#f97316', 'Y': '#facc15', 'W': '#fff7ed' },
+            sludge: { '.': 'transparent', 'S': '#365314', 'G': '#65a30d', 'D': '#1a2e05', 'W': '#bef264' }
         };
 
         const ICON_ART = {
@@ -401,7 +414,10 @@
             magnet: ["........",".RR..RR.",".RR..RR.",".RR..RR.",".RR..RR.",".SS..SS.",".SS..SS.","........"],
             dice:   ["........",".WWWWWW.",".W.R.WW.",".WWWWW..",".W.W.W.S",".WWWW.S.","..SSSS..","........"],
             bag:    ["........","...BB...","..B..B..",".BBBBBB.",".BDBBDB.",".BBBBBB.",".BBBBBB.","........"],
-            revive: ["..Y..Y..",".W....W.","W.RRRR.W",".RRRRRR.","W.RRRR.W","..W..W..","........","........"]
+            revive: ["..Y..Y..",".W....W.","W.RRRR.W",".RRRRRR.","W.RRRR.W","..W..W..","........","........"],
+            garlic: ["........","..SSS...",".SGWGS..","SGWWWGS.","SGWWWGS.",".SGWGS..","..DDD...","........"],
+            flames: ["...Y....","..YOY...","..YORY..",".YOROR..",".ROROR..","RORORO..",".RRRR...","........"],
+            sludge: ["........",".GGSSG..","GSSSDDG.","GSDDDSS.","SSDDDSS.","GSSSSG..","..GG....","........"]
         };
 
         function renderPixelIcon(id) {
@@ -422,14 +438,17 @@
         const SKILLS = {
             whip:   { id: 'whip', type: 'active', name: 'Red Tie Whip', desc: 'Sweeps enemies in front.', max: 8, evolveReq: 'energy', weight: 60 },
             coffee: { id: 'coffee', type: 'active', name: 'Coffee Splash', desc: 'Drops damaging AOE puddles.', max: 8, evolveReq: 'charger', weight: 60 },
+            garlic: { id: 'garlic', type: 'active', name: 'Garlic Cloud', desc: 'Plants lasting defensive clouds.', max: 8, weight: 60, icon: 'garlic' },
             idCard: { id: 'idCard', type: 'passive', name: 'Student ID', desc: 'Increases pickup range.', max: 5, weight: 60, icon: 'magnet' },
             hoodie: { id: 'hoodie', type: 'passive', name: 'Comfort Hoodie', desc: 'Increases Max HP.', max: 5, weight: 60 },
             
             panic:  { id: 'panic', type: 'active', name: 'Exam Panic Aura', desc: 'Damages enemies close to you.', max: 8, evolveReq: 'hoodie', weight: 25 },
+            flames: { id: 'flames', type: 'active', name: 'Ground Flames', desc: 'Leaves hot patches near enemies.', max: 8, weight: 25, icon: 'flames' },
             shoes:  { id: 'shoes', type: 'passive', name: 'Running Shoes', desc: 'Increases movement speed.', max: 5, weight: 25, icon: 'shoes' },
             energy: { id: 'energy', type: 'passive', name: 'Energy Drink', desc: 'Increases attack speed.', max: 5, weight: 25 },
             
             calc:   { id: 'calc', type: 'active', name: 'Calculator Beam', desc: 'Auto-fires math lasers.', max: 8, evolveReq: 'pen', weight: 10 },
+            sludge: { id: 'sludge', type: 'active', name: 'Sludge Pool', desc: 'Plants slowing damage fields.', max: 8, weight: 10, icon: 'sludge' },
             library:{ id: 'library', type: 'passive', name: 'Library Card', desc: 'Adds extra projectiles.', max: 3, weight: 10 }, // Rule 3: Max 3 proj
             pen:    { id: 'pen', type: 'passive', name: 'Lucky Pen', desc: 'Increases critical hit chance.', max: 5, weight: 10 },
             
@@ -474,8 +493,42 @@
         const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
         const randRange = (min, max) => Math.random() * (max - min) + min;
 
-        function earlyEnemyStatMult() {
-            return EARLY_ENEMY_START_MULT + ((1 - EARLY_ENEMY_START_MULT) * clamp(gameTime / FULL_STRENGTH_MS, 0, 1));
+        function earlySpawnRateMult() {
+            return EARLY_SPAWN_RATE_START_MULT + ((1 - EARLY_SPAWN_RATE_START_MULT) * clamp(gameTime / EARLY_RAMP_MS, 0, 1));
+        }
+
+        function getSpawnBurst() {
+            if (gameTime < EARLY_BURST_STEP_MS) return 1;
+            if (gameTime < EARLY_RAMP_MS) return 2;
+            return 2 + Math.floor((gameTime - EARLY_RAMP_MS) / 60000);
+        }
+
+        function earlyEnemyHpMult(enemyType, enemyLevel) {
+            const ramped = EARLY_ENEMY_HP_START_MULT + ((1 - EARLY_ENEMY_HP_START_MULT) * clamp(gameTime / FULL_STRENGTH_MS, 0, 1));
+            if (gameTime < EARLY_ONE_HIT_MS && enemyType === 0 && enemyLevel === 1) return Math.min(ramped, EARLY_ENEMY_HP_ONE_HIT_CAP);
+            return ramped;
+        }
+
+        function earlyEnemyThreatMult() {
+            return EARLY_ENEMY_THREAT_START_MULT + ((1 - EARLY_ENEMY_THREAT_START_MULT) * clamp(gameTime / FULL_STRENGTH_MS, 0, 1));
+        }
+
+        function getChestDropChance(enemy) {
+            const ramp = clamp(gameTime / CHEST_RAMP_MS, 0, 1);
+            const isElite = enemy.type === 2 || enemy.type === 4 || enemy.type === 8;
+            const start = isElite ? ELITE_CHEST_START_CHANCE : NORMAL_CHEST_START_CHANCE;
+            const max = isElite ? ELITE_CHEST_MAX_CHANCE : NORMAL_CHEST_MAX_CHANCE;
+            return start + ((max - start) * ramp);
+        }
+
+        function addPersistentAoeField(field, cap) {
+            const sameKind = worldEffects.filter(e => e instanceof PersistentAoeField && e.kind === field.kind);
+            if (sameKind.length >= cap) {
+                const oldest = sameKind.reduce((a, b) => a.createdAt <= b.createdAt ? a : b);
+                const idx = worldEffects.indexOf(oldest);
+                if (idx >= 0) worldEffects.splice(idx, 1);
+            }
+            worldEffects.push(field);
         }
 
         // --- Classes ---
@@ -489,7 +542,7 @@
                 
                 this.actives = { whip: 1 };
                 this.passives = {}; this.evolved = {};
-                this.timers = { whip: 0, coffee: 0, panic: 0, calc: 0 };
+                this.timers = { whip: 0, coffee: 0, garlic: 0, flames: 0, sludge: 0, panic: 0, calc: 0 };
                 this.bookAngle = 0; this.espressoTimer = 0;
 
                 this.facingDir = { x: 1, y: 0 }; this.isMoving = false;
@@ -670,6 +723,58 @@
                             const offset = i === 0 ? {x:0, y:0} : {x: randRange(-100,100), y: randRange(-100,100)};
                             worldEffects.push(new CoffeePuddle(this.x + offset.x, this.y + offset.y, radius, baseDmg, duration, isEvolved));
                         }
+                    }
+                }
+
+                // Garlic Cloud
+                if (this.actives.garlic) {
+                    const lvl = this.actives.garlic;
+                    const cooldown = Math.max(3500, 8500 - (lvl * 500)) * this.cooldownMult / espMult;
+                    if (gameTime - this.timers.garlic > cooldown) {
+                        this.timers.garlic = gameTime;
+                        const radius = (74 + (lvl * 6)) * this.globalAreaMult;
+                        const baseDmg = 2 + Math.floor(lvl * 0.75);
+                        const cap = 2 + Math.floor(lvl / 3) + Math.min(2, this.projBonus);
+                        addPersistentAoeField(new PersistentAoeField(this.x, this.y, radius, baseDmg, 450, 'garlic'), cap);
+                        spawnParticles(this.x, this.y, '#d9f99d', 10, 60);
+                    }
+                }
+
+                // Ground Flames
+                if (this.actives.flames) {
+                    const lvl = this.actives.flames;
+                    const cooldown = Math.max(3000, 6500 - (lvl * 350)) * this.cooldownMult / espMult;
+                    if (gameTime - this.timers.flames > cooldown) {
+                        this.timers.flames = gameTime;
+                        const target = enemies
+                            .filter(e => distSq(this.x, this.y, e.x, e.y) < 520 * 520)
+                            .sort((a, b) => distSq(this.x, this.y, a.x, a.y) - distSq(this.x, this.y, b.x, b.y))[0];
+                        const fx = target ? target.x : this.x + randRange(-80, 80);
+                        const fy = target ? target.y : this.y + randRange(-80, 80);
+                        const radius = (46 + (lvl * 5)) * this.globalAreaMult;
+                        const baseDmg = 5 + Math.floor(lvl * 1.5);
+                        const cap = 2 + Math.floor(lvl / 3) + this.projBonus;
+                        addPersistentAoeField(new PersistentAoeField(fx, fy, radius, baseDmg, 650, 'flames'), cap);
+                        spawnParticles(fx, fy, '#f97316', 16, 100);
+                    }
+                }
+
+                // Sludge Pool
+                if (this.actives.sludge) {
+                    const lvl = this.actives.sludge;
+                    const cooldown = Math.max(4000, 9000 - (lvl * 450)) * this.cooldownMult / espMult;
+                    if (gameTime - this.timers.sludge > cooldown) {
+                        this.timers.sludge = gameTime;
+                        const target = enemies
+                            .filter(e => distSq(this.x, this.y, e.x, e.y) < 560 * 560)
+                            .sort((a, b) => distSq(this.x, this.y, a.x, a.y) - distSq(this.x, this.y, b.x, b.y))[0];
+                        const sx = target ? target.x : this.x + randRange(-100, 100);
+                        const sy = target ? target.y : this.y + randRange(-100, 100);
+                        const radius = (82 + (lvl * 7)) * this.globalAreaMult;
+                        const baseDmg = 2 + lvl;
+                        const cap = 2 + Math.floor(lvl / 4) + Math.min(2, this.projBonus);
+                        addPersistentAoeField(new PersistentAoeField(sx, sy, radius, baseDmg, 800, 'sludge', 0.55), cap);
+                        spawnParticles(sx, sy, '#65a30d', 14, 70);
                     }
                 }
 
@@ -930,18 +1035,20 @@
                     case 14: baseHp *= 300.0; baseSpeed *= 0.9; baseDmg *= 4.0; this.radius = 55; this.isBoss = true; break; // The Dean 60m
                 }
 
-                const earlyMult = earlyEnemyStatMult();
-                baseHp *= earlyMult;
-                baseSpeed *= earlyMult;
-                baseDmg *= earlyMult;
+                const earlyHpMult = earlyEnemyHpMult(type, level);
+                const earlyThreatMult = earlyEnemyThreatMult();
+                baseHp *= earlyHpMult;
+                baseSpeed *= earlyThreatMult;
+                baseDmg *= earlyThreatMult;
 
                 this.maxHp = baseHp; this.hp = baseHp; this.speed = baseSpeed; this.damage = baseDmg;
                 this.walkCycle = Math.random() * Math.PI * 2; this.knockback = { x: 0, y: 0, timer: 0 };
-                this.frozenTimer = 0;
+                this.frozenTimer = 0; this.slowTimer = 0; this.slowMult = 1;
             }
 
             update(dt) {
                 if (this.frozenTimer > 0) { this.frozenTimer -= dt; return; }
+                if (this.slowTimer > 0) this.slowTimer -= dt; else this.slowMult = 1;
                 if (this.knockback.timer > 0) {
                     this.x += this.knockback.x * (dt / 1000); this.y += this.knockback.y * (dt / 1000); this.knockback.timer -= dt;
                 } else {
@@ -964,8 +1071,9 @@
                             const nLen = Math.sqrt(dirX*dirX + dirY*dirY); dirX /= nLen; dirY /= nLen;
                         }
                         
-                        let testX = this.x + dirX * this.speed * (dt / 1000);
-                        let testY = this.y + dirY * this.speed * (dt / 1000);
+                        const moveSpeed = this.speed * (this.slowTimer > 0 ? this.slowMult : 1);
+                        let testX = this.x + dirX * moveSpeed * (dt / 1000);
+                        let testY = this.y + dirY * moveSpeed * (dt / 1000);
 
                         if (this.type !== 7 && this.type !== 13) { // Ghosts and Abominations bypass walls
                             for (let p of props) {
@@ -1024,9 +1132,9 @@
                     if(Math.random() < 0.5) items.push(new Pickup(this.x, this.y + 30, 'fire_alarm'));
                 } else {
                     gems.push(new Gem(this.x, this.y, 1 + Math.floor(player.level / 4)));
-                    const dropRoll = Math.random();
-                    if (this.type === 2 || this.type === 4 || this.type === 8) { if (dropRoll < 0.01) items.push(new Pickup(this.x, this.y, 'chest')); }
-                    else { 
+                    if (Math.random() < getChestDropChance(this)) items.push(new Pickup(this.x, this.y, 'chest'));
+                    if (this.type !== 2 && this.type !== 4 && this.type !== 8) {
+                        const dropRoll = Math.random();
                         if (dropRoll < 0.002) items.push(new Pickup(this.x, this.y, 'magnet')); 
                         else if (dropRoll < 0.005) items.push(new Pickup(this.x, this.y, 'health')); 
                         else if (dropRoll < 0.006) items.push(new Pickup(this.x, this.y, 'espresso')); 
@@ -1118,6 +1226,43 @@
             constructor(x, y, radius, isEvolved) { this.x=x; this.y=y; this.radius=radius; this.isEvolved=isEvolved; this.life=200; this.maxLife=200; }
             update(dt) { this.life -= dt; this.x = player.x; this.y = player.y; return this.life > 0; }
             draw(ctx) { ctx.save(); ctx.translate(this.x, this.y); ctx.globalAlpha = this.life / this.maxLife; ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.fillStyle = this.isEvolved ? 'rgba(168, 85, 247, 0.4)' : 'rgba(147, 51, 234, 0.3)'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = this.isEvolved ? '#d8b4fe' : '#a855f7'; ctx.stroke(); ctx.restore(); }
+        }
+
+        class PersistentAoeField {
+            constructor(x, y, radius, damage, tickRate, kind, slowMult = 1) {
+                this.x = x; this.y = y; this.radius = radius; this.damage = damage; this.tickRate = tickRate;
+                this.kind = kind; this.slowMult = slowMult; this.lastTick = gameTime - tickRate; this.createdAt = gameTime;
+                const styles = {
+                    garlic: { fill: 'rgba(217, 249, 157, 0.24)', stroke: '#d9f99d', color: '#d9f99d' },
+                    flames: { fill: 'rgba(249, 115, 22, 0.30)', stroke: '#f97316', color: '#f97316' },
+                    sludge: { fill: 'rgba(101, 163, 13, 0.28)', stroke: '#65a30d', color: '#65a30d' }
+                };
+                const style = styles[kind] || styles.garlic;
+                this.fill = style.fill; this.stroke = style.stroke; this.color = style.color;
+            }
+            update() {
+                if (gameTime - this.lastTick > this.tickRate) {
+                    this.lastTick = gameTime;
+                    enemies.forEach(e => {
+                        if (distSq(this.x, this.y, e.x, e.y) < this.radius ** 2) {
+                            e.takeDamage(player.calcDamage(this.damage));
+                            if (this.slowMult < 1 && !e.isBoss) {
+                                e.slowTimer = 300;
+                                e.slowMult = Math.min(e.slowMult || 1, this.slowMult);
+                            }
+                        }
+                    });
+                }
+                return true;
+            }
+            draw(ctx) {
+                const pulse = 0.85 + (Math.sin(gameTime * 0.004 + this.createdAt) * 0.08);
+                ctx.save(); ctx.translate(this.x, this.y); ctx.scale(1, 0.55);
+                ctx.fillStyle = this.fill; ctx.strokeStyle = this.stroke; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(0, 0, this.radius * pulse, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(0, 0, this.radius * 0.55, 0, Math.PI * 2); ctx.stroke();
+                ctx.restore();
+            }
         }
 
         class BeamEffect {
@@ -1580,9 +1725,9 @@
             if (player.pendingLevelUps > 0) { player.pendingLevelUps--; showLevelUpMenu(); return; }
 
             player.update(dt);
-            const currentSpawnRate = Math.max(150, CONFIG.baseSpawnRate * Math.pow(CONFIG.spawnRateDecay, gameTime / 10000));
+            const currentSpawnRate = Math.max(150, CONFIG.baseSpawnRate * earlySpawnRateMult() * Math.pow(CONFIG.spawnRateDecay, gameTime / 10000));
             if (gameTime > nextSpawnTime) {
-                const burst = gameTime < EARLY_RAMP_MS ? 1 : 1 + Math.floor((gameTime - EARLY_RAMP_MS) / 60000);
+                const burst = getSpawnBurst();
                 for(let i=0; i<burst; i++) spawnEnemy();
                 nextSpawnTime = gameTime + currentSpawnRate;
             }
@@ -1614,11 +1759,11 @@
             ctx.fillRect(-W, -30, W*2, 60); // Horizontal path
             ctx.fillRect(-30, -H, 60, H*2); // Vertical path
 
-            const drawables = [player, ...enemies, ...gems, ...items, ...props, ...worldEffects.filter(e => e instanceof CoffeePuddle || e instanceof AuraEffect)];
+            const drawables = [player, ...enemies, ...gems, ...items, ...props, ...worldEffects.filter(e => e instanceof CoffeePuddle || e instanceof AuraEffect || e instanceof PersistentAoeField)];
             drawables.sort((a, b) => (a.y || 0) - (b.y || 0));
 
             drawables.forEach(ent => ent.draw(ctx));
-            worldEffects.filter(e => !(e instanceof CoffeePuddle || e instanceof AuraEffect)).forEach(e => e.draw(ctx));
+            worldEffects.filter(e => !(e instanceof CoffeePuddle || e instanceof AuraEffect || e instanceof PersistentAoeField)).forEach(e => e.draw(ctx));
             particles.forEach(p => p.draw(ctx)); damageTexts.forEach(d => d.draw(ctx));
             ctx.restore();
             
