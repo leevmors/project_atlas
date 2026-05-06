@@ -217,14 +217,16 @@
             targetFPS: 60,
             tileSize: 64,
             playerSpeed: 180,
-            baseSpawnRate: 1000,
-            spawnRateDecay: 0.96, // Faster decay = harder late game
+            baseSpawnRate: 1500,
+            spawnRateDecay: 0.985, // Faster decay = harder late game
             mapBounds: { width: 4000, height: 4000 },
             maxActive: 6,
             maxPassive: 6
         };
 
         const STATE = { MENU: 0, PLAYING: 1, LEVEL_UP: 2, GAMEOVER: 3, CHEST: 4, SHOP: 5 };
+        const EARLY_RAMP_MS = 90_000;
+        const FULL_STRENGTH_MS = 180_000;
         let currentState = STATE.MENU;
 
         // Meta Progression State — persisted to the team's Project Atlas account
@@ -470,6 +472,10 @@
         const distSq = (x1, y1, x2, y2) => (x2 - x1) ** 2 + (y2 - y1) ** 2;
         const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
         const randRange = (min, max) => Math.random() * (max - min) + min;
+
+        function earlyEnemyStatMult() {
+            return 0.70 + (0.30 * clamp(gameTime / FULL_STRENGTH_MS, 0, 1));
+        }
 
         // --- Classes ---
 
@@ -923,6 +929,11 @@
                     case 14: baseHp *= 300.0; baseSpeed *= 0.9; baseDmg *= 4.0; this.radius = 55; this.isBoss = true; break; // The Dean 60m
                 }
 
+                const earlyMult = earlyEnemyStatMult();
+                baseHp *= earlyMult;
+                baseSpeed *= earlyMult;
+                baseDmg *= earlyMult;
+
                 this.maxHp = baseHp; this.hp = baseHp; this.speed = baseSpeed; this.damage = baseDmg;
                 this.walkCycle = Math.random() * Math.PI * 2; this.knockback = { x: 0, y: 0, timer: 0 };
                 this.frozenTimer = 0;
@@ -1262,7 +1273,9 @@
             else if (mins >= 60 && !bossSpawns[60]) { type = 14; bossSpawns[60] = true; }
             else {
                 // Wave Spawning
-                if (mins < 5) { type = r > 0.3 ? 0 : 1; } 
+                if (gameTime < EARLY_RAMP_MS) { type = 0; }
+                else if (gameTime < FULL_STRENGTH_MS) { type = r > 0.8 ? 1 : 0; }
+                else if (mins < 5) { type = r > 0.3 ? 0 : 1; }
                 else if (mins < 10) { if (r > 0.6) type = 0; else if (r > 0.3) type = 1; else type = 2; } 
                 else if (mins < 20) { if (r > 0.7) type = 2; else if (r > 0.4) type = 3; else type = 4; } 
                 else if (mins < 30) { if (r > 0.8) type = 5; else if (r > 0.5) type = 6; else if (r > 0.3) type = 4; else type = 3; } 
@@ -1568,7 +1581,7 @@
             player.update(dt);
             const currentSpawnRate = Math.max(150, CONFIG.baseSpawnRate * Math.pow(CONFIG.spawnRateDecay, gameTime / 10000));
             if (gameTime > nextSpawnTime) {
-                const burst = 1 + Math.floor(gameTime / 60000);
+                const burst = gameTime < EARLY_RAMP_MS ? 1 : 1 + Math.floor((gameTime - EARLY_RAMP_MS) / 60000);
                 for(let i=0; i<burst; i++) spawnEnemy();
                 nextSpawnTime = gameTime + currentSpawnRate;
             }
@@ -1806,6 +1819,14 @@
         }
         document.getElementById('lb-refresh').addEventListener('click', __refreshLeaderboard);
 
+        function __formatCoinSaveStatus(result) {
+            const earned = Number(result.gold_earned || 0);
+            const previous = Number(result.previous_shop_gold || 0);
+            const next = Number(result.shop_gold || previous);
+            if (result.duplicate) return `Score already submitted. Coins unchanged: ${next}`;
+            return `Coins saved: +${earned} (${previous} -> ${next})`;
+        }
+
         // Wrap the existing gameOver() so we also POST the run and
         // refresh the leaderboard pane. Keep the original behaviour
         // intact (stats panel, EXPELLED title, gold accrual, etc).
@@ -1833,10 +1854,10 @@
                     saveShopToStorage();
                 }
                 if (status) {
-                    if (result.ok) status.textContent = 'Score submitted!';
-                    else if (result.status === 401) status.textContent = 'Log in as a registered team to qualify.';
-                    else if (result.status === 410) status.textContent = 'Leaderboard closed.';
-                    else status.textContent = 'Score not submitted (server error).';
+                    if (result.ok) status.textContent = __formatCoinSaveStatus(result);
+                    else if (result.status === 401) status.textContent = 'Coins not saved: log in as a registered team.';
+                    else if (result.status === 410) status.textContent = 'Coins not saved: leaderboard closed.';
+                    else status.textContent = 'Coins not saved: server error.';
                 }
             }
             __refreshLeaderboard();

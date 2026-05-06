@@ -40,6 +40,91 @@ function parseClientRunId(value: unknown): string | null {
   return trimmed;
 }
 
+function getPgErrorCode(err: unknown): string {
+  if (typeof err === 'object' && err !== null && 'code' in err) {
+    const code = (err as { code?: unknown }).code;
+    return typeof code === 'string' ? code : '';
+  }
+  return '';
+}
+
+function isMissingCampusScoreRunColumns(err: unknown): boolean {
+  const code = getPgErrorCode(err);
+  if (code === '42703' || code === '42P10') return true;
+  if (typeof err !== 'object' || err === null || !('message' in err)) return false;
+  const message = String((err as { message?: unknown }).message ?? '').toLowerCase();
+  return message.includes('gold_earned') || message.includes('client_run_id');
+}
+
+async function getShopGold(client: PoolClient, teamId: string): Promise<number> {
+  const res = await client.query<{ gold: number }>(
+    `SELECT gold FROM campus_survivor_shop WHERE team_id = $1 FOR UPDATE`,
+    [teamId]
+  );
+  return Number(res.rows[0]?.gold ?? 0);
+}
+
+async function creditShopGold(client: PoolClient, teamId: string, goldEarned: number): Promise<number> {
+  const res = await client.query<{ gold: number }>(
+    `INSERT INTO campus_survivor_shop (team_id, gold, stats, updated_at)
+     VALUES ($1, $2, '{}', NOW())
+     ON CONFLICT (team_id) DO UPDATE
+       SET gold = LEAST(9999999, campus_survivor_shop.gold + EXCLUDED.gold),
+           updated_at = NOW()
+     RETURNING gold`,
+    [teamId, goldEarned]
+  );
+  return Number(res.rows[0]?.gold ?? 0);
+}
+
+async function insertMigratedRun(
+  client: PoolClient,
+  values: {
+    teamId: string;
+    score: number;
+    kills: number;
+    timeSurvived: number;
+    levelReached: number;
+    goldEarned: number;
+    clientRunId: string;
+  }
+): Promise<boolean> {
+  const res = await client.query<{ id: number }>(
+    `INSERT INTO campus_survivor_scores
+       (team_id, score, kills, time_survived, level_reached, gold_earned, client_run_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (team_id, client_run_id) DO NOTHING
+     RETURNING id`,
+    [
+      values.teamId,
+      values.score,
+      values.kills,
+      values.timeSurvived,
+      values.levelReached,
+      values.goldEarned,
+      values.clientRunId,
+    ]
+  );
+  return (res.rowCount ?? 0) === 0;
+}
+
+async function insertLegacyRun(
+  client: PoolClient,
+  values: {
+    teamId: string;
+    score: number;
+    kills: number;
+    timeSurvived: number;
+    levelReached: number;
+  }
+): Promise<void> {
+  await client.query(
+    `INSERT INTO campus_survivor_scores (team_id, score, kills, time_survived, level_reached)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [values.teamId, values.score, values.kills, values.timeSurvived, values.levelReached]
+  );
+}
+
 // POST a completed run.
 // Body: { score, kills, time_survived, level_reached, gold_earned, client_run_id }.
 // Only registered team accounts count toward the leaderboard.
@@ -89,42 +174,56 @@ export async function POST(req: NextRequest) {
     await client.query('BEGIN');
     didBegin = true;
 
-    const runRes = await client.query<{ id: number }>(
-      `INSERT INTO campus_survivor_scores
-         (team_id, score, kills, time_survived, level_reached, gold_earned, client_run_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (team_id, client_run_id) DO NOTHING
-       RETURNING id`,
-      [session.user_id, score, kills, timeSurvived, levelReached, goldEarned, clientRunId]
-    );
+    let previousShopGold = await getShopGold(client, session.user_id);
+    let duplicate = false;
+    let usedFallback = false;
 
-    const duplicate = (runRes.rowCount ?? 0) === 0;
-    let shopGold = 0;
+    try {
+      duplicate = await insertMigratedRun(client, {
+        teamId: session.user_id,
+        score,
+        kills,
+        timeSurvived,
+        levelReached,
+        goldEarned,
+        clientRunId,
+      });
+    } catch (err) {
+      if (!isMissingCampusScoreRunColumns(err)) throw err;
 
-    if (duplicate) {
-      const shopRes = await client.query<{ gold: number }>(
-        `SELECT gold FROM campus_survivor_shop WHERE team_id = $1`,
-        [session.user_id]
-      );
-      shopGold = Number(shopRes.rows[0]?.gold ?? 0);
-    } else {
-      const shopRes = await client.query<{ gold: number }>(
-        `INSERT INTO campus_survivor_shop (team_id, gold, stats, updated_at)
-         VALUES ($1, $2, '{}', NOW())
-         ON CONFLICT (team_id) DO UPDATE
-           SET gold = LEAST(9999999, campus_survivor_shop.gold + EXCLUDED.gold),
-               updated_at = NOW()
-         RETURNING gold`,
-        [session.user_id, goldEarned]
-      );
-      shopGold = Number(shopRes.rows[0]?.gold ?? 0);
+      await client.query('ROLLBACK');
+      didBegin = false;
+      await client.query('BEGIN');
+      didBegin = true;
+
+      previousShopGold = await getShopGold(client, session.user_id);
+      await insertLegacyRun(client, {
+        teamId: session.user_id,
+        score,
+        kills,
+        timeSurvived,
+        levelReached,
+      });
+      usedFallback = true;
     }
+
+    const shopGold = duplicate
+      ? previousShopGold
+      : await creditShopGold(client, session.user_id, goldEarned);
 
     await client.query('COMMIT');
     didBegin = false;
 
     return NextResponse.json(
-      { ok: true, shop_gold: shopGold, ...(duplicate ? { duplicate: true } : {}) },
+      {
+        ok: true,
+        coins_saved: !duplicate,
+        gold_earned: duplicate ? 0 : goldEarned,
+        previous_shop_gold: previousShopGold,
+        shop_gold: shopGold,
+        ...(duplicate ? { duplicate: true } : {}),
+        ...(usedFallback ? { migration_fallback: true } : {}),
+      },
       { headers: noCache }
     );
   } catch (err) {
