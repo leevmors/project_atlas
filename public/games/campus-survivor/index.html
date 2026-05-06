@@ -227,6 +227,7 @@
         const STATE = { MENU: 0, PLAYING: 1, LEVEL_UP: 2, GAMEOVER: 3, CHEST: 4, SHOP: 5 };
         const EARLY_RAMP_MS = 90_000;
         const FULL_STRENGTH_MS = 180_000;
+        const EARLY_ENEMY_START_MULT = 0.55;
         let currentState = STATE.MENU;
 
         // Meta Progression State — persisted to the team's Project Atlas account
@@ -474,7 +475,7 @@
         const randRange = (min, max) => Math.random() * (max - min) + min;
 
         function earlyEnemyStatMult() {
-            return 0.70 + (0.30 * clamp(gameTime / FULL_STRENGTH_MS, 0, 1));
+            return EARLY_ENEMY_START_MULT + ((1 - EARLY_ENEMY_START_MULT) * clamp(gameTime / FULL_STRENGTH_MS, 0, 1));
         }
 
         // --- Classes ---
