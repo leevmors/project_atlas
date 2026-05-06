@@ -58,7 +58,7 @@ function isMissingCampusScoreRunColumns(err: unknown): boolean {
 
 async function getShopGold(client: PoolClient, teamId: string): Promise<number> {
   const res = await client.query<{ gold: number }>(
-    `SELECT gold FROM campus_survivor_shop WHERE team_id = $1 FOR UPDATE`,
+    `SELECT gold FROM campus_survivor_shop WHERE team_id = $1`,
     [teamId]
   );
   return Number(res.rows[0]?.gold ?? 0);
@@ -128,10 +128,11 @@ async function insertLegacyRun(
 // POST a completed run.
 // Body: { score, kills, time_survived, level_reached, gold_earned, client_run_id }.
 // Only registered team accounts count toward the leaderboard.
+//
+// Two-phase design: score insert is its own transaction (critical path).
+// Shop gold credit is a separate best-effort operation so a missing or broken
+// campus_survivor_shop table cannot prevent a score from being recorded.
 export async function POST(req: NextRequest) {
-  let client: PoolClient | null = null;
-  let didBegin = false;
-
   try {
     const session = await getSession(req);
     if (!session || session.user_type !== 'team') {
@@ -170,53 +171,84 @@ export async function POST(req: NextRequest) {
     const levelReached = clampInt(body.level_reached, 1, 999, 1);
     const goldEarned = clampInt(body.gold_earned, 0, 9_999_999, 0);
 
-    client = await pool.connect();
-    await client.query('BEGIN');
-    didBegin = true;
-
-    let previousShopGold = await getShopGold(client, session.user_id);
+    // --- Phase 1: Save the score (critical — own transaction) ---
     let duplicate = false;
     let usedFallback = false;
 
-    try {
-      duplicate = await insertMigratedRun(client, {
-        teamId: session.user_id,
-        score,
-        kills,
-        timeSurvived,
-        levelReached,
-        goldEarned,
-        clientRunId,
-      });
-    } catch (err) {
-      if (!isMissingCampusScoreRunColumns(err)) throw err;
+    {
+      const scoreClient = await pool.connect();
+      let didBegin = false;
+      try {
+        await scoreClient.query('BEGIN');
+        didBegin = true;
 
-      await client.query('ROLLBACK');
-      didBegin = false;
-      await client.query('BEGIN');
-      didBegin = true;
+        try {
+          duplicate = await insertMigratedRun(scoreClient, {
+            teamId: session.user_id,
+            score,
+            kills,
+            timeSurvived,
+            levelReached,
+            goldEarned,
+            clientRunId,
+          });
+        } catch (err) {
+          if (!isMissingCampusScoreRunColumns(err)) throw err;
 
-      previousShopGold = await getShopGold(client, session.user_id);
-      await insertLegacyRun(client, {
-        teamId: session.user_id,
-        score,
-        kills,
-        timeSurvived,
-        levelReached,
-      });
-      usedFallback = true;
+          await scoreClient.query('ROLLBACK');
+          didBegin = false;
+          await scoreClient.query('BEGIN');
+          didBegin = true;
+
+          await insertLegacyRun(scoreClient, {
+            teamId: session.user_id,
+            score,
+            kills,
+            timeSurvived,
+            levelReached,
+          });
+          usedFallback = true;
+        }
+
+        await scoreClient.query('COMMIT');
+        didBegin = false;
+      } catch (err) {
+        if (didBegin) {
+          try { await scoreClient.query('ROLLBACK'); } catch { /* ignore */ }
+        }
+        console.error('POST /api/games/campus-survivor/score — score insert failed:', err);
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500, headers: noCache }
+        );
+      } finally {
+        scoreClient.release();
+      }
     }
 
-    const shopGold = duplicate
-      ? previousShopGold
-      : await creditShopGold(client, session.user_id, goldEarned);
+    // --- Phase 2: Credit shop gold (best-effort — separate connection) ---
+    let previousShopGold = 0;
+    let shopGold = 0;
 
-    await client.query('COMMIT');
-    didBegin = false;
+    try {
+      const goldClient = await pool.connect();
+      try {
+        previousShopGold = await getShopGold(goldClient, session.user_id);
+        shopGold = duplicate
+          ? previousShopGold
+          : await creditShopGold(goldClient, session.user_id, goldEarned);
+      } finally {
+        goldClient.release();
+      }
+    } catch (goldErr) {
+      // Score is already committed — don't fail the request over gold.
+      console.error('POST /api/games/campus-survivor/score — shop gold update failed (non-fatal, score was saved):', goldErr);
+    }
 
     return NextResponse.json(
       {
         ok: true,
+        score_saved: !duplicate,
         coins_saved: !duplicate,
         gold_earned: duplicate ? 0 : goldEarned,
         previous_shop_gold: previousShopGold,
@@ -227,19 +259,10 @@ export async function POST(req: NextRequest) {
       { headers: noCache }
     );
   } catch (err) {
-    if (client && didBegin) {
-      try {
-        await client.query('ROLLBACK');
-      } catch {
-        // Keep the original error for logging below.
-      }
-    }
     console.error('POST /api/games/campus-survivor/score error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500, headers: noCache }
     );
-  } finally {
-    client?.release();
   }
 }

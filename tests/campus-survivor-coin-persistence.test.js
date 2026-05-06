@@ -15,6 +15,9 @@ test('score route persists earned gold atomically and idempotently per client ru
   assert.match(scoreRoute, /campus_survivor_shop\.gold\s*\+\s*EXCLUDED\.gold/i);
   assert.match(scoreRoute, /shop_gold/);
   assert.match(scoreRoute, /duplicate/);
+  // score insert is its own transaction; gold credit is best-effort and cannot block score recording
+  assert.match(scoreRoute, /score insert failed/i);
+  assert.match(scoreRoute, /non-fatal.*score was saved/i);
 });
 
 test('score route exposes additive before and after coin totals', () => {
@@ -44,12 +47,15 @@ test('game client submits earned gold through the score endpoint and syncs retur
   assert.doesNotMatch(gameHtml, /globalGold\s*\+=\s*player\.gold;\s*[\r\n\s]*saveShopToServer\(\);/);
 });
 
-test('game client displays additive coin save result from server response', () => {
-  assert.match(gameHtml, /Coins saved:/);
+test('game client displays score recorded status and coin delta from server response', () => {
+  assert.match(gameHtml, /Score recorded!/);
+  assert.match(gameHtml, /Score NOT recorded/);
   assert.match(gameHtml, /previous_shop_gold/);
   assert.match(gameHtml, /gold_earned/);
   assert.match(gameHtml, /shop_gold/);
-  assert.match(gameHtml, /Coins not saved/);
+  assert.match(gameHtml, /__formatSubmitStatus/);
+  // score route returns score_saved flag
+  assert.match(scoreRoute, /score_saved:\s*!duplicate/);
 });
 
 test('shop endpoint and client use explicit account credentials and return authoritative shop state', () => {

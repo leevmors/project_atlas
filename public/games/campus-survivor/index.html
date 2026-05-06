@@ -1826,8 +1826,12 @@
                     credentials: 'include',
                 });
                 const data = await res.json().catch(() => ({}));
+                if (!res.ok) console.error('[CampusSurvivor] score submit failed', res.status, data);
                 return { status: res.status, ...data };
-            } catch (e) { return { status: 0, error: String(e) }; }
+            } catch (e) {
+                console.error('[CampusSurvivor] score submit network error', e);
+                return { status: 0, error: String(e) };
+            }
         }
         async function __fetchLeaderboard() {
             try {
@@ -1897,12 +1901,12 @@
         }
         document.getElementById('lb-refresh').addEventListener('click', __refreshLeaderboard);
 
-        function __formatCoinSaveStatus(result) {
+        function __formatSubmitStatus(result) {
             const earned = Number(result.gold_earned || 0);
             const previous = Number(result.previous_shop_gold || 0);
             const next = Number(result.shop_gold || previous);
-            if (result.duplicate) return `Score already submitted. Coins unchanged: ${next}`;
-            return `Coins saved: +${earned} (${previous} -> ${next})`;
+            if (result.duplicate) return `Score already submitted (duplicate run). Coins: ${next}`;
+            return `Score recorded! +${earned} coins (${previous} → ${next})`;
         }
 
         // Wrap the existing gameOver() so we also POST the run and
@@ -1919,7 +1923,7 @@
             __origGameOver();
             const status = document.getElementById('submit-status');
             if (Date.now() > __DEADLINE_MS) {
-                if (status) status.textContent = 'Leaderboard closed.';
+                if (status) status.textContent = 'Leaderboard closed — score not recorded.';
             } else {
                 if (status) status.textContent = 'Submitting score…';
                 const result = await __submitRun({
@@ -1932,10 +1936,10 @@
                     saveShopToStorage();
                 }
                 if (status) {
-                    if (result.ok) status.textContent = __formatCoinSaveStatus(result);
-                    else if (result.status === 401) status.textContent = 'Coins not saved: log in as a registered team.';
-                    else if (result.status === 410) status.textContent = 'Coins not saved: leaderboard closed.';
-                    else status.textContent = 'Coins not saved: server error.';
+                    if (result.ok) status.textContent = __formatSubmitStatus(result);
+                    else if (result.status === 401) status.textContent = 'Score NOT recorded — log in as a registered team first.';
+                    else if (result.status === 410) status.textContent = 'Score NOT recorded — leaderboard is closed.';
+                    else status.textContent = `Score NOT recorded — server error (status ${result.status}). Check console.`;
                 }
             }
             __refreshLeaderboard();
