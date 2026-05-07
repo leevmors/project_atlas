@@ -137,14 +137,14 @@ export async function POST(req: NextRequest) {
     const session = await getSession(req);
     if (!session || session.user_type !== 'team') {
       return NextResponse.json(
-        { error: 'Only registered teams can submit scores.' },
+        { error: 'Only registered teams can submit scores.', code: 'not_team_session' },
         { status: 401, headers: noCache }
       );
     }
 
     if (Date.now() > DEADLINE_MS) {
       return NextResponse.json(
-        { error: 'The Campus Survivor leaderboard has closed.', closed: true },
+        { error: 'The Campus Survivor leaderboard has closed.', code: 'leaderboard_closed', closed: true },
         { status: 410, headers: noCache }
       );
     }
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== 'object') {
       return NextResponse.json(
-        { error: 'Invalid body' },
+        { error: 'Invalid body', code: 'invalid_body' },
         { status: 400, headers: noCache }
       );
     }
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
     const clientRunId = parseClientRunId(body.client_run_id);
     if (!clientRunId) {
       return NextResponse.json(
-        { error: 'client_run_id is required' },
+        { error: 'client_run_id is required', code: 'invalid_body' },
         { status: 400, headers: noCache }
       );
     }
@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
         }
         console.error('POST /api/games/campus-survivor/score — score insert failed:', err);
         return NextResponse.json(
-          { error: 'Internal server error' },
+          { error: 'Internal server error', code: 'score_save_failed' },
           { status: 500, headers: noCache }
         );
       } finally {
@@ -261,7 +261,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('POST /api/games/campus-survivor/score error:', err);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', code: 'internal_error' },
       { status: 500, headers: noCache }
     );
   }

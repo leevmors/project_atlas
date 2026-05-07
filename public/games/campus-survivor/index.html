@@ -119,12 +119,19 @@
                 <div id="deadline-countdown" class="text-base md:text-xl text-white pixel-text mt-1">--d --h --m</div>
             </div>
 
+            <div id="team-session-panel" class="mb-4 bg-[#1a1009] border-2 border-[#5c3a21] p-2 md:p-3 text-center">
+                <p id="team-session-status" class="text-[10px] md:text-xs text-gray-300 italic">Checking team login...</p>
+            </div>
+
             <div id="stats-panel" class="hidden mb-4 md:mb-6 text-left bg-[#1a1009] p-3 md:p-4 rounded border-2 border-[#5c3a21] text-sm md:text-base">
                 <p class="text-yellow-400 font-bold border-b border-[#5c3a21] pb-2 mb-2">Final Score: <span id="stat-score" class="text-white float-right">0</span></p>
                 <p class="text-gray-300">Survived: <span id="stat-time" class="text-white font-bold float-right">00:00</span></p>
                 <p class="text-gray-300">Zombies Cleared: <span id="stat-kills" class="text-white font-bold float-right">0</span></p>
                 <p class="text-gray-300">Level Reached: <span id="stat-level" class="text-yellow-400 font-bold float-right">1</span></p>
                 <p id="submit-status" class="text-[10px] md:text-xs text-center mt-2 text-gray-400 italic"></p>
+                <button id="retry-score-btn" class="hidden mt-3 w-full bg-[#0f766e] hover:bg-[#0e7490] text-white font-bold py-2 px-3 border-2 border-[#0f172a] shadow-[2px_2px_0_#000] active:translate-y-1 active:shadow-none transition-all text-[10px] md:text-xs uppercase tracking-widest pixel-text">
+                    Retry Saved Score
+                </button>
             </div>
 
             <!-- Live leaderboard — top teams ranked by best score. Hidden until first fetch resolves. -->
@@ -242,6 +249,10 @@
         // Meta Progression State — persisted to the team's Project Atlas account
         // via /api/games/campus-survivor/shop, with localStorage as offline fallback.
         const SHOP_STORAGE_KEY = 'campus_survivor_shop_v1';
+        const RUN_CONTEXT_STORAGE_KEY = 'campus_survivor_run_context_v1';
+        const PENDING_SCORE_STORAGE_KEY = 'campus_survivor_pending_score_v1';
+        let cachedTeamSession = null;
+        let currentRunContext = null;
 
         function syncStoredGoldDisplay() {
             const menuGoldEl = document.getElementById('menu-global-gold');
@@ -1442,7 +1453,7 @@
 
         function startGame() {
             resize(); initBackground();
-            currentRunId = generateClientRunId();
+            currentRunId = currentRunContext?.client_run_id || generateClientRunId();
             player = new Player();
             enemies = []; gems = []; items = []; damageTexts = []; particles = []; worldEffects = []; props = [];
             bossSpawns = { 10: false, 20: false, 30: false, 45: false, 60: false };
@@ -1796,7 +1807,7 @@
         canvas.addEventListener('touchstart', handleDragStart, {passive: false}); canvas.addEventListener('touchmove', handleDragMove, {passive: false});
         window.addEventListener('touchend', handleDragEnd); canvas.addEventListener('touchcancel', handleDragEnd);
 
-        initWebGL(); document.getElementById('start-btn').addEventListener('click', () => { SFX.init(); startGame(); });
+        initWebGL(); document.getElementById('start-btn').addEventListener('click', handleStartButtonClick);
 
         // ============================================================
         // CAMPUS SURVIVOR — server hooks (score submit + leaderboard)
@@ -1809,6 +1820,114 @@
         const __DEADLINE_ISO = '2026-05-10T13:00:00Z';
         const __DEADLINE_MS  = new Date(__DEADLINE_ISO).getTime();
         let __myTeamId = null; // resolved on first leaderboard fetch from cookie
+
+        function getRetryButton() {
+            return document.getElementById('retry-score-btn');
+        }
+
+        function saveRunContext(context) {
+            currentRunContext = context;
+            try { localStorage.setItem(RUN_CONTEXT_STORAGE_KEY, JSON.stringify(context)); } catch (e) { /* storage unavailable */ }
+        }
+
+        function clearRunContext() {
+            currentRunContext = null;
+            try { localStorage.removeItem(RUN_CONTEXT_STORAGE_KEY); } catch (e) { /* storage unavailable */ }
+        }
+
+        function savePendingRun(run) {
+            try { localStorage.setItem(PENDING_SCORE_STORAGE_KEY, JSON.stringify(run)); } catch (e) { /* storage unavailable */ }
+            updatePendingRunUI();
+        }
+
+        function loadPendingRun() {
+            try {
+                const raw = localStorage.getItem(PENDING_SCORE_STORAGE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                return parsed && typeof parsed === 'object' ? parsed : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function clearPendingRun(clientRunId) {
+            const pending = loadPendingRun();
+            if (!pending || !clientRunId || pending.client_run_id === clientRunId) {
+                try { localStorage.removeItem(PENDING_SCORE_STORAGE_KEY); } catch (e) { /* storage unavailable */ }
+            }
+            updatePendingRunUI();
+        }
+
+        function updatePendingRunUI() {
+            const retryBtn = getRetryButton();
+            if (!retryBtn) return;
+            const pending = loadPendingRun();
+            retryBtn.classList.toggle('hidden', !pending);
+        }
+
+        function setTeamSessionStatus(text, kind = 'neutral') {
+            const status = document.getElementById('team-session-status');
+            const startBtn = document.getElementById('start-btn');
+            if (status) {
+                status.textContent = text;
+                status.classList.toggle('text-emerald-300', kind === 'ok');
+                status.classList.toggle('text-red-300', kind === 'error');
+                status.classList.toggle('text-gray-300', kind === 'neutral');
+            }
+            if (startBtn) {
+                startBtn.disabled = kind !== 'ok';
+                startBtn.classList.toggle('opacity-50', kind !== 'ok');
+                startBtn.classList.toggle('cursor-not-allowed', kind !== 'ok');
+            }
+        }
+
+        async function fetchTeamSession() {
+            try {
+                const res = await fetch('/api/auth/session', { cache: 'no-store', credentials: 'include' });
+                const data = await res.json().catch(() => ({}));
+                const session = data && data.session;
+                cachedTeamSession = session && session.type === 'team' ? session : null;
+            } catch (e) {
+                cachedTeamSession = null;
+            }
+
+            if (cachedTeamSession) {
+                setTeamSessionStatus(`Official run: ${cachedTeamSession.name}`, 'ok');
+            } else {
+                setTeamSessionStatus('Log in as a registered team to save scores.', 'error');
+            }
+            return cachedTeamSession;
+        }
+
+        async function handleStartButtonClick() {
+            const startBtn = document.getElementById('start-btn');
+            const oldText = startBtn ? startBtn.textContent : '';
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.textContent = 'Checking login...';
+            }
+
+            const team = await fetchTeamSession();
+            if (!team) {
+                if (startBtn) startBtn.textContent = oldText || 'Start Run';
+                return;
+            }
+
+            const runId = generateClientRunId();
+            saveRunContext({
+                client_run_id: runId,
+                team_id: team.id,
+                team_name: team.name,
+                started_at: new Date().toISOString(),
+            });
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Run';
+            }
+            SFX.init();
+            startGame();
+        }
 
         async function __submitRun(run) {
             try {
@@ -1909,6 +2028,65 @@
             return `Score recorded! +${earned} coins (${previous} → ${next})`;
         }
 
+        function __formatSubmitFailure(result, run) {
+            if (result.code === 'not_team_session' || result.status === 401) {
+                if (run.team_id) {
+                    return `Score saved locally. Log back in as ${run.team_name || 'the same team'} and press Retry Saved Score.`;
+                }
+                return 'Score saved locally, but no team was attached. Ask an admin to verify it.';
+            }
+            if (result.code === 'leaderboard_closed' || result.status === 410) {
+                return 'Score NOT recorded — leaderboard is closed.';
+            }
+            return `Score saved locally — retry failed (status ${result.status}).`;
+        }
+
+        function __applySuccessfulSubmit(result, run) {
+            if (result.ok && typeof result.shop_gold === 'number') {
+                applyShopData(result.shop_gold, null);
+                saveShopToStorage();
+            }
+            clearPendingRun(run.client_run_id);
+            clearRunContext();
+            __refreshLeaderboard();
+        }
+
+        async function submitSavedRun(run, statusEl) {
+            const result = await __submitRun(run);
+            if (result.ok) {
+                __applySuccessfulSubmit(result, run);
+                if (statusEl) statusEl.textContent = __formatSubmitStatus(result);
+                return true;
+            }
+
+            savePendingRun(run);
+            if (statusEl) statusEl.textContent = __formatSubmitFailure(result, run);
+            return false;
+        }
+
+        async function retryPendingRun() {
+            const pending = loadPendingRun();
+            const status = document.getElementById('submit-status') || document.getElementById('team-session-status');
+            if (!pending) {
+                updatePendingRunUI();
+                if (status) status.textContent = 'No saved score to retry.';
+                return;
+            }
+
+            const team = await fetchTeamSession();
+            if (!team) {
+                if (status) status.textContent = __formatSubmitFailure({ status: 401, code: 'not_team_session' }, pending);
+                return;
+            }
+            if (pending.team_id && String(team.id) !== String(pending.team_id)) {
+                if (status) status.textContent = `Log in as the same team (${pending.team_name || pending.team_id}) to retry this score.`;
+                return;
+            }
+
+            if (status) status.textContent = 'Retrying saved score...';
+            await submitSavedRun(pending, status);
+        }
+
         // Wrap the existing gameOver() so we also POST the run and
         // refresh the leaderboard pane. Keep the original behaviour
         // intact (stats panel, EXPELLED title, gold accrual, etc).
@@ -1920,36 +2098,40 @@
             const finalLvl   = player ? player.level : 1;
             const finalGold  = player ? player.gold : 0;
             const runId = currentRunId || generateClientRunId();
+            const runContext = currentRunContext || {};
+            const run = {
+                score: finalScore,
+                kills: finalKills,
+                time_survived: finalTime,
+                level_reached: finalLvl,
+                gold_earned: finalGold,
+                client_run_id: runId,
+                team_id: runContext.team_id || null,
+                team_name: runContext.team_name || null,
+                started_at: runContext.started_at || null,
+                finished_at: new Date().toISOString(),
+            };
             __origGameOver();
             const status = document.getElementById('submit-status');
+            savePendingRun(run);
             if (Date.now() > __DEADLINE_MS) {
                 if (status) status.textContent = 'Leaderboard closed — score not recorded.';
             } else {
                 if (status) status.textContent = 'Submitting score…';
-                const result = await __submitRun({
-                    score: finalScore, kills: finalKills,
-                    time_survived: finalTime, level_reached: finalLvl,
-                    gold_earned: finalGold, client_run_id: runId,
-                });
-                if (result.ok && typeof result.shop_gold === 'number') {
-                    applyShopData(result.shop_gold, null);
-                    saveShopToStorage();
-                }
-                if (status) {
-                    if (result.ok) status.textContent = __formatSubmitStatus(result);
-                    else if (result.status === 401) status.textContent = 'Score NOT recorded — log in as a registered team first.';
-                    else if (result.status === 410) status.textContent = 'Score NOT recorded — leaderboard is closed.';
-                    else status.textContent = `Score NOT recorded — server error (status ${result.status}). Check console.`;
-                }
+                await submitSavedRun(run, status);
             }
             __refreshLeaderboard();
         };
 
         // Initial leaderboard fetch on page load + refresh every 30s
         // while the menu is visible so people see live updates.
+        getRetryButton()?.addEventListener('click', retryPendingRun);
+        fetchTeamSession();
+        updatePendingRunUI();
         __refreshLeaderboard();
         setInterval(() => {
             if (currentState === STATE.MENU || currentState === STATE.GAMEOVER) {
+                fetchTeamSession();
                 __refreshLeaderboard();
             }
         }, 30_000);

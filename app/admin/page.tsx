@@ -15,6 +15,7 @@ import {
   savePresentationScore,
   updatePresentationScore,
   deletePresentationScore,
+  saveCampusSurvivorScore,
   deleteTeam,
 } from '@/lib/store';
 import type { TeamWithScores, TaskScore, SocialMediaScore } from '@/lib/types';
@@ -36,6 +37,7 @@ import {
   Award,
   Pencil,
   X,
+  Gamepad2,
 } from 'lucide-react';
 
 type TaskEditForm = Pick<TaskScore, 'taskName' | 'accuracy' | 'quality' | 'speed' | 'tools'>;
@@ -43,6 +45,14 @@ type SocialEditForm = Pick<
   SocialMediaScore,
   'weekNumber' | 'contentQuality' | 'postingFrequency' | 'likes' | 'views' | 'followers' | 'comments'
 >;
+type CampusSurvivorForm = {
+  score: number;
+  kills: number;
+  survivedTime: string;
+  levelReached: number;
+  goldEarned: number;
+  adminNote: string;
+};
 
 const DEFAULT_TASK_FORM: TaskEditForm = { taskName: '', accuracy: 0, quality: 0, speed: 0, tools: 0 };
 const DEFAULT_SOCIAL_FORM: SocialEditForm = {
@@ -53,6 +63,14 @@ const DEFAULT_SOCIAL_FORM: SocialEditForm = {
   views: 0,
   followers: 0,
   comments: 0,
+};
+const DEFAULT_CAMPUS_SURVIVOR_FORM: CampusSurvivorForm = {
+  score: 0,
+  kills: 0,
+  survivedTime: '00:00',
+  levelReached: 1,
+  goldEarned: 0,
+  adminNote: '',
 };
 
 function clamp(val: number, min = 0, max = 10) {
@@ -65,11 +83,15 @@ function AdminContent() {
   const [teams, setTeams] = useState<TeamWithScores[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'task' | 'social' | 'presentation'>('task');
+  const [activeTab, setActiveTab] = useState<'task' | 'social' | 'presentation' | 'campusSurvivor'>('task');
 
   const [taskForm, setTaskForm] = useState<TaskEditForm>(DEFAULT_TASK_FORM);
   const [socialForm, setSocialForm] = useState<SocialEditForm>(DEFAULT_SOCIAL_FORM);
   const [presentationForm, setPresentationForm] = useState({ score: 0 });
+  const [campusSurvivorForm, setCampusSurvivorForm] =
+    useState<CampusSurvivorForm>(DEFAULT_CAMPUS_SURVIVOR_FORM);
+  const [campusSurvivorStatus, setCampusSurvivorStatus] =
+    useState<{ teamId: string; message: string; kind: 'success' | 'error' } | null>(null);
 
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editTaskForm, setEditTaskForm] = useState<TaskEditForm>(DEFAULT_TASK_FORM);
@@ -168,6 +190,43 @@ function AdminContent() {
       await loadTeams();
     } catch (err) {
       console.error('Failed to save presentation score:', err);
+    }
+  };
+
+  const handleAddCampusSurvivorScore = async (teamId: string) => {
+    if (!campusSurvivorForm.adminNote.trim()) {
+      setCampusSurvivorStatus({
+        teamId,
+        message: 'Evidence / Note is required.',
+        kind: 'error',
+      });
+      return;
+    }
+
+    try {
+      const result = await saveCampusSurvivorScore({
+        teamId,
+        score: campusSurvivorForm.score,
+        kills: campusSurvivorForm.kills,
+        timeSurvived: campusSurvivorForm.survivedTime,
+        levelReached: campusSurvivorForm.levelReached,
+        goldEarned: campusSurvivorForm.goldEarned,
+        adminNote: campusSurvivorForm.adminNote,
+      });
+      setCampusSurvivorForm(DEFAULT_CAMPUS_SURVIVOR_FORM);
+      setCampusSurvivorStatus({
+        teamId,
+        message: `Campus Survivor score saved for ${result.score.teamName}: ${result.score.score.toLocaleString()}`,
+        kind: 'success',
+      });
+      await loadTeams();
+    } catch (err) {
+      console.error('Failed to save Campus Survivor score:', err);
+      setCampusSurvivorStatus({
+        teamId,
+        message: err instanceof Error ? err.message : 'Failed to save Campus Survivor score.',
+        kind: 'error',
+      });
     }
   };
 
@@ -317,12 +376,12 @@ function AdminContent() {
                 {expandedTeam === team.id && (
                   <div className="border-t border-slate-100 p-4 sm:p-6 space-y-6">
                     {/* Tab switcher */}
-                    <div className="flex gap-2 p-1 rounded-xl bg-white/60 backdrop-blur-sm border border-white/40">
-                      {(['task', 'social', 'presentation'] as const).map((tab) => (
+                    <div className="flex flex-wrap gap-2 p-1 rounded-xl bg-white/60 backdrop-blur-sm border border-white/40">
+                      {(['task', 'social', 'presentation', 'campusSurvivor'] as const).map((tab) => (
                         <button
                           key={tab}
                           onClick={() => setActiveTab(tab)}
-                          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                          className={`flex-1 min-w-28 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                             activeTab === tab
                               ? 'bg-white text-slate-800 shadow'
                               : 'text-slate-500 hover:text-slate-700'
@@ -331,7 +390,8 @@ function AdminContent() {
                           {tab === 'task' && <FileText className="h-4 w-4 inline mr-1" />}
                           {tab === 'social' && <Share2 className="h-4 w-4 inline mr-1" />}
                           {tab === 'presentation' && <Award className="h-4 w-4 inline mr-1" />}
-                          {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                          {tab === 'campusSurvivor' && <Gamepad2 className="h-4 w-4 inline mr-1" />}
+                          {tab === 'campusSurvivor' ? 'Campus Survivor' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                         </button>
                       ))}
                     </div>
@@ -658,6 +718,122 @@ function AdminContent() {
                             </Button>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Campus Survivor tab */}
+                    {activeTab === 'campusSurvivor' && (
+                      <div className="space-y-4">
+                        <h4 className="font-display font-semibold text-foreground flex items-center gap-2">
+                          <Gamepad2 className="h-4 w-4" />
+                          Add Campus Survivor Score
+                        </h4>
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                          <div className="space-y-2">
+                            <Label>Score</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={campusSurvivorForm.score}
+                              onChange={(e) =>
+                                setCampusSurvivorForm({
+                                  ...campusSurvivorForm,
+                                  score: Math.max(0, parseInt(e.target.value) || 0),
+                                })
+                              }
+                              className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Kills</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={campusSurvivorForm.kills}
+                              onChange={(e) =>
+                                setCampusSurvivorForm({
+                                  ...campusSurvivorForm,
+                                  kills: Math.max(0, parseInt(e.target.value) || 0),
+                                })
+                              }
+                              className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Survived (MM:SS)</Label>
+                            <Input
+                              value={campusSurvivorForm.survivedTime}
+                              onChange={(e) =>
+                                setCampusSurvivorForm({
+                                  ...campusSurvivorForm,
+                                  survivedTime: e.target.value,
+                                })
+                              }
+                              className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Level</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={campusSurvivorForm.levelReached}
+                              onChange={(e) =>
+                                setCampusSurvivorForm({
+                                  ...campusSurvivorForm,
+                                  levelReached: Math.max(1, parseInt(e.target.value) || 1),
+                                })
+                              }
+                              className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Gold Earned</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={campusSurvivorForm.goldEarned}
+                              onChange={(e) =>
+                                setCampusSurvivorForm({
+                                  ...campusSurvivorForm,
+                                  goldEarned: Math.max(0, parseInt(e.target.value) || 0),
+                                })
+                              }
+                              className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Evidence / Note</Label>
+                          <Input
+                            placeholder="e.g., screenshot verified by admin"
+                            value={campusSurvivorForm.adminNote}
+                            onChange={(e) =>
+                              setCampusSurvivorForm({
+                                ...campusSurvivorForm,
+                                adminNote: e.target.value,
+                              })
+                            }
+                            className="bg-white/70 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                          />
+                        </div>
+                        {campusSurvivorStatus?.teamId === team.id && (
+                          <p
+                            className={`text-sm ${
+                              campusSurvivorStatus.kind === 'success' ? 'text-emerald-700' : 'text-destructive'
+                            }`}
+                          >
+                            {campusSurvivorStatus.message}
+                          </p>
+                        )}
+                        <Button
+                          onClick={() => handleAddCampusSurvivorScore(team.id)}
+                          disabled={campusSurvivorForm.score <= 0 || !campusSurvivorForm.adminNote.trim()}
+                          className="w-full sm:w-auto"
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Campus Survivor Score
+                        </Button>
                       </div>
                     )}
 

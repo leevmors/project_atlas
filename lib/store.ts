@@ -4,6 +4,7 @@ import type {
   TaskScore,
   SocialMediaScore,
   PresentationScore,
+  CampusSurvivorAdminScoreInput,
   TeamWithScores,
   AuthSession,
   Game,
@@ -188,6 +189,15 @@ export async function updatePresentationScore(
 
 export async function deletePresentationScore(id: string): Promise<void> {
   await apiFetch(`/api/scores/presentation/${id}`, { method: 'DELETE' });
+}
+
+export async function saveCampusSurvivorScore(
+  score: CampusSurvivorAdminScoreInput
+): Promise<{ ok: boolean; score: { teamName: string; score: number }; shop_gold?: number }> {
+  return apiFetch('/api/admin/campus-survivor/scores', {
+    method: 'POST',
+    body: JSON.stringify(score),
+  });
 }
 
 // Authentication

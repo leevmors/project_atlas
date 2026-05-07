@@ -50,6 +50,16 @@ export interface PresentationScore {
   scoredBy: string;
 }
 
+export interface CampusSurvivorAdminScoreInput {
+  teamId: string;
+  score: number;
+  kills: number;
+  timeSurvived: string | number;
+  levelReached: number;
+  goldEarned: number;
+  adminNote: string;
+}
+
 export interface TeamWithScores extends Team {
   taskScores: TaskScore[];
   socialScores: SocialMediaScore[];

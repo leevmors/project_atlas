@@ -4,7 +4,9 @@ const { test } = require('node:test');
 
 const scoreRoute = readFileSync('app/api/games/campus-survivor/score/route.ts', 'utf8');
 const shopRoute = readFileSync('app/api/games/campus-survivor/shop/route.ts', 'utf8');
+const adminScoreRoute = readFileSync('app/api/admin/campus-survivor/scores/route.ts', 'utf8');
 const gameHtml = readFileSync('public/games/campus-survivor/index.html', 'utf8');
+const adminPage = readFileSync('app/admin/page.tsx', 'utf8');
 const initSql = readFileSync('scripts/init-db.sql', 'utf8');
 
 test('score route persists earned gold atomically and idempotently per client run', () => {
@@ -56,6 +58,49 @@ test('game client displays score recorded status and coin delta from server resp
   assert.match(gameHtml, /__formatSubmitStatus/);
   // score route returns score_saved flag
   assert.match(scoreRoute, /score_saved:\s*!duplicate/);
+});
+
+test('score route returns stable error codes for client recovery handling', () => {
+  assert.match(scoreRoute, /code:\s*'not_team_session'/);
+  assert.match(scoreRoute, /code:\s*'leaderboard_closed'/);
+  assert.match(scoreRoute, /code:\s*'invalid_body'/);
+});
+
+test('game client verifies team session before official runs', () => {
+  assert.match(gameHtml, /fetch\('\/api\/auth\/session',\s*\{\s*cache:\s*'no-store',\s*credentials:\s*'include'\s*\}\)/);
+  assert.match(gameHtml, /function\s+handleStartButtonClick\(\)/);
+  assert.match(gameHtml, /session\.type\s*===\s*'team'/);
+  assert.match(gameHtml, /Log in as a registered team to save scores/);
+  assert.match(gameHtml, /saveRunContext\(\s*\{/);
+  assert.match(gameHtml, /team_id:\s*team\.id/);
+  assert.match(gameHtml, /team_name:\s*team\.name/);
+});
+
+test('game client keeps failed score submissions pending for retry', () => {
+  assert.match(gameHtml, /PENDING_SCORE_STORAGE_KEY\s*=\s*'campus_survivor_pending_score_v1'/);
+  assert.match(gameHtml, /localStorage\.setItem\(PENDING_SCORE_STORAGE_KEY/);
+  assert.match(gameHtml, /function\s+loadPendingRun\(\)/);
+  assert.match(gameHtml, /function\s+retryPendingRun\(\)/);
+  assert.match(gameHtml, /document\.getElementById\('retry-score-btn'\)/);
+  assert.match(gameHtml, /result\.code\s*===\s*'not_team_session'/);
+  assert.match(gameHtml, /same team/);
+});
+
+test('admin campus survivor score recovery is protected and audited', () => {
+  assert.match(adminScoreRoute, /user_type\s*!==\s*'admin'/);
+  assert.match(adminScoreRoute, /INSERT INTO campus_survivor_scores/);
+  assert.match(adminScoreRoute, /source,\s*admin_note,\s*admin_user_id/);
+  assert.match(adminScoreRoute, /admin_/);
+  assert.match(adminScoreRoute, /campus_survivor_shop/);
+  assert.match(adminPage, /campusSurvivor/);
+  assert.match(adminPage, /saveCampusSurvivorScore/);
+  assert.match(adminPage, /Evidence \/ Note/);
+});
+
+test('campus survivor score schema includes admin audit columns', () => {
+  assert.match(initSql, /campus_survivor_scores ADD COLUMN IF NOT EXISTS source varchar\(20\) NOT NULL DEFAULT 'game'/i);
+  assert.match(initSql, /campus_survivor_scores ADD COLUMN IF NOT EXISTS admin_note text/i);
+  assert.match(initSql, /campus_survivor_scores ADD COLUMN IF NOT EXISTS admin_user_id varchar\(255\)/i);
 });
 
 test('shop endpoint and client use explicit account credentials and return authoritative shop state', () => {

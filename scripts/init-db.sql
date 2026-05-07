@@ -176,6 +176,9 @@ CREATE TABLE IF NOT EXISTS campus_survivor_scores (
   level_reached   integer       NOT NULL DEFAULT 1,
   gold_earned     integer       NOT NULL DEFAULT 0 CHECK (gold_earned >= 0),
   client_run_id   varchar(80),
+  source          varchar(20)   NOT NULL DEFAULT 'game',
+  admin_note      text,
+  admin_user_id   varchar(255),
   submitted_at    timestamptz   DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS campus_survivor_scores_team_idx ON campus_survivor_scores(team_id);
@@ -199,5 +202,8 @@ ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_cooldown_until timestam
 ALTER TABLE game_attempts ADD COLUMN IF NOT EXISTS level_sub_round integer NOT NULL DEFAULT 0;
 ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS gold_earned integer NOT NULL DEFAULT 0 CHECK (gold_earned >= 0);
 ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS client_run_id varchar(80);
+ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS source varchar(20) NOT NULL DEFAULT 'game';
+ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS admin_note text;
+ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS admin_user_id varchar(255);
 CREATE UNIQUE INDEX IF NOT EXISTS campus_survivor_scores_team_client_run_idx
   ON campus_survivor_scores(team_id, client_run_id);
