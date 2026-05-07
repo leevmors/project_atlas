@@ -183,8 +183,6 @@ CREATE TABLE IF NOT EXISTS campus_survivor_scores (
 );
 CREATE INDEX IF NOT EXISTS campus_survivor_scores_team_idx ON campus_survivor_scores(team_id);
 CREATE INDEX IF NOT EXISTS campus_survivor_scores_score_idx ON campus_survivor_scores(score DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS campus_survivor_scores_team_client_run_idx
-  ON campus_survivor_scores(team_id, client_run_id);
 
 -- Per-team shop state for Campus Survivor (gold + upgrade levels).
 -- Upserted on every purchase and end-of-run so coins survive across

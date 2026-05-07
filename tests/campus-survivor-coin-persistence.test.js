@@ -39,6 +39,10 @@ test('campus survivor schema supports run gold and client-run idempotency', () =
   assert.match(initSql, /gold_earned\s+integer\s+NOT NULL\s+DEFAULT\s+0/i);
   assert.match(initSql, /client_run_id\s+varchar\(80\)/i);
   assert.match(initSql, /UNIQUE INDEX IF NOT EXISTS campus_survivor_scores_team_client_run_idx/i);
+  assert.ok(
+    initSql.indexOf('ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS client_run_id') <
+      initSql.indexOf('CREATE UNIQUE INDEX IF NOT EXISTS campus_survivor_scores_team_client_run_idx')
+  );
 });
 
 test('game client submits earned gold through the score endpoint and syncs returned shop gold', () => {
