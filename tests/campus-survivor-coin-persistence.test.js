@@ -4,7 +4,11 @@ const { test } = require('node:test');
 
 const scoreRoute = readFileSync('app/api/games/campus-survivor/score/route.ts', 'utf8');
 const shopRoute = readFileSync('app/api/games/campus-survivor/shop/route.ts', 'utf8');
+const leaderboardRoute = readFileSync('app/api/games/campus-survivor/leaderboard/route.ts', 'utf8');
 const adminScoreRoute = readFileSync('app/api/admin/campus-survivor/scores/route.ts', 'utf8');
+const gameLocalAdminPage = readFileSync('app/games/campus-survivor/admin/page.tsx', 'utf8');
+const gameLocalAdminTeamsRoute = readFileSync('app/api/games/campus-survivor/admin/teams/route.ts', 'utf8');
+const gameLocalAdminScoresRoute = readFileSync('app/api/games/campus-survivor/admin/scores/route.ts', 'utf8');
 const gameHtml = readFileSync('public/games/campus-survivor/index.html', 'utf8');
 const adminPage = readFileSync('app/admin/page.tsx', 'utf8');
 const initSql = readFileSync('scripts/init-db.sql', 'utf8');
@@ -99,6 +103,45 @@ test('admin campus survivor score recovery is protected and audited', () => {
   assert.match(adminPage, /campusSurvivor/);
   assert.match(adminPage, /saveCampusSurvivorScore/);
   assert.match(adminPage, /Evidence \/ Note/);
+});
+
+test('campus survivor has a game-local admin page loading admin mode', () => {
+  assert.match(gameLocalAdminPage, /CampusSurvivorAdminPage/);
+  assert.match(gameLocalAdminPage, /src="\/games\/campus-survivor\/index\.html\?admin"/);
+  assert.match(gameLocalAdminPage, /allow="autoplay; fullscreen"/);
+});
+
+test('game-local campus survivor admin APIs use server-side password auth', () => {
+  for (const route of [gameLocalAdminTeamsRoute, gameLocalAdminScoresRoute]) {
+    assert.match(route, /x-campus-survivor-admin-password/);
+    assert.match(route, /CAMPUS_SURVIVOR_ADMIN_PASSWORD\s*\|\|\s*'mrasylbirules'/);
+    assert.match(route, /code:\s*'invalid_admin_password'/);
+  }
+});
+
+test('game-local campus survivor admin score API inserts audited manual runs', () => {
+  assert.match(gameLocalAdminScoresRoute, /game_admin_\$\{Date\.now\(\)\.toString\(36\)\}_\$\{randomUUID\(\)\}/);
+  assert.match(gameLocalAdminScoresRoute, /INSERT INTO campus_survivor_scores/);
+  assert.match(gameLocalAdminScoresRoute, /source,\s*admin_note,\s*admin_user_id/);
+  assert.match(gameLocalAdminScoresRoute, /campus_survivor_shop/);
+});
+
+test('campus survivor admin mode is password-gated inside the game page', () => {
+  assert.match(gameHtml, /id="cs-admin-gate"/);
+  assert.match(gameHtml, /id="cs-admin-panel"/);
+  assert.match(gameHtml, /new URL\(window\.location\.href\)/);
+  assert.match(gameHtml, /searchParams\.has\('admin'\)/);
+  assert.match(gameHtml, /x-campus-survivor-admin-password/);
+  assert.match(gameHtml, /\/api\/games\/campus-survivor\/admin\/teams/);
+  assert.match(gameHtml, /\/api\/games\/campus-survivor\/admin\/scores/);
+  assert.match(gameHtml, /cs-admin-team-list/);
+  assert.match(gameHtml, /cs-admin-score-form/);
+  assert.doesNotMatch(gameHtml, /mrasylbirules/);
+});
+
+test('campus survivor leaderboard remains based on each team best score', () => {
+  assert.match(leaderboardRoute, /COALESCE\(MAX\(s\.score\),\s*0\)\s+AS best_score/);
+  assert.match(leaderboardRoute, /ORDER BY best_score DESC/);
 });
 
 test('campus survivor score schema includes admin audit columns', () => {

@@ -37,11 +37,161 @@
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+
+        #cs-admin-gate, #cs-admin-panel {
+            position: fixed;
+            inset: 0;
+            z-index: 22000;
+            background: rgba(0, 0, 0, 0.92);
+            font-family: 'VT323', monospace;
+        }
+        #cs-admin-gate {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #cs-admin-panel {
+            display: none;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .cs-admin-card {
+            width: min(980px, calc(100vw - 32px));
+            margin: 0 auto;
+            background: #2e1d10;
+            border: 4px solid #5c3a21;
+            box-shadow: 8px 8px 0 #000;
+            padding: 20px;
+        }
+        .cs-admin-title {
+            color: #fef3c7;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 16px;
+            letter-spacing: 0.08em;
+            margin: 0 0 16px;
+        }
+        .cs-admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+        }
+        .cs-admin-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            color: #fef3c7;
+            font-size: 16px;
+        }
+        .cs-admin-field input,
+        .cs-admin-field select {
+            width: 100%;
+            background: #1a1009;
+            border: 2px solid #5c3a21;
+            color: white;
+            padding: 8px 10px;
+            font: inherit;
+        }
+        .cs-admin-button {
+            background: #0f766e;
+            color: white;
+            border: 3px solid #0f172a;
+            box-shadow: 3px 3px 0 #000;
+            cursor: pointer;
+            font: inherit;
+            font-weight: bold;
+            padding: 10px 14px;
+            text-transform: uppercase;
+        }
+        .cs-admin-button:hover { background: #0e7490; }
+        .cs-admin-button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+        #cs-admin-team-list {
+            margin-top: 14px;
+            display: grid;
+            gap: 8px;
+        }
+        .cs-admin-team-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 12px;
+            align-items: center;
+            background: #1a1009;
+            border: 2px solid #5c3a21;
+            padding: 8px 10px;
+            color: #fef3c7;
+        }
+        .cs-admin-muted { color: #9ca3af; }
+        .cs-admin-error { color: #f87171; }
+        .cs-admin-success { color: #34d399; }
         
         #ui-layer, #menu-layer, #shop-layer { transition: opacity 0.3s; }
     </style>
 </head>
 <body class="text-white">
+
+    <div id="cs-admin-gate">
+        <div class="cs-admin-card" style="max-width: 380px; text-align: center;">
+            <h2 class="cs-admin-title">CAMPUS ADMIN</h2>
+            <div class="cs-admin-field" style="text-align: left;">
+                <label for="cs-admin-password">Password</label>
+                <input id="cs-admin-password" type="password" autocomplete="off" placeholder="Enter password" />
+            </div>
+            <button id="cs-admin-login-btn" class="cs-admin-button" type="button" style="width: 100%; margin-top: 12px;">Enter</button>
+            <p id="cs-admin-login-error" class="cs-admin-error" style="display: none; margin: 10px 0 0;">Wrong password</p>
+        </div>
+    </div>
+
+    <div id="cs-admin-panel">
+        <div class="cs-admin-card">
+            <div style="display: flex; justify-content: space-between; gap: 16px; align-items: start; flex-wrap: wrap;">
+                <div>
+                    <h2 class="cs-admin-title">CAMPUS SURVIVOR ADMIN</h2>
+                    <p class="cs-admin-muted" style="margin: 0 0 14px;">Assign verified Campus Survivor scores to registered teams.</p>
+                </div>
+                <button id="cs-admin-refresh-btn" class="cs-admin-button" type="button">Refresh</button>
+            </div>
+
+            <form id="cs-admin-score-form" style="display: grid; gap: 12px;">
+                <div class="cs-admin-grid">
+                    <label class="cs-admin-field">
+                        Team
+                        <select id="cs-admin-team-select" required></select>
+                    </label>
+                    <label class="cs-admin-field">
+                        Score
+                        <input id="cs-admin-score" type="number" min="1" required />
+                    </label>
+                    <label class="cs-admin-field">
+                        Kills
+                        <input id="cs-admin-kills" type="number" min="0" value="0" required />
+                    </label>
+                    <label class="cs-admin-field">
+                        Survived
+                        <input id="cs-admin-time" type="text" value="00:00" placeholder="MM:SS" required />
+                    </label>
+                    <label class="cs-admin-field">
+                        Level
+                        <input id="cs-admin-level" type="number" min="1" value="1" required />
+                    </label>
+                    <label class="cs-admin-field">
+                        Gold
+                        <input id="cs-admin-gold" type="number" min="0" value="0" required />
+                    </label>
+                </div>
+                <label class="cs-admin-field">
+                    Evidence note
+                    <input id="cs-admin-note" type="text" placeholder="Screenshot verified, submitted by team captain" required />
+                </label>
+                <button id="cs-admin-save-btn" class="cs-admin-button" type="submit">Save Score</button>
+                <p id="cs-admin-status" class="cs-admin-muted" style="margin: 0;"></p>
+            </form>
+
+            <div id="cs-admin-team-list"></div>
+        </div>
+    </div>
 
     <!-- Virtual Joystick (Mobile) -->
     <div id="v-joystick-base" class="hidden absolute w-24 h-24 bg-black/40 border-2 border-white/30 rounded-full pointer-events-none z-20" style="transform: translate(-50%, -50%);">
@@ -2087,6 +2237,163 @@
             await submitSavedRun(pending, status);
         }
 
+        function initCampusSurvivorAdmin() {
+            const url = new URL(window.location.href);
+            if (!url.searchParams.has('admin')) return;
+
+            const gate = document.getElementById('cs-admin-gate');
+            const panel = document.getElementById('cs-admin-panel');
+            const passwordInput = document.getElementById('cs-admin-password');
+            const loginBtn = document.getElementById('cs-admin-login-btn');
+            const loginError = document.getElementById('cs-admin-login-error');
+            const refreshBtn = document.getElementById('cs-admin-refresh-btn');
+            const form = document.getElementById('cs-admin-score-form');
+            const teamSelect = document.getElementById('cs-admin-team-select');
+            const teamList = document.getElementById('cs-admin-team-list');
+            const status = document.getElementById('cs-admin-status');
+            const saveBtn = document.getElementById('cs-admin-save-btn');
+            if (!gate || !panel || !passwordInput || !loginBtn || !form || !teamSelect || !teamList) return;
+
+            let adminPassword = '';
+            let adminTeams = [];
+
+            function setAdminStatus(message, kind = 'muted') {
+                if (!status) return;
+                status.textContent = message;
+                status.classList.toggle('cs-admin-error', kind === 'error');
+                status.classList.toggle('cs-admin-success', kind === 'success');
+                status.classList.toggle('cs-admin-muted', kind === 'muted');
+            }
+
+            function escapeHtml(value) {
+                return String(value ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function formatAdminTime(seconds) {
+                const total = Math.max(0, Math.floor(Number(seconds) || 0));
+                const mins = Math.floor(total / 60);
+                const secs = total % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            async function adminFetch(path, options = {}) {
+                const res = await fetch(path, {
+                    ...options,
+                    cache: 'no-store',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-campus-survivor-admin-password': adminPassword,
+                        ...(options.headers || {}),
+                    },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const err = new Error(data.error || `Request failed (${res.status})`);
+                    err.status = res.status;
+                    err.code = data.code;
+                    throw err;
+                }
+                return data;
+            }
+
+            function renderAdminTeams() {
+                teamSelect.innerHTML = adminTeams
+                    .map((team) => `<option value="${escapeHtml(team.team_id)}">${escapeHtml(team.company_name)}</option>`)
+                    .join('');
+
+                if (adminTeams.length === 0) {
+                    teamList.innerHTML = '<p class="cs-admin-muted">No teams registered yet.</p>';
+                    return;
+                }
+
+                teamList.innerHTML = adminTeams.map((team) => `
+                    <button class="cs-admin-team-row" type="button" data-team-id="${escapeHtml(team.team_id)}">
+                        <span>${escapeHtml(team.company_name)}</span>
+                        <span class="cs-admin-muted">${Number(team.runs || 0)} runs</span>
+                        <span>${Number(team.best_score || 0).toLocaleString()}</span>
+                    </button>
+                `).join('');
+
+                teamList.querySelectorAll('[data-team-id]').forEach((row) => {
+                    row.addEventListener('click', () => {
+                        teamSelect.value = row.getAttribute('data-team-id') || '';
+                    });
+                });
+            }
+
+            async function loadAdminTeams() {
+                setAdminStatus('Loading teams...');
+                const data = await adminFetch('/api/games/campus-survivor/admin/teams');
+                adminTeams = Array.isArray(data.teams) ? data.teams : [];
+                renderAdminTeams();
+                setAdminStatus(`Loaded ${adminTeams.length} teams.`);
+            }
+
+            async function attemptAdminLogin() {
+                adminPassword = passwordInput.value || '';
+                if (loginError) loginError.style.display = 'none';
+                try {
+                    await loadAdminTeams();
+                    gate.style.display = 'none';
+                    panel.style.display = 'block';
+                } catch (err) {
+                    adminPassword = '';
+                    if (loginError) {
+                        loginError.textContent = err.status === 401 ? 'Wrong password' : err.message;
+                        loginError.style.display = 'block';
+                    }
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                }
+            }
+
+            async function saveAdminScore(event) {
+                event.preventDefault();
+                if (!teamSelect.value) {
+                    setAdminStatus('Select a team first.', 'error');
+                    return;
+                }
+                if (saveBtn) saveBtn.disabled = true;
+                setAdminStatus('Saving score...');
+                try {
+                    const result = await adminFetch('/api/games/campus-survivor/admin/scores', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            team_id: teamSelect.value,
+                            score: Number(document.getElementById('cs-admin-score').value || 0),
+                            kills: Number(document.getElementById('cs-admin-kills').value || 0),
+                            time_survived: document.getElementById('cs-admin-time').value || '00:00',
+                            level_reached: Number(document.getElementById('cs-admin-level').value || 1),
+                            gold_earned: Number(document.getElementById('cs-admin-gold').value || 0),
+                            admin_note: document.getElementById('cs-admin-note').value || '',
+                        }),
+                    });
+                    setAdminStatus(`Saved ${Number(result.score.score || 0).toLocaleString()} for ${result.score.team_name}.`, 'success');
+                    await loadAdminTeams();
+                    __refreshLeaderboard();
+                } catch (err) {
+                    setAdminStatus(err.message || 'Failed to save score.', 'error');
+                } finally {
+                    if (saveBtn) saveBtn.disabled = false;
+                }
+            }
+
+            loginBtn.addEventListener('click', attemptAdminLogin);
+            passwordInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') attemptAdminLogin();
+            });
+            refreshBtn?.addEventListener('click', () => loadAdminTeams().catch((err) => setAdminStatus(err.message, 'error')));
+            form.addEventListener('submit', saveAdminScore);
+            gate.style.display = 'flex';
+            setTimeout(() => passwordInput.focus(), 100);
+        }
+
         // Wrap the existing gameOver() so we also POST the run and
         // refresh the leaderboard pane. Keep the original behaviour
         // intact (stats panel, EXPELLED title, gold accrual, etc).
@@ -2126,6 +2433,7 @@
         // Initial leaderboard fetch on page load + refresh every 30s
         // while the menu is visible so people see live updates.
         getRetryButton()?.addEventListener('click', retryPendingRun);
+        initCampusSurvivorAdmin();
         fetchTeamSession();
         updatePendingRunUI();
         __refreshLeaderboard();
