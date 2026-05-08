@@ -892,6 +892,11 @@
         let inTrap = false;
         let trapInterval = null;
         let targetQuestionPrompt = "";
+        let trapAlreadyPassed = false;
+        fetch('/api/games/final-game/trap-status')
+            .then(r => r.ok ? r.json() : { trapPassed: false })
+            .then(d => { trapAlreadyPassed = d.trapPassed; })
+            .catch(() => {});
 
         // --- QUESTION POOLS (Phase 1 & 2) ---
         const P1_IDENTITY = ["Describe yourself in three words.", "How would a stranger describe you after 10 minutes?", "What makes you different from everyone else in this room?", "If you were a product, how would you sell yourself?", "What's the one thing people always get wrong about you?", "What's the most interesting thing about you that I wouldn't find on your social media?", "If someone had to replace you, what qualities would they need?", "What do you think you are that you actually aren't?", "What's the gap between who you are and who you want to be?", "If I asked the people who love you to describe you, and the people who hate you to describe you — what's the difference?"];
@@ -1664,7 +1669,10 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
                     document.getElementById('dialogue-box').style.borderColor = "#555";
 
                     await new Promise(res => typeWriterEffect(aiText, res));
-                    if (gameState === "TRAP") startWaitTrap(trapData); else handleGameState(gameState);
+                    if (gameState === "TRAP") {
+                        if (trapAlreadyPassed) { handleGameState("PHASE3"); }
+                        else { startWaitTrap(trapData); }
+                    } else handleGameState(gameState);
                 } else throw new Error();
             } catch (error) { await new Promise(res => typeWriterEffect("The shadows twist... (Connection Error).", res)); enableInput(); }
         }
@@ -1878,11 +1886,11 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
             spawn3DCard(label1, 'TRAP', 0, 2);
             spawn3DCard(label2, 'TRAP', 1, 2);
 
-            // 5-minute silent timer. At ~2 minutes the bot says ONE line,
+            // 1-minute silent timer. At ~30 seconds the bot says ONE line,
             // softly: "Take your time." Otherwise complete silence — the
             // pressure is the silence itself, not fake urgency.
-            const TRAP_DURATION_MS = 5 * 60 * 1000;
-            const TAKE_YOUR_TIME_MS = 2 * 60 * 1000;
+            const TRAP_DURATION_MS = 1 * 60 * 1000;
+            const TAKE_YOUR_TIME_MS = 30 * 1000;
             let elapsed = 0;
             let saidTakeYourTime = false;
             trapInterval = setInterval(() => {
@@ -1902,15 +1910,17 @@ End with [NEXT_Q] if you asked a normal question, [TRAP] LABEL1 | LABEL2 if you 
         }
 
         function endWaitTrapSurvived() {
-            // Player waited the full 5 minutes touching nothing. Survival.
+            // Player waited the full duration touching nothing. Survival.
             inTrap = false;
             trapDecisionPending = false;
             activeCards.forEach(c => scene.remove(c.mesh)); activeCards = [];
             inputContainer.style.display = 'flex';
             questionsAsked++; // advance past the trap (Q8 done)
             setupNextTargetQuestion();
+            fetch('/api/games/final-game/trap-status', { method: 'POST' }).catch(() => {});
+            trapAlreadyPassed = true;
             // Cold acknowledgement, then [PHASE3].
-            callGemini("[SYSTEM: Player survived the trap by waiting 5 minutes touching nothing. They saw through it. Acknowledge coldly in ONE sentence — something like 'You learn fast.' or 'Most don't survive that.' — then immediately advance to the next phase. Output [PHASE3].]");
+            callGemini("[SYSTEM: Player survived the trap by waiting without touching anything. They saw through it. Acknowledge coldly in ONE sentence — something like 'You learn fast.' or 'Most don't survive that.' — then immediately advance to the next phase. Output [PHASE3].]");
         }
 
         // The card-touch animation. Lifts the touched card up toward the

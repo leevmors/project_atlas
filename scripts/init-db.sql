@@ -205,3 +205,7 @@ ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS admin_note text;
 ALTER TABLE campus_survivor_scores ADD COLUMN IF NOT EXISTS admin_user_id varchar(255);
 CREATE UNIQUE INDEX IF NOT EXISTS campus_survivor_scores_team_client_run_idx
   ON campus_survivor_scores(team_id, client_run_id);
+CREATE TABLE IF NOT EXISTS final_game_state (
+  team_id        uuid        PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,
+  trap_passed_at timestamptz NOT NULL DEFAULT NOW()
+);
