@@ -249,6 +249,41 @@ function AdminContent() {
     }
   };
 
+  const [declareStatus, setDeclareStatus] = useState<{ message: string; kind: 'success' | 'error' } | null>(null);
+  const [declareLoading, setDeclareLoading] = useState<string | null>(null);
+
+  const handleDeclareResult = async (action: 'campus_survivor_split' | 'final_game_close') => {
+    const label = action === 'campus_survivor_split' ? 'Campus Survivor split win' : 'Final Game close';
+    if (!confirm(`Declare ${label}? This cannot be undone.`)) return;
+    setDeclareLoading(action);
+    setDeclareStatus(null);
+    try {
+      const res = await fetch('/api/admin/games/declare-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDeclareStatus({ message: data.error ?? 'Failed.', kind: 'error' });
+      } else if (data.alreadyResolved) {
+        setDeclareStatus({ message: 'Already declared — no change.', kind: 'success' });
+      } else if (action === 'campus_survivor_split') {
+        setDeclareStatus({
+          message: `Split win declared! ${(data.winners as string[]).join(' & ')} each receive ${data.bonus_each} pts.`,
+          kind: 'success',
+        });
+      } else {
+        setDeclareStatus({ message: 'Final Game closed with no winner.', kind: 'success' });
+      }
+      await loadTeams();
+    } catch {
+      setDeclareStatus({ message: 'Network error.', kind: 'error' });
+    } finally {
+      setDeclareLoading(null);
+    }
+  };
+
   const handleDeleteTeam = async (teamId: string, teamName: string) => {
     if (!confirm(`Delete team "${teamName}"? This cannot be undone.`)) return;
     try {
@@ -854,6 +889,53 @@ function AdminContent() {
             ))
           )}
         </div>
+
+        {/* Game Results */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-white drop-shadow-md flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-amber-400" />
+            Declare Game Results
+          </h2>
+          <Card className="bg-white/85 backdrop-blur-sm border-white/50 shadow-md">
+            <CardContent className="p-6 space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <p className="font-semibold text-foreground">Campus Survivor</p>
+                  <p className="text-sm text-muted-foreground">
+                    Split win — <span className="font-medium">4lex</span> &amp; <span className="font-medium">neverlang</span> each receive 50 pts.
+                  </p>
+                  <Button
+                    onClick={() => handleDeclareResult('campus_survivor_split')}
+                    disabled={declareLoading === 'campus_survivor_split'}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                  >
+                    <Award className="h-4 w-4 mr-2" />
+                    {declareLoading === 'campus_survivor_split' ? 'Declaring…' : 'Declare Split Win'}
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <p className="font-semibold text-foreground">Final Game (Deadman&apos;s Choice)</p>
+                  <p className="text-sm text-muted-foreground">No winner — close the game without awarding any bonus.</p>
+                  <Button
+                    onClick={() => handleDeclareResult('final_game_close')}
+                    disabled={declareLoading === 'final_game_close'}
+                    variant="outline"
+                    className="w-full border-slate-300"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    {declareLoading === 'final_game_close' ? 'Closing…' : 'Close (No Winner)'}
+                  </Button>
+                </div>
+              </div>
+              {declareStatus && (
+                <p className={`text-sm font-medium ${declareStatus.kind === 'success' ? 'text-emerald-700' : 'text-destructive'}`}>
+                  {declareStatus.message}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
       </div>
     </div>
   );
