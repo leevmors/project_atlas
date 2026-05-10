@@ -113,3 +113,14 @@ export type AuthSession = {
   id: string;
   name: string;
 } | null;
+
+export interface GameWinSummary {
+  gameId: string;
+  gameName: string;
+  bonusPoints: number;
+}
+
+export interface FinalStanding extends TeamWithScores {
+  rank: number;
+  gamesWon: GameWinSummary[];
+}

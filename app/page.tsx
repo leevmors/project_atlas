@@ -3,6 +3,7 @@
 import { AppShell } from '@/components/app-shell';
 import { Leaderboard } from '@/components/leaderboard';
 import { WelcomeOverlay } from '@/components/welcome-overlay';
+import { FinalResultsExperience } from '@/components/final-results/final-results-experience';
 
 export default function HomePage() {
   return (
@@ -11,6 +12,7 @@ export default function HomePage() {
         <Leaderboard />
       </main>
       <WelcomeOverlay />
+      <FinalResultsExperience />
     </AppShell>
   );
 }
