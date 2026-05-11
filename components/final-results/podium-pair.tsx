@@ -1,17 +1,27 @@
 'use client';
 
+import { Medal } from 'lucide-react';
 import { useInView } from '@/hooks/use-in-view';
 import type { FinalStandingWithQuote } from '@/lib/final-results-data';
-import { ShimmerText } from './atoms/shimmer-text';
-import { ParticleField } from './atoms/particle-field';
-import { RankNumeral } from './atoms/rank-numeral';
 import { ScoreBreakdown } from './atoms/score-breakdown';
 import { GameWinBadges } from './atoms/game-win-badges';
 import { TeamQuote } from './atoms/team-quote';
 
 const TIERS = {
-  2: { tier: 'silver' as const, label: '2nd Place', labelColor: 'text-slate-300/60', border: 'border-slate-300/20', glow: 'from-slate-400/10', numColor: 'text-slate-300' },
-  3: { tier: 'bronze' as const, label: '3rd Place', labelColor: 'text-orange-400/60', border: 'border-orange-400/20', glow: 'from-orange-500/10', numColor: 'text-orange-400' },
+  2: {
+    label: '2nd Place',
+    border: 'border-slate-200',
+    badge: 'bg-slate-100 text-slate-700 border-slate-200',
+    score: 'text-slate-700',
+    wash: 'from-slate-50',
+  },
+  3: {
+    label: '3rd Place',
+    border: 'border-sky-100',
+    badge: 'bg-sky-50 text-sky-700 border-sky-200',
+    score: 'text-sky-700',
+    wash: 'from-sky-50',
+  },
 };
 
 function PodiumCard({ team, delay = 0 }: { team: FinalStandingWithQuote; delay?: number }) {
@@ -19,49 +29,53 @@ function PodiumCard({ team, delay = 0 }: { team: FinalStandingWithQuote; delay?:
   const cfg = TIERS[team.rank as 2 | 3] ?? TIERS[3];
 
   return (
-    <div
+    <article
       ref={ref}
-      className={`relative overflow-hidden rounded-2xl border ${cfg.border} bg-white/5 backdrop-blur-sm transition-all duration-700 ${
-        inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+      className={`relative overflow-hidden rounded-md border ${cfg.border} bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_-42px_rgba(14,116,144,0.55)] transition-all duration-700 ${
+        inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
       }`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <div aria-hidden className={`absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,${cfg.glow.replace('from-', '')},transparent)]`} />
-      {inView && <ParticleField density="low" tier={cfg.tier} />}
-      <RankNumeral rank={team.rank} />
+      <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${cfg.wash} to-transparent`} />
 
-      <div className="relative z-10 p-8 md:p-10 text-center flex flex-col items-center gap-5">
-        <p className={`text-xs tracking-[0.4em] uppercase ${cfg.labelColor}`}>{cfg.label}</p>
-
-        <h3 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
-          <ShimmerText tier={cfg.tier}>{team.companyName}</ShimmerText>
-        </h3>
-
-        {team.members && team.members.length > 0 && (
-          <p className="text-white/40 text-sm">{team.members.map((m) => m.name).join(' · ')}</p>
-        )}
-
-        <div className={`text-5xl md:text-6xl font-bold ${cfg.numColor} ${inView ? 'animate-count-up' : 'opacity-0'}`}
-          style={{ animationDelay: `${delay + 200}ms` }}>
-          {team.grandTotal}
+      <div className="relative flex h-full flex-col gap-5 p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${cfg.badge}`}>
+            <Medal className="h-3.5 w-3.5" />
+            {cfg.label}
+          </div>
+          <div className={`text-4xl sm:text-5xl font-bold leading-none ${cfg.score}`}>
+            {team.grandTotal}
+          </div>
         </div>
-        <p className="text-white/25 text-xs tracking-[0.3em] uppercase -mt-3">pts</p>
 
-        <div className="w-full h-px bg-white/10" />
+        <div>
+          <h3 className="break-words text-2xl sm:text-3xl font-bold leading-tight text-slate-950">
+            {team.companyName}
+          </h3>
+
+          {team.members && team.members.length > 0 && (
+            <p className="mt-3 text-sm leading-relaxed text-slate-500">
+              {team.members.map((m) => m.name).join(' - ')}
+            </p>
+          )}
+        </div>
+
+        <div className="h-px bg-slate-100" />
         <ScoreBreakdown team={team} size="sm" />
         <GameWinBadges wins={team.gamesWon} />
-        <TeamQuote text={team.quote} attribution={team.companyName} className="mt-2" />
+        <TeamQuote text={team.quote} attribution={team.companyName} className="mt-auto" />
       </div>
-    </div>
+    </article>
   );
 }
 
 export function PodiumPair({ teams }: { teams: FinalStandingWithQuote[] }) {
   return (
-    <section className="px-6 py-12 max-w-5xl mx-auto w-full">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <section className="py-4 sm:py-5 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         {teams.map((team, i) => (
-          <PodiumCard key={team.id} team={team} delay={i * 150} />
+          <PodiumCard key={team.id} team={team} delay={i * 120} />
         ))}
       </div>
     </section>

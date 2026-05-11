@@ -18,32 +18,34 @@ export function RemainingTeams({ teams }: { teams: FinalStandingWithQuote[] }) {
   if (teams.length === 0) return null;
 
   return (
-    <section ref={ref} className="px-6 py-8 max-w-5xl mx-auto w-full">
-      <div className="w-full h-px bg-white/8 mb-10" />
-      <p className="text-center text-white/15 text-xs tracking-[0.4em] uppercase mb-8">All Participants</p>
+    <section ref={ref} className="py-4 sm:py-5 w-full">
+      <div className="mb-6 h-px bg-sky-100" />
+      <p className="text-center text-slate-400 text-xs font-semibold tracking-[0.28em] uppercase mb-5">
+        All Participants
+      </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {teams.map((team, i) => (
-          <div
+          <article
             key={team.id}
-            className={`flex items-center gap-4 px-4 py-3 rounded-xl border border-white/8 bg-white/[0.03] transition-all duration-500 ${
+            className={`flex min-w-0 items-center gap-4 rounded-md border border-sky-100 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-xl transition-all duration-500 ${
               inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}
-            style={{ transitionDelay: `${i * 60}ms` }}
+            style={{ transitionDelay: `${i * 45}ms` }}
           >
-            <span className="text-white/20 text-xs font-mono w-8 shrink-0 text-right">
+            <span className="flex h-9 w-12 shrink-0 items-center justify-center rounded-md bg-sky-50 text-xs font-bold text-sky-700">
               {team.rank}{getRankSuffix(team.rank)}
             </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-white/60 font-medium text-sm truncate">{team.companyName}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-800">{team.companyName}</p>
               {team.members && team.members.length > 0 && (
-                <p className="text-white/25 text-xs truncate">
+                <p className="truncate text-xs text-slate-500">
                   {team.members.map((m) => m.name).join(', ')}
                 </p>
               )}
             </div>
-            <span className="text-white/40 text-sm font-bold shrink-0">{team.grandTotal}</span>
-          </div>
+            <span className="shrink-0 text-sm font-bold text-slate-700">{team.grandTotal}</span>
+          </article>
         ))}
       </div>
     </section>

@@ -13,11 +13,11 @@ export function GameWinBadges({ wins, className = '' }: GameWinBadgesProps) {
       {wins.map((win) => (
         <div
           key={win.gameId}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-xs font-medium"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold shadow-sm"
         >
           <Trophy className="w-3 h-3" />
           <span>{win.gameName}</span>
-          <span className="text-amber-400/60">+{win.bonusPoints}pts</span>
+          <span className="text-amber-600/70">+{win.bonusPoints}pts</span>
         </div>
       ))}
     </div>

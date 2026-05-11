@@ -7,11 +7,11 @@ interface TeamQuoteProps {
 export function TeamQuote({ text, attribution, className = '' }: TeamQuoteProps) {
   return (
     <blockquote className={`text-center ${className}`}>
-      <p className="font-cursive italic text-white/50 text-lg md:text-xl leading-relaxed">
+      <p className="font-cursive italic text-slate-500 text-base sm:text-lg leading-relaxed">
         &ldquo;{text}&rdquo;
       </p>
-      <footer className="mt-2 text-white/30 text-sm tracking-wider uppercase">
-        — {attribution}
+      <footer className="mt-2 text-slate-400 text-xs font-semibold tracking-[0.16em] uppercase">
+        - {attribution}
       </footer>
     </blockquote>
   );

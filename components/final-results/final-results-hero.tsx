@@ -6,36 +6,29 @@ export function FinalResultsHero() {
   const [ref, inView] = useInView<HTMLDivElement>({ threshold: 0.3 });
 
   return (
-    <div
+    <header
       ref={ref}
-      className="relative flex flex-col items-center justify-center min-h-[55vh] px-6 text-center pt-20 pb-8"
+      className="relative flex flex-col items-center justify-center px-2 pt-12 sm:pt-16 pb-7 sm:pb-9 text-center"
     >
       <div
-        className={`transition-all duration-1000 ${inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+        className={`max-w-3xl transition-all duration-700 ${
+          inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
+        }`}
       >
-        <p className="text-white/30 text-xs tracking-[0.5em] uppercase mb-6">
-          Lingua HQ Competition — Final Results
+        <p className="text-sky-700 text-xs font-semibold tracking-[0.32em] uppercase mb-4">
+          Lingua HQ Competition
         </p>
-        <h1 className="text-5xl sm:text-7xl md:text-8xl font-bold text-white leading-tight mb-4">
-          Project{' '}
-          <span className="font-cursive italic text-white/80">Atlas</span>
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-slate-950 leading-tight mb-3">
+          Project <span className="font-cursive italic text-sky-700">Atlas</span>
         </h1>
-        <p className="text-white/40 text-sm sm:text-base tracking-[0.2em] uppercase mb-10">
-          The competition has ended
+        <p className="text-slate-500 text-sm sm:text-base tracking-[0.16em] uppercase">
+          Final Results
         </p>
-        <div className="w-16 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent mx-auto mb-10" />
-        <p className="text-white/30 italic font-cursive text-lg">
+        <div className="w-20 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent mx-auto my-6" />
+        <p className="text-slate-600 italic font-cursive text-lg sm:text-xl">
           &ldquo;What you create is what you leave behind.&rdquo;
         </p>
       </div>
-
-      <div
-        aria-hidden
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-white/20 animate-bounce"
-      >
-        <div className="w-px h-8 bg-white/20" />
-        <span className="text-xs tracking-widest uppercase">scroll</span>
-      </div>
-    </div>
+    </header>
   );
 }

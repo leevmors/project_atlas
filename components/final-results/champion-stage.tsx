@@ -1,10 +1,8 @@
 'use client';
 
+import { Crown, Trophy } from 'lucide-react';
 import { useInView } from '@/hooks/use-in-view';
 import type { FinalStandingWithQuote } from '@/lib/final-results-data';
-import { ShimmerText } from './atoms/shimmer-text';
-import { ParticleField } from './atoms/particle-field';
-import { RankNumeral } from './atoms/rank-numeral';
 import { ScoreBreakdown } from './atoms/score-breakdown';
 import { GameWinBadges } from './atoms/game-win-badges';
 import { TeamQuote } from './atoms/team-quote';
@@ -14,65 +12,53 @@ interface ChampionStageProps {
 }
 
 export function ChampionStage({ team }: ChampionStageProps) {
-  const [ref, inView] = useInView<HTMLElement>({ threshold: 0.1 });
+  const [ref, inView] = useInView<HTMLElement>({ threshold: 0.15 });
 
   return (
-    <section
-      ref={ref}
-      className="relative min-h-[90vh] flex items-center justify-center px-6 py-24 overflow-hidden"
-    >
-      {/* Radial glow */}
+    <section ref={ref} className="px-0 py-4 sm:py-5">
       <div
-        aria-hidden
-        className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_50%,rgba(251,191,36,0.18),transparent)] animate-glow-pulse"
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-gradient-to-b from-amber-950/30 via-transparent to-transparent"
-      />
-
-      {inView && <ParticleField density="high" tier="gold" />}
-      <RankNumeral rank={1} />
-
-      <div
-        className={`relative z-10 max-w-3xl w-full text-center transition-all duration-1000 ${
-          inView ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-12 scale-95'
+        className={`relative overflow-hidden rounded-md border border-sky-100 bg-white/90 backdrop-blur-xl shadow-[0_24px_90px_-54px_rgba(14,116,144,0.65)] transition-all duration-700 ${
+          inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
         }`}
       >
-        {/* Crown label */}
-        <p className="text-amber-300/60 text-xs tracking-[0.5em] uppercase mb-5">
-          ✦ Champions ✦
-        </p>
+        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-sky-100/80 via-sky-50/50 to-transparent" />
+        <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-sky-100/65 via-sky-50/35 to-transparent blur-2xl" />
 
-        {/* Team name */}
-        <h2 className="text-6xl sm:text-7xl md:text-8xl font-bold leading-none mb-6">
-          <ShimmerText tier="gold">{team.companyName}</ShimmerText>
-        </h2>
+        <div className="relative grid gap-7 lg:grid-cols-[1fr_18rem] p-5 sm:p-7 md:p-9">
+          <div className="min-w-0">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
+              <Crown className="h-3.5 w-3.5" />
+              Champions
+            </div>
 
-        {/* Members */}
-        {team.members && team.members.length > 0 && (
-          <p className="text-white/50 text-base sm:text-lg mb-10 tracking-wide">
-            {team.members.map((m) => m.name).join(' · ')}
-          </p>
-        )}
+            <h2 className="break-words text-3xl sm:text-5xl md:text-6xl font-bold leading-tight text-slate-950">
+              {team.companyName}
+            </h2>
 
-        {/* Score */}
-        <div
-          className={`text-amber-300 font-bold leading-none mb-2 transition-all duration-700 delay-300 ${
-            inView ? 'animate-count-up' : 'opacity-0'
-          }`}
-          style={{ fontSize: 'clamp(5rem, 15vw, 11rem)' }}
-        >
-          {team.grandTotal}
+            {team.members && team.members.length > 0 && (
+              <p className="mt-4 text-sm sm:text-base leading-relaxed text-slate-500">
+                {team.members.map((m) => m.name).join(' - ')}
+              </p>
+            )}
+
+            <div className="mt-7">
+              <ScoreBreakdown team={team} size="lg" className="justify-start" />
+            </div>
+            <GameWinBadges wins={team.gamesWon} className="mt-4 justify-start" />
+          </div>
+
+          <aside className="flex flex-col justify-between border-t border-sky-100 pt-6 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
+            <div className="flex items-center gap-2 text-sky-700">
+              <Trophy className="h-5 w-5" />
+              <span className="text-xs font-semibold uppercase tracking-[0.22em]">Total Points</span>
+            </div>
+            <div className="mt-5 text-5xl sm:text-6xl md:text-7xl font-bold leading-none text-sky-700">
+              {team.grandTotal}
+            </div>
+            <div className="mt-6 h-px bg-sky-100" />
+            <TeamQuote text={team.quote} attribution={team.companyName} className="mt-5 text-left" />
+          </aside>
         </div>
-        <p className="text-white/30 text-xs tracking-[0.4em] uppercase mb-10">Total Points</p>
-
-        {/* Divider */}
-        <div className="w-24 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent mx-auto mb-8" />
-
-        <ScoreBreakdown team={team} size="lg" />
-        <GameWinBadges wins={team.gamesWon} className="mt-6" />
-        <TeamQuote text={team.quote} attribution={team.companyName} className="mt-12" />
       </div>
     </section>
   );

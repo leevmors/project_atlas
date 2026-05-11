@@ -1,5 +1,6 @@
 'use client';
 
+import { Star } from 'lucide-react';
 import { useInView } from '@/hooks/use-in-view';
 import type { FinalStandingWithQuote } from '@/lib/final-results-data';
 import { ScoreBreakdown } from './atoms/score-breakdown';
@@ -12,41 +13,46 @@ function MentionCard({ team, delay = 0 }: { team: FinalStandingWithQuote; delay?
   const [ref, inView] = useInView<HTMLDivElement>({ threshold: 0.1 });
 
   return (
-    <div
+    <article
       ref={ref}
-      className={`relative rounded-2xl border border-blue-400/15 bg-white/[0.04] backdrop-blur-sm p-7 md:p-9 text-center flex flex-col items-center gap-4 transition-all duration-700 ${
-        inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      className={`rounded-md border border-sky-100 bg-white/85 backdrop-blur-xl p-5 sm:p-6 shadow-[0_16px_50px_-42px_rgba(14,116,144,0.5)] transition-all duration-700 ${
+        inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
       }`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <p className="text-xs tracking-[0.4em] uppercase text-blue-400/50">
-        {RANK_LABELS[team.rank] ?? `${team.rank}th Place`}
-      </p>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <p className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+          <Star className="h-3.5 w-3.5" />
+          {RANK_LABELS[team.rank] ?? `${team.rank}th Place`}
+        </p>
+        <div className="text-3xl font-bold text-sky-700">{team.grandTotal}</div>
+      </div>
 
-      <h3 className="text-2xl sm:text-3xl font-bold text-white/90">{team.companyName}</h3>
+      <h3 className="break-words text-xl sm:text-2xl font-bold text-slate-950">{team.companyName}</h3>
 
       {team.members && team.members.length > 0 && (
-        <p className="text-white/35 text-sm">{team.members.map((m) => m.name).join(' · ')}</p>
+        <p className="mt-3 text-sm leading-relaxed text-slate-500">
+          {team.members.map((m) => m.name).join(' - ')}
+        </p>
       )}
 
-      <div className="text-4xl font-bold text-blue-300/80">{team.grandTotal}</div>
-      <p className="text-white/20 text-xs tracking-widest uppercase -mt-2">pts</p>
-
-      <div className="w-full h-px bg-white/8" />
+      <div className="my-5 h-px bg-slate-100" />
       <ScoreBreakdown team={team} size="sm" />
-      <GameWinBadges wins={team.gamesWon} />
-      <TeamQuote text={team.quote} attribution={team.companyName} className="mt-1" />
-    </div>
+      <GameWinBadges wins={team.gamesWon} className="mt-4" />
+      <TeamQuote text={team.quote} attribution={team.companyName} className="mt-5" />
+    </article>
   );
 }
 
 export function HonorableMentions({ teams }: { teams: FinalStandingWithQuote[] }) {
   return (
-    <section className="px-6 py-8 max-w-5xl mx-auto w-full">
-      <p className="text-center text-white/20 text-xs tracking-[0.4em] uppercase mb-8">Honorable Mentions</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <section className="py-4 sm:py-5 w-full">
+      <p className="text-center text-slate-400 text-xs font-semibold tracking-[0.28em] uppercase mb-5">
+        Honorable Mentions
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         {teams.map((team, i) => (
-          <MentionCard key={team.id} team={team} delay={i * 120} />
+          <MentionCard key={team.id} team={team} delay={i * 100} />
         ))}
       </div>
     </section>
