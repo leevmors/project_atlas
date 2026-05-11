@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
-
-// This value is set once when the server starts (on deploy).
-// It stays the same for the lifetime of the process.
-// When a new deploy happens, the process restarts and gets a new value.
-const BUILD_VERSION = process.env.BUILD_ID || String(Date.now());
+import { getDeploymentVersion } from '@/lib/deployment-version';
 
 export async function GET() {
+  const deploymentVersion = getDeploymentVersion();
+
   return NextResponse.json(
-    { version: BUILD_VERSION },
+    {
+      version: deploymentVersion.version,
+      enabled: deploymentVersion.enabled,
+    },
     { headers: { 'Cache-Control': 'no-store' } }
   );
 }

@@ -17,7 +17,7 @@ export function AsylbiMessage() {
     <section ref={ref} className="mx-auto w-full max-w-3xl py-5 sm:py-7">
       <div className="rounded-md border border-sky-100 bg-white/85 backdrop-blur-xl p-6 sm:p-8 md:p-10 shadow-[0_18px_70px_-50px_rgba(14,116,144,0.55)]">
         <p
-          className={`font-cursive italic text-sky-700 text-sm tracking-[0.14em] mb-6 transition-all duration-700 ${
+          className={`text-sky-700 text-sm font-semibold tracking-[0.14em] uppercase mb-6 transition-all duration-700 ${
             inView ? 'opacity-100' : 'opacity-0'
           }`}
         >
@@ -28,7 +28,7 @@ export function AsylbiMessage() {
           {PARAGRAPHS.map((para, i) => (
             <p
               key={i}
-              className={`text-slate-600 leading-relaxed text-base md:text-lg font-cursive italic transition-all duration-700 ${
+              className={`text-slate-600 leading-relaxed text-sm md:text-base transition-all duration-700 ${
                 inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
               }`}
               style={{ transitionDelay: `${140 + i * 120}ms` }}
@@ -39,7 +39,7 @@ export function AsylbiMessage() {
         </div>
 
         <p
-          className={`text-right text-slate-400 text-sm mt-8 font-cursive italic transition-all duration-700 ${
+          className={`text-right text-slate-400 text-sm font-medium mt-8 transition-all duration-700 ${
             inView ? 'opacity-100' : 'opacity-0'
           }`}
           style={{ transitionDelay: '760ms' }}

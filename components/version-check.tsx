@@ -1,39 +1,54 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+type VersionPayload = {
+  version: string | null;
+  enabled: boolean;
+};
 
 export default function VersionCheck() {
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const initialVersion = useRef<string | null>(null);
 
   useEffect(() => {
-    // Fetch the current version on first load and store it
+    let cancelled = false;
+
     fetch('/api/version', { cache: 'no-store' })
       .then((res) => res.json())
-      .then((data) => {
-        if (data.version) {
+      .then((data: VersionPayload) => {
+        if (!data.enabled || !data.version) return;
+        if (!cancelled) {
           initialVersion.current = data.version;
         }
       })
       .catch(() => {});
 
-    // Poll every 30 seconds to check if version changed
     const interval = setInterval(async () => {
-      if (!initialVersion.current) return;
       try {
         const res = await fetch('/api/version', { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.version && data.version !== initialVersion.current) {
-            setNeedsRefresh(true);
-          }
+        if (!res.ok) return;
+
+        const data = (await res.json()) as VersionPayload;
+        if (!data.enabled || !data.version) return;
+
+        if (!initialVersion.current) {
+          initialVersion.current = data.version;
+          return;
+        }
+
+        if (data.version !== initialVersion.current) {
+          setNeedsRefresh(true);
         }
       } catch {
-        // ignore
+        // ignore transient network errors
       }
     }, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   if (!needsRefresh) return null;

@@ -25,7 +25,7 @@ export function FinalResultsHero() {
           Final Results
         </p>
         <div className="w-20 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent mx-auto my-6" />
-        <p className="text-slate-600 italic font-cursive text-lg sm:text-xl">
+        <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
           &ldquo;What you create is what you leave behind.&rdquo;
         </p>
       </div>
